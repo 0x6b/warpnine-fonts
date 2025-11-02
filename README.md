@@ -66,14 +66,14 @@ uv run set-monospace
 
 # Embed a version string (`Version yyyy-mm-dd`) into each font.
 # The script synchronises the `name` and `head` tables so downstream apps see a consistent version number.
-uv run set-version            # use today's date
+uv run set-version  # use today's date
 uv run set-version --date 2025-11-01  # explicit date
 
 # Validate quickly the variable font.
 uv run test
 
 # Start HTTP server from project root to see the preview at http://localhost:8000/preview.html
-uv run python -m http.server 8000 &&
+uv run python -m http.server 8000
 
 # Clean up
 uv run clean
