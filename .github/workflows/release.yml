@@ -1,0 +1,65 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+      - '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract date from tag
+        id: tag_date
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          # Remove 'v' prefix if present
+          DATE="${TAG_NAME#v}"
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "Extracted date: ${DATE}"
+
+      - name: Install FontForge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fontforge
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build fonts (without version stamping)
+        run: |
+          uv run clean
+          uv run download
+          uv run extract
+          uv run subset
+          uv run merge
+          uv run build
+          uv run set-monospace
+
+      - name: Set version from tag date
+        run: uv run set-version --date ${{ steps.tag_date.outputs.date }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.ttf
+            OFL
+          generate_release_notes: true
+          draft: false
+          prerelease: false
