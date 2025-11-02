@@ -21,8 +21,6 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 - [uv](https://docs.astral.sh/uv/)
 - [FontForge](https://fontforge.org/)
 
-Scripts in this repo could be cross-platform, but have not been tested on an OS other than macOS Tahoe.
-
 ## Setup
 
 ```console
