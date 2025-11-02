@@ -89,7 +89,9 @@ def test_font_structure() -> bool:
     # Check glyph count
     glyph_count = len(font.getGlyphOrder())
     if glyph_count != EXPECTED_GLYPHS:
-        logger.error(f"Glyph count mismatch: expected {EXPECTED_GLYPHS}, got {glyph_count}")
+        logger.error(
+            f"Glyph count mismatch: expected {EXPECTED_GLYPHS}, got {glyph_count}"
+        )
         success = False
     else:
         logger.info(f"Glyph count: {glyph_count}")
@@ -133,7 +135,12 @@ def test_font_structure() -> bool:
                         # Check DefaultLangSys
                         if script.DefaultLangSys and script.DefaultLangSys.FeatureIndex:
                             for feature_idx in script.DefaultLangSys.FeatureIndex:
-                                if gsub.FeatureList.FeatureRecord[feature_idx].FeatureTag == "calt":
+                                if (
+                                    gsub.FeatureList.FeatureRecord[
+                                        feature_idx
+                                    ].FeatureTag
+                                    == "calt"
+                                ):
                                     has_calt = True
                                     break
 
@@ -141,7 +148,9 @@ def test_font_structure() -> bool:
                             scripts_with_calt.append(script_record.ScriptTag)
 
                     if scripts_with_calt:
-                        logger.info(f"calt registered to scripts: {', '.join(scripts_with_calt)}")
+                        logger.info(
+                            f"calt registered to scripts: {', '.join(scripts_with_calt)}"
+                        )
                     else:
                         logger.error("calt feature not registered to any script")
                         success = False
@@ -189,9 +198,7 @@ def test_monospace_width() -> bool:
         expected_width = widths.get(" ")  # Use space as reference
         if expected_width:
             non_matching = {
-                char: width
-                for char, width in widths.items()
-                if width != expected_width
+                char: width for char, width in widths.items() if width != expected_width
             }
 
             if non_matching:
@@ -204,7 +211,9 @@ def test_monospace_width() -> bool:
                     logger.error(f"  ... and {len(non_matching) - 10} more")
                 success = False
             else:
-                logger.info(f"All ASCII characters have monospace width: {expected_width}")
+                logger.info(
+                    f"All ASCII characters have monospace width: {expected_width}"
+                )
 
     # Test CJK characters (Noto uses 1000 unit width, not 2x ASCII)
     cjk_samples = [
@@ -400,7 +409,9 @@ def test_named_instances() -> bool:
         if name in actual_instances:
             actual_coords = actual_instances[name]
             if actual_coords == expected_coords:
-                logger.info(f"Named instance '{name}' has correct coordinates: {actual_coords}")
+                logger.info(
+                    f"Named instance '{name}' has correct coordinates: {actual_coords}"
+                )
             else:
                 logger.error(
                     f"Named instance '{name}' coordinate mismatch: expected {expected_coords}, got {actual_coords}"
@@ -429,12 +440,27 @@ def test_unicode_coverage() -> bool:
 
     # Define ranges to test (name, start, end, sample_char)
     test_ranges = [
-        ("Basic Latin (printable)", 0x0020, 0x007E, "A"),  # Exclude U+007F (DELETE control char)
+        (
+            "Basic Latin (printable)",
+            0x0020,
+            0x007E,
+            "A",
+        ),  # Exclude U+007F (DELETE control char)
         ("CJK Symbols and Punctuation", 0x3000, 0x303F, "、"),
-        ("Hiragana", 0x3041, 0x3096, "あ"),  # Exclude U+3040 (unassigned), U+3097-3098 (rare combining marks)
+        (
+            "Hiragana",
+            0x3041,
+            0x3096,
+            "あ",
+        ),  # Exclude U+3040 (unassigned), U+3097-3098 (rare combining marks)
         ("Katakana", 0x30A0, 0x30FF, "ア"),
         ("CJK Unified Ideographs", 0x4E00, 0x9FFF, "漢"),
-        ("Fullwidth ASCII", 0xFF01, 0xFF5E, "Ａ"),  # Fullwidth versions of printable ASCII (! to ~)
+        (
+            "Fullwidth ASCII",
+            0xFF01,
+            0xFF5E,
+            "Ａ",
+        ),  # Fullwidth versions of printable ASCII (! to ~)
     ]
 
     for range_name, start, end, sample in test_ranges:
@@ -474,8 +500,16 @@ def test_ligatures() -> bool:
 
     # Sample ligatures to check (these are from Recursive)
     sample_ligatures = [
-        "->", "=>", "!=", "==", ">=", "<=",
-        "||", "&&", "<!--", "-->",
+        "->",
+        "=>",
+        "!=",
+        "==",
+        ">=",
+        "<=",
+        "||",
+        "&&",
+        "<!--",
+        "-->",
     ]
 
     if "GSUB" not in font:
@@ -489,13 +523,14 @@ def test_ligatures() -> bool:
     # A more detailed check would parse the actual substitution rules
     if hasattr(gsub, "LookupList") and gsub.LookupList:
         lookup_count = len(gsub.LookupList.Lookup)
-        logger.info(f"GSUB table has {lookup_count} lookup tables (ligatures likely present)")
+        logger.info(
+            f"GSUB table has {lookup_count} lookup tables (ligatures likely present)"
+        )
 
         # Verify calt feature exists (already tested elsewhere but good to confirm here)
         if hasattr(gsub, "FeatureList"):
             calt_exists = any(
-                record.FeatureTag == "calt"
-                for record in gsub.FeatureList.FeatureRecord
+                record.FeatureTag == "calt" for record in gsub.FeatureList.FeatureRecord
             )
             if calt_exists:
                 logger.info("calt feature present (enables contextual ligatures)")
