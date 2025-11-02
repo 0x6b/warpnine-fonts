@@ -1,0 +1,51 @@
+[project]
+name = "warpnine-mono"
+version = "0.1.0"
+description = "Custom monospace font combining Recursive Duotone and Noto Sans Mono CJK JP"
+requires-python = ">=3.10"
+dependencies = [
+    "fonttools[unicode]>=4.60.1",
+    "requests>=2.32.5",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+all = "src.all:main"
+clean = "src.clean:main"
+download = "src.download_fonts:main"
+extract = "src.extract_weights:main"
+subset = "src.subset:main"
+merge = "src.merge:main"
+build = "src.build_variable:main"
+set-monospace = "src.set_monospace:main"
+set-version = "src.set_version:main"
+test = "src.test:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

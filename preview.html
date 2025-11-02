@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warpnine Mono Font Preview</title>
+    <style>
+        @font-face {
+            font-family: 'WarpnineMono';
+            src: url('dist/WarpnineMono-VF.ttf?v=11') format('truetype');
+            font-weight: 400 700;
+            font-style: normal;
+            font-display: block;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 3rem;
+        }
+
+        .section {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            color: #fff;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .font-sample {
+            font-family: 'WarpnineMono', monospace;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .style-label {
+            display: inline-block;
+            background: #0e639c;
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .regular {
+            font-variation-settings: 'wght' 400, 'ital' 0;
+            font-style: normal;
+        }
+
+        .bold {
+            font-variation-settings: 'wght' 700, 'ital' 0;
+            font-style: normal;
+        }
+
+        .italic {
+            font-variation-settings: 'wght' 400, 'ital' 1;
+            font-style: italic;
+        }
+
+        .bold-italic {
+            font-variation-settings: 'wght' 700, 'ital' 1;
+            font-style: italic;
+        }
+
+        .size-controls {
+            margin-bottom: 2rem;
+        }
+
+        .size-controls label {
+            display: inline-block;
+            margin-right: 1rem;
+            color: #d4d4d4;
+        }
+
+        .size-controls input[type="range"] {
+            width: 200px;
+            vertical-align: middle;
+        }
+
+        .size-controls input[type="number"] {
+            width: 60px;
+            background: #3c3c3c;
+            border: 1px solid #3e3e42;
+            color: #d4d4d4;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .sample-group {
+            margin-bottom: 1.5rem;
+        }
+
+        code {
+            color: #9cdcfe;
+        }
+
+        .comment {
+            color: #6a9955;
+        }
+
+        .string {
+            color: #ce9178;
+        }
+
+        .keyword {
+            color: #569cd6;
+        }
+
+
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .comparison-item {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 1rem;
+        }
+
+        .comparison-label {
+            color: #888;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Ligature test specific styles */
+        .ligature-test {
+            font-size: 18px !important;
+            line-height: 1.8 !important;
+        }
+
+        .liga-enabled {
+            font-feature-settings: "calt" 1 !important;
+        }
+
+        .liga-disabled {
+            font-feature-settings: "calt" 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Warpnine Mono Font Preview</h1>
+        <p class="subtitle">Recursive Mono Duotone + Noto Sans Mono CJK JP</p>
+
+        <div class="section">
+            <div class="section-title">Font Size Control</div>
+            <div class="size-controls">
+                <label>
+                    Font Size:
+                    <input type="range" id="fontSize" min="8" max="48" value="24" step="1">
+                    <input type="number" id="fontSizeValue" min="8" max="48" value="24">px
+                </label>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Character Coverage Test</div>
+            <div class="comparison-grid">
+                <div class="comparison-item">
+                    <div class="comparison-label">Regular (wght: 400)</div>
+                    <div class="font-sample regular" id="sample6">// Japanese
+あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら、うつくしい森で飾られたモリーオ市、郊外のぎらぎらひかる草の波。
+
+// English
+the quick brown fox jumps over the lazy dog
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG
+
+// ASCII printable symbols
+0123456789
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~</div>
+                </div>
+
+                <div class="comparison-item">
+                    <div class="comparison-label">Bold (wght: 700)</div>
+                    <div class="font-sample bold">// Japanese
+あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら、うつくしい森で飾られたモリーオ市、郊外のぎらぎらひかる草の波。
+
+// English
+the quick brown fox jumps over the lazy dog
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG
+
+// ASCII printable symbols
+0123456789
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Programming Ligatures Test</div>
+            <p style="color: #888; margin-bottom: 1rem; font-size: 0.875rem;">
+                Comparison of ligatures enabled (left) vs disabled (right).
+            </p>
+
+            <div class="comparison-grid">
+                <div class="comparison-item">
+                    <div class="comparison-label">Ligatures Enabled (calt)</div>
+                    <div class="font-sample regular ligature-test liga-enabled">// Arrows
+-> --> -< -<<
+<- <-- <- <<-
+=> =<< =>> <=>
+>= >>= >>- >>>
+
+// Comparison & Logic
+== === != !==
+<= >= <> =/=
+&& &&& || |||
+
+// Special operators
+|> <| <|> |=
+<$> <*> <+>
+?. ?: ?:
+:: /// ://
+
+// Multi-char
+''' """ ```
+--- +++ *** ###
+/* */ ${</div>
+                </div>
+
+                <div class="comparison-item">
+                    <div class="comparison-label">Ligatures Disabled</div>
+                    <div class="font-sample regular ligature-test liga-disabled">// Arrows
+-> --> -< -<<
+<- <-- <- <<-
+=> =<< =>> <=>
+>= >>= >>- >>>
+
+// Comparison & Logic
+== === != !==
+<= >= <> =/=
+&& &&& || |||
+
+// Special operators
+|> <| <|> |=
+<$> <*> <+>
+?. ?: ?:
+:: /// ://
+
+// Multi-char
+''' """ ```
+--- +++ *** ###
+/* */ ${</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fontSizeSlider = document.getElementById('fontSize');
+        const fontSizeInput = document.getElementById('fontSizeValue');
+        // Exclude ligature test samples from fontSize control
+        const samples = document.querySelectorAll('.font-sample:not(.ligature-test)');
+
+        function updateFontSize(size) {
+            samples.forEach(sample => {
+                sample.style.fontSize = size + 'px';
+            });
+        }
+
+        fontSizeSlider.addEventListener('input', (e) => {
+            const size = e.target.value;
+            fontSizeInput.value = size;
+            updateFontSize(size);
+        });
+
+        fontSizeInput.addEventListener('input', (e) => {
+            const size = e.target.value;
+            fontSizeSlider.value = size;
+            updateFontSize(size);
+        });
+
+        // Initialize
+        updateFontSize(24);
+
+        // Debug: Check computed styles for ligature tests
+        document.fonts.ready.then(() => {
+            const enabled = document.querySelector('.liga-enabled');
+            const disabled = document.querySelector('.liga-disabled');
+
+            console.log('=== Ligature Test Debug ===');
+            if (enabled) {
+                console.log('Enabled computed font-feature-settings:', window.getComputedStyle(enabled).fontFeatureSettings);
+                console.log('Font family:', window.getComputedStyle(enabled).fontFamily);
+            }
+            if (disabled) {
+                console.log('Disabled computed font-feature-settings:', window.getComputedStyle(disabled).fontFeatureSettings);
+            }
+            console.log('Font loaded:', document.fonts.check('18px WarpnineMono'));
+        });
+    </script>
+</body>
+</html>
