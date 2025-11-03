@@ -5,13 +5,9 @@ Custom monospace font combining:
 - [Recursive Mono Duotone](https://github.com/arrowtype/recursive) 1.085
 - [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) commit f8d15753 for Japanese characters
 
-## Preview
-
-A live font preview is available at [GitHub Pages](https://0x6b.github.io/warpnine-mono/docs/), showcasing character coverage, programming ligatures, and font variations using the latest release.
-
 ## Download
 
-Pre-built fonts are available from [GitHub Releases](https://github.com/0x6b/warpnine-mono/releases). Each release includes:
+Pre-built fonts are available from [GitHub Releases](https://github.com/kaoru/warpnine-mono/releases). Each release includes:
 
 - Static fonts: `WarpnineMono-Regular.ttf`, `WarpnineMono-Bold.ttf`, `WarpnineMono-RegularItalic.ttf`, `WarpnineMono-BoldItalic.ttf`
 - Variable Font: `WarpnineMono-VF.ttf`
@@ -84,7 +80,7 @@ uv run set-version --date 2025-11-01  # explicit date
 # Validate quickly the variable font.
 uv run test
 
-# Start HTTP server from project root to see the preview at http://localhost:8000/docs/
+# Start HTTP server from project root to see the preview at http://localhost:8000/preview.html
 uv run python -m http.server 8000
 
 # Clean up
