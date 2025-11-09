@@ -49,6 +49,9 @@ You can run each step in the build pipeline manually.
 # Download Noto Sans Mono CJK JP and Recursive Mono Duotone font files with license files to build/ directory.
 uv run download
 
+# Remove the three-backtick (```) ligature from Recursive Mono Duotone fonts.
+uv run remove-ligatures
+
 # Extract weights (400 and 700) from Noto Sans Mono CJK JP Variable Font as build/Noto-*.ttf.
 # Noto CJK Variable Font contains 400 (Regular), 500 (Medium), and 700 (Bold), but we only extract 400 and 700 to match Recursive Duotone's available weights.
 uv run extract
