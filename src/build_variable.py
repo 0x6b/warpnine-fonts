@@ -193,6 +193,45 @@ def fix_font_names(font_path):
     logger.info("Font names fixed")
 
 
+def remove_gsub_tables():
+    """
+    Remove GSUB tables from all fonts to avoid varLib incompatibility.
+
+    After feature freezing, GSUB tables still contain FeatureVariations that cause
+    conflicts when building a variable font (.mono vs .italic glyph substitutions).
+    We'll copy the GSUB table from the original Recursive VF in the copy-gsub step.
+    """
+    logger.info("Removing GSUB tables from static fonts")
+    logger.info("  (GSUB will be copied from Recursive VF in the copy-gsub step)")
+
+    font_files = [
+        DIST_DIR / "WarpnineMono-Light.ttf",
+        DIST_DIR / "WarpnineMono-Regular.ttf",
+        DIST_DIR / "WarpnineMono-Medium.ttf",
+        DIST_DIR / "WarpnineMono-SemiBold.ttf",
+        DIST_DIR / "WarpnineMono-Bold.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBold.ttf",
+        DIST_DIR / "WarpnineMono-Black.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBlack.ttf",
+        DIST_DIR / "WarpnineMono-LightItalic.ttf",
+        DIST_DIR / "WarpnineMono-Italic.ttf",
+        DIST_DIR / "WarpnineMono-MediumItalic.ttf",
+        DIST_DIR / "WarpnineMono-SemiBoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-BoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-BlackItalic.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBlackItalic.ttf",
+    ]
+
+    for font_path in font_files:
+        font = TTFont(str(font_path))
+        if "GSUB" in font:
+            del font["GSUB"]
+            font.save(str(font_path))
+            logger.info(f"  Removed GSUB from {font_path.name}")
+        font.close()
+
+
 def build_variable_font():
     """
     Build Variable Font
@@ -275,6 +314,9 @@ def main():
             logger.error(f"Required font not found: {font_path}")
             logger.error("  Run merge first")
             sys.exit(1)
+
+    # Remove GSUB tables to avoid varLib incompatibility
+    remove_gsub_tables()
 
     # Build Variable Font
     if build_variable_font():

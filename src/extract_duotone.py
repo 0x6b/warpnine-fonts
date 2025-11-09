@@ -31,15 +31,16 @@ class DuotoneInstance:
 
 
 # Duotone instances to extract
-# For FeatureVariations approach: Extract ALL weights with Casual (CASL=1)
-# We'll add FeatureVariations later to switch to Linear glyphs for Light/Regular
+# Classic Recursive Mono Duotone style:
+# - Light/Regular: Linear (CASL=0) for serious, traditional monospace appearance
+# - Medium and heavier: Casual (CASL=1) for better readability at bold weights
 INSTANCES = [
-    # Light - Casual (will switch to Linear via FeatureVariations)
+    # Light - Linear
     DuotoneInstance(
         style="Light",
         output_name="RecMonoDuotone-Light.ttf",
         mono=1.0,
-        casl=1.0,  # Casual (compatible base)
+        casl=0.0,  # Linear
         wght=300.0,
         slnt=0.0,
         crsv=0.5,
@@ -48,17 +49,17 @@ INSTANCES = [
         style="LightItalic",
         output_name="RecMonoDuotone-LightItalic.ttf",
         mono=1.0,
-        casl=1.0,  # Casual (compatible base)
+        casl=0.0,  # Linear
         wght=300.0,
         slnt=-15.0,
         crsv=1.0,
     ),
-    # Regular - Casual (will switch to Linear via FeatureVariations)
+    # Regular - Linear
     DuotoneInstance(
         style="Regular",
         output_name="RecMonoDuotone-Regular.ttf",
         mono=1.0,
-        casl=1.0,  # Casual (compatible base)
+        casl=0.0,  # Linear
         wght=400.0,
         slnt=0.0,
         crsv=0.5,
@@ -67,7 +68,7 @@ INSTANCES = [
         style="Italic",
         output_name="RecMonoDuotone-Italic.ttf",
         mono=1.0,
-        casl=1.0,  # Casual (compatible base)
+        casl=0.0,  # Linear
         wght=400.0,
         slnt=-15.0,
         crsv=1.0,

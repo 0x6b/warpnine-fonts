@@ -85,8 +85,8 @@ def main():
     # Target: WarpnineMono variable font (no GSUB currently)
     target_vf = DIST_DIR / "WarpnineMono-VF.ttf"
 
-    # Output: new WarpnineMono VF with ligatures
-    output_vf = DIST_DIR / "WarpnineMono-VF-with-ligatures.ttf"
+    # Temporary output path
+    temp_vf = DIST_DIR / "WarpnineMono-VF.tmp.ttf"
 
     if not source_vf.exists():
         logger.error(f"Source VF not found: {source_vf}")
@@ -98,17 +98,22 @@ def main():
         logger.error("Run build step first")
         return False
 
-    # Copy GSUB
-    if copy_gsub_table(source_vf, target_vf, output_vf):
+    # Copy GSUB to temporary file
+    if copy_gsub_table(source_vf, target_vf, temp_vf):
+        # Replace original with the version that has GSUB
+        temp_vf.replace(target_vf)
         logger.info("Success!")
-        logger.info(f"Variable font with ligatures: {output_vf}")
+        logger.info(f"Variable font updated: {target_vf}")
 
         # Get file size
-        size_mb = output_vf.stat().st_size / 1024 / 1024
+        size_mb = target_vf.stat().st_size / 1024 / 1024
         logger.info(f"  Size: {size_mb:.2f} MB")
 
         return True
     else:
+        # Clean up temp file if it exists
+        if temp_vf.exists():
+            temp_vf.unlink()
         return False
 
 
