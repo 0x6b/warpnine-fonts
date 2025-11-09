@@ -30,26 +30,11 @@ DOWNLOADS = [
         "NotoSansMonoCJKjp-VF.ttf",
         "Noto Sans Mono CJK JP (Variable)",
     ),
-    # Recursive Mono Duotone
+    # Recursive Variable Font
     DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-Regular-1.085.ttf",
-        "RecMonoDuotone-Regular-1.085.ttf",
-        "Recursive Mono Duotone Regular",
-    ),
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-Bold-1.085.ttf",
-        "RecMonoDuotone-Bold-1.085.ttf",
-        "Recursive Mono Duotone Bold",
-    ),
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-Italic-1.085.ttf",
-        "RecMonoDuotone-Italic-1.085.ttf",
-        "Recursive Mono Duotone Italic",
-    ),
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-BoldItalic-1.085.ttf",
-        "RecMonoDuotone-BoldItalic-1.085.ttf",
-        "Recursive Mono Duotone Bold Italic",
+        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Desktop/Recursive_VF_1.085.ttf",
+        "Recursive_VF_1.085.ttf",
+        "Recursive Variable Font",
     ),
     # Licenses
     DownloadItem(

@@ -12,7 +12,8 @@ from src.build_variable import main as build_main
 from src.logger import logger
 from src.clean import main as clean_main
 from src.download_fonts import main as download_main
-from src.extract_weights import main as extract_main
+from src.extract_duotone import main as extract_duotone_main
+from src.extract_weights import main as extract_weights_main
 from src.merge import main as merge_main
 from src.remove_ligatures import main as remove_ligatures_main
 from src.set_monospace import main as monospace_main
@@ -25,8 +26,9 @@ def main():
     steps = [
         ("clean", clean_main),
         ("download", download_main),
+        ("extract-duotone", extract_duotone_main),
         ("remove-ligatures", remove_ligatures_main),
-        ("extract", extract_main),
+        ("extract-weights", extract_weights_main),
         ("subset", subset_main),
         ("merge", merge_main),
         ("build", build_main),

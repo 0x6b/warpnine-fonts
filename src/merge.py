@@ -98,12 +98,24 @@ class StyleMapping:
     noto_weight: int
 
 
-# Style mapping table
+# Style mapping table - maps to Noto weights
 STYLE_MAPPING = {
-    "Regular": StyleMapping("RecMonoDuotone-Regular-1.085.ttf", 400),
-    "Bold": StyleMapping("RecMonoDuotone-Bold-1.085.ttf", 700),
-    "Italic": StyleMapping("RecMonoDuotone-Italic-1.085.ttf", 400),
-    "BoldItalic": StyleMapping("RecMonoDuotone-BoldItalic-1.085.ttf", 700),
+    "Light": StyleMapping("RecMonoDuotone-Light.ttf", 400),
+    "LightItalic": StyleMapping("RecMonoDuotone-LightItalic.ttf", 400),
+    "Regular": StyleMapping("RecMonoDuotone-Regular.ttf", 400),
+    "Italic": StyleMapping("RecMonoDuotone-Italic.ttf", 400),
+    "Medium": StyleMapping("RecMonoDuotone-Medium.ttf", 400),
+    "MediumItalic": StyleMapping("RecMonoDuotone-MediumItalic.ttf", 400),
+    "SemiBold": StyleMapping("RecMonoDuotone-SemiBold.ttf", 700),
+    "SemiBoldItalic": StyleMapping("RecMonoDuotone-SemiBoldItalic.ttf", 700),
+    "Bold": StyleMapping("RecMonoDuotone-Bold.ttf", 700),
+    "BoldItalic": StyleMapping("RecMonoDuotone-BoldItalic.ttf", 700),
+    "ExtraBold": StyleMapping("RecMonoDuotone-ExtraBold.ttf", 700),
+    "ExtraBoldItalic": StyleMapping("RecMonoDuotone-ExtraBoldItalic.ttf", 700),
+    "Black": StyleMapping("RecMonoDuotone-Black.ttf", 700),
+    "BlackItalic": StyleMapping("RecMonoDuotone-BlackItalic.ttf", 700),
+    "ExtraBlack": StyleMapping("RecMonoDuotone-ExtraBlack.ttf", 700),
+    "ExtraBlackItalic": StyleMapping("RecMonoDuotone-ExtraBlackItalic.ttf", 700),
 }
 
 
