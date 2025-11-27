@@ -13,19 +13,19 @@ A live font preview is available at [GitHub Pages](https://0x6b.github.io/warpni
 
 Pre-built fonts are available from [GitHub Releases](https://github.com/0x6b/warpnine-mono/releases). Each release includes:
 
-- **Variable Font**: `WarpnineMono-VF.ttf` (recommended)
-- **16 Static Fonts**: Light through ExtraBlack, upright and italic
+- Variable Font: `WarpnineMono-VF.ttf` (recommended)
+- Static Fonts: Light through ExtraBlack, upright and italic
 - License file: `OFL`
 
 Releases are automatically built and published via GitHub Actions when a tag matching the pattern `v[YYYY-MM-DD]` or `[YYYY-MM-DD]` is pushed.
 
 ## Features
 
-- **Variable Font** with 2 axes:
+- Variable Font with 2 axes:
   - `wght`: 300 (Light) to 1000 (ExtraBlack)
   - `ital`: 0 (Upright) to 1 (Italic)
-- **Programming Ligatures**: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (frozen via `dlig`)
-- **Always-Active OpenType Features** (frozen at build time):
+- Programming Ligatures: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (frozen via `dlig`)
+- Always-Active OpenType Features (frozen at build time):
   - `dlig`: Discretionary ligatures (programming ligatures)
   - `ss01`: Single-story a
   - `ss02`: Single-story g
@@ -35,9 +35,9 @@ Releases are automatically built and published via GitHub Actions when a tag mat
   - `ss08`: Serifless L and Z
   - `ss10`: Dotted 0
   - `ss12`: Simplified @
-- **CJK Support**: Full Japanese character coverage (99% Kanji, 98% Hiragana/Katakana)
-- **16 Static Fonts**: Light through ExtraBlack, both upright and italic
-- **Mixed CASL Style**: Light/Regular use Linear (traditional), Medium+ use Casual (rounder)
+- CJK Support: Full Japanese character coverage (99% Kanji, 98% Hiragana/Katakana)
+- Static Fonts: Light through ExtraBlack, both upright and italic
+- Mixed CASL Style: Light/Regular use Linear (traditional), Medium+ use Casual (rounder)
 
 ## Requirements
 
@@ -63,7 +63,7 @@ $ uv run all
 That will generate the following fonts:
 
 - Variable font: `dist/WarpnineMono-VF.ttf` (74 MB)
-- 16 static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
+- static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
   - Each with upright and italic variants
 
@@ -141,27 +141,27 @@ uv run clean
 
 The build pipeline creates fonts with frozen OpenType features:
 
-1. **Extract instances** from Recursive VF:
+1. Extract instances from Recursive VF:
    - Light/Regular (300-400): Linear (CASL=0) for traditional appearance
    - Medium and heavier (500-1000): Casual (CASL=1) for better readability
-2. **Remove three-backtick ligature** from extracted fonts
-3. **Merge with Noto CJK** using fontforge to add Japanese character support
-4. **Freeze OpenType features** using `pyftfeatfreeze`:
+2. Remove three-backtick ligature from extracted fonts
+3. Merge with Noto CJK using fontforge to add Japanese character support
+4. Freeze OpenType features using `pyftfeatfreeze`:
    - Static fonts: Features permanently applied to glyphs, GSUB removed
    - Variable font: Features frozen after copying GSUB from Recursive VF
-5. **Build variable font** with fontTools varLib (GSUB removed before building)
-6. **Copy GSUB table** from original Recursive VF, which includes:
+5. Build variable font with fontTools varLib (GSUB removed before building)
+6. Copy GSUB table from original Recursive VF, which includes:
    - Programming ligatures (`liga`, `dlig`)
    - FeatureVariations for axis-dependent glyph substitutions
    - All stylistic sets and OpenType features
-7. **Freeze features in VF** to match static fonts
+7. Freeze features in VF to match static fonts
 
 ### Font Axes
 
-- **wght (Weight)**: 300-1000
+- wght (Weight): 300-1000
   - 300: Light, 400: Regular, 500: Medium, 600: SemiBold
   - 700: Bold, 800: ExtraBold, 900: Black, 1000: ExtraBlack
-- **ital (Italic)**: 0-1
+- ital (Italic): 0-1
   - 0: Upright, 1: Italic
 
 ### OpenType Features
@@ -184,9 +184,9 @@ These features are permanently applied to all glyphs:
 
 The variable font retains 30+ OpenType features from Recursive:
 
-- **Ligatures**: `liga`, `calt`
-- **Stylistic Sets**: `ss03`, `ss06`, `ss09`, `ss11`, `ss20`
-- **Other**: `zero`, `case`, `frac`, `locl`, and more
+- Ligatures: `liga`, `calt`
+- Stylistic Sets: `ss03`, `ss06`, `ss09`, `ss11`, `ss20`
+- Other: `zero`, `case`, `frac`, `locl`, and more
 
 ## License
 
