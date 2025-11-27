@@ -1,6 +1,9 @@
 build
 dist
 
+# Git submodules
+recursive/
+
 # Python
 __pycache__/
 *.py[cod]

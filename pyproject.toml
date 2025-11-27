@@ -5,6 +5,7 @@ description = "Custom monospace font combining Recursive Duotone and Noto Sans M
 requires-python = ">=3.10"
 dependencies = [
     "fonttools[unicode]>=4.60.1",
+    "opentype-feature-freezer>=1.32.2",
     "requests>=2.32.5",
 ]
 
@@ -21,13 +22,19 @@ build-backend = "hatchling.build"
 all = "src.all:main"
 clean = "src.clean:main"
 download = "src.download_fonts:main"
-extract = "src.extract_weights:main"
+extract-duotone = "src.extract_duotone:main"
+extract-weights = "src.extract_weights:main"
 subset = "src.subset:main"
 merge = "src.merge:main"
+freeze-features = "src.freeze_features:main"
+remove-ligatures = "src.remove_ligatures:main"
 build = "src.build_variable:main"
+copy-gsub = "src.copy_gsub_to_vf:main"
+freeze-vf-features = "src.freeze_vf_features:main"
 set-monospace = "src.set_monospace:main"
 set-version = "src.set_version:main"
 test = "src.test:main"
+create-condensed = "src.create_condensed:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

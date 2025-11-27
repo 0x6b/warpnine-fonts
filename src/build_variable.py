@@ -46,13 +46,13 @@ def create_designspace():
     doc = DesignSpaceDocument()
 
     # Axis definitions
-    # Weight axis: 400 (Regular) - 700 (Bold)
+    # Weight axis: 300 (Light) - 1000 (ExtraBlack)
     weight_axis = AxisDescriptor()
     weight_axis.name = "Weight"
     weight_axis.tag = "wght"
-    weight_axis.minimum = 400
+    weight_axis.minimum = 300
     weight_axis.default = 400
-    weight_axis.maximum = 700
+    weight_axis.maximum = 1000
     doc.addAxis(weight_axis)
 
     # Italic axis: 0 (Upright) - 1 (Italic)
@@ -64,12 +64,24 @@ def create_designspace():
     italic_axis.maximum = 1
     doc.addAxis(italic_axis)
 
-    # Source fonts (masters) definition
+    # Source fonts (masters) definition - all weights
     sources = [
+        SourceInfo("WarpnineMono-Light.ttf", 300, 0, False),
         SourceInfo("WarpnineMono-Regular.ttf", 400, 0, False),
+        SourceInfo("WarpnineMono-Medium.ttf", 500, 0, False),
+        SourceInfo("WarpnineMono-SemiBold.ttf", 600, 0, False),
         SourceInfo("WarpnineMono-Bold.ttf", 700, 0, False),
+        SourceInfo("WarpnineMono-ExtraBold.ttf", 800, 0, False),
+        SourceInfo("WarpnineMono-Black.ttf", 900, 0, False),
+        SourceInfo("WarpnineMono-ExtraBlack.ttf", 1000, 0, False),
+        SourceInfo("WarpnineMono-LightItalic.ttf", 300, 1, False),
         SourceInfo("WarpnineMono-Italic.ttf", 400, 1, False),
+        SourceInfo("WarpnineMono-MediumItalic.ttf", 500, 1, False),
+        SourceInfo("WarpnineMono-SemiBoldItalic.ttf", 600, 1, False),
         SourceInfo("WarpnineMono-BoldItalic.ttf", 700, 1, False),
+        SourceInfo("WarpnineMono-ExtraBoldItalic.ttf", 800, 1, False),
+        SourceInfo("WarpnineMono-BlackItalic.ttf", 900, 1, False),
+        SourceInfo("WarpnineMono-ExtraBlackItalic.ttf", 1000, 1, False),
     ]
 
     for source_info in sources:
@@ -89,10 +101,22 @@ def create_designspace():
 
     # Instance definitions (individual styles to generate)
     instances = [
+        InstanceInfo("Light", 300, 0),
         InstanceInfo("Regular", 400, 0),
+        InstanceInfo("Medium", 500, 0),
+        InstanceInfo("SemiBold", 600, 0),
         InstanceInfo("Bold", 700, 0),
+        InstanceInfo("ExtraBold", 800, 0),
+        InstanceInfo("Black", 900, 0),
+        InstanceInfo("ExtraBlack", 1000, 0),
+        InstanceInfo("Light Italic", 300, 1),
         InstanceInfo("Italic", 400, 1),
+        InstanceInfo("Medium Italic", 500, 1),
+        InstanceInfo("SemiBold Italic", 600, 1),
         InstanceInfo("Bold Italic", 700, 1),
+        InstanceInfo("ExtraBold Italic", 800, 1),
+        InstanceInfo("Black Italic", 900, 1),
+        InstanceInfo("ExtraBlack Italic", 1000, 1),
     ]
 
     for instance_info in instances:
@@ -169,6 +193,45 @@ def fix_font_names(font_path):
     logger.info("Font names fixed")
 
 
+def remove_gsub_tables():
+    """
+    Remove GSUB tables from all fonts to avoid varLib incompatibility.
+
+    After feature freezing, GSUB tables still contain FeatureVariations that cause
+    conflicts when building a variable font (.mono vs .italic glyph substitutions).
+    We'll copy the GSUB table from the original Recursive VF in the copy-gsub step.
+    """
+    logger.info("Removing GSUB tables from static fonts")
+    logger.info("  (GSUB will be copied from Recursive VF in the copy-gsub step)")
+
+    font_files = [
+        DIST_DIR / "WarpnineMono-Light.ttf",
+        DIST_DIR / "WarpnineMono-Regular.ttf",
+        DIST_DIR / "WarpnineMono-Medium.ttf",
+        DIST_DIR / "WarpnineMono-SemiBold.ttf",
+        DIST_DIR / "WarpnineMono-Bold.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBold.ttf",
+        DIST_DIR / "WarpnineMono-Black.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBlack.ttf",
+        DIST_DIR / "WarpnineMono-LightItalic.ttf",
+        DIST_DIR / "WarpnineMono-Italic.ttf",
+        DIST_DIR / "WarpnineMono-MediumItalic.ttf",
+        DIST_DIR / "WarpnineMono-SemiBoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-BoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-BlackItalic.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBlackItalic.ttf",
+    ]
+
+    for font_path in font_files:
+        font = TTFont(str(font_path))
+        if "GSUB" in font:
+            del font["GSUB"]
+            font.save(str(font_path))
+            logger.info(f"  Removed GSUB from {font_path.name}")
+        font.close()
+
+
 def build_variable_font():
     """
     Build Variable Font
@@ -228,10 +291,22 @@ def build_variable_font():
 def main():
     # Check existence of required font files
     required_fonts = [
+        DIST_DIR / "WarpnineMono-Light.ttf",
         DIST_DIR / "WarpnineMono-Regular.ttf",
+        DIST_DIR / "WarpnineMono-Medium.ttf",
+        DIST_DIR / "WarpnineMono-SemiBold.ttf",
         DIST_DIR / "WarpnineMono-Bold.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBold.ttf",
+        DIST_DIR / "WarpnineMono-Black.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBlack.ttf",
+        DIST_DIR / "WarpnineMono-LightItalic.ttf",
         DIST_DIR / "WarpnineMono-Italic.ttf",
+        DIST_DIR / "WarpnineMono-MediumItalic.ttf",
+        DIST_DIR / "WarpnineMono-SemiBoldItalic.ttf",
         DIST_DIR / "WarpnineMono-BoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBoldItalic.ttf",
+        DIST_DIR / "WarpnineMono-BlackItalic.ttf",
+        DIST_DIR / "WarpnineMono-ExtraBlackItalic.ttf",
     ]
 
     for font_path in required_fonts:
@@ -240,11 +315,14 @@ def main():
             logger.error("  Run merge first")
             sys.exit(1)
 
+    # Remove GSUB tables to avoid varLib incompatibility
+    remove_gsub_tables()
+
     # Build Variable Font
     if build_variable_font():
         logger.info("Build Complete")
         logger.info(f"Variable Font: {DIST_DIR / 'WarpnineMono-VF.ttf'}")
-        logger.info("  - wght axis: 400-700")
+        logger.info("  - wght axis: 300-1000")
         logger.info("  - ital axis: 0-1")
     else:
         sys.exit(1)

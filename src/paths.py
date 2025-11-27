@@ -7,5 +7,6 @@ and keeps magic strings out of the individual scripts.
 
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).parent.parent
 BUILD_DIR = Path("build")
 DIST_DIR = Path("dist")

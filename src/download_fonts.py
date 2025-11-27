@@ -2,9 +2,10 @@
 """
 Script to download font files and license files
 
-Download Noto Sans Mono CJK JP and Recursive Mono Duotone to build/
+Download Noto Sans Mono CJK JP and copy Recursive VF from submodule to build/
 """
 
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +13,7 @@ from pathlib import Path
 import requests
 
 from src.logger import logger
-from src.paths import BUILD_DIR
+from src.paths import BUILD_DIR, PROJECT_ROOT
 
 
 @dataclass(frozen=True)
@@ -29,27 +30,6 @@ DOWNLOADS = [
         "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/Mono/NotoSansMonoCJKjp-VF.ttf",
         "NotoSansMonoCJKjp-VF.ttf",
         "Noto Sans Mono CJK JP (Variable)",
-    ),
-    # Recursive Mono Duotone
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-Regular-1.085.ttf",
-        "RecMonoDuotone-Regular-1.085.ttf",
-        "Recursive Mono Duotone Regular",
-    ),
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-Bold-1.085.ttf",
-        "RecMonoDuotone-Bold-1.085.ttf",
-        "Recursive Mono Duotone Bold",
-    ),
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-Italic-1.085.ttf",
-        "RecMonoDuotone-Italic-1.085.ttf",
-        "Recursive Mono Duotone Italic",
-    ),
-    DownloadItem(
-        "https://raw.githubusercontent.com/arrowtype/recursive/v1.085/fonts/ArrowType-Recursive-1.085/Recursive_Code/RecMonoDuotone/RecMonoDuotone-BoldItalic-1.085.ttf",
-        "RecMonoDuotone-BoldItalic-1.085.ttf",
-        "Recursive Mono Duotone Bold Italic",
     ),
     # Licenses
     DownloadItem(
@@ -95,13 +75,45 @@ def download_file(item: DownloadItem, output_dir: Path) -> bool:
         return False
 
 
+def copy_recursive_vf() -> bool:
+    """Copy Recursive VF from submodule to build directory"""
+    recursive_vf = (
+        PROJECT_ROOT
+        / "recursive/fonts/ArrowType-Recursive-1.085/Recursive_Desktop/Recursive_VF_1.085.ttf"
+    )
+    target = BUILD_DIR / "Recursive_VF_1.085.ttf"
+
+    if not recursive_vf.exists():
+        logger.error(f"Recursive VF not found: {recursive_vf}")
+        logger.error("Run: git submodule update --init --recursive")
+        return False
+
+    logger.info("Copying Recursive VF from submodule")
+    logger.info(f"  {target.name}")
+
+    try:
+        shutil.copy2(recursive_vf, target)
+        size = target.stat().st_size / 1024 / 1024  # MB
+        logger.info(f"Copied ({size:.2f} MB)")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to copy: {e}")
+        return False
+
+
 def main():
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Downloading fonts to {BUILD_DIR}")
 
+    # Download files
     failures = [item for item in DOWNLOADS if not download_file(item, BUILD_DIR)]
-    success_count = len(DOWNLOADS) - len(failures)
+
+    # Copy Recursive VF from submodule
+    if not copy_recursive_vf():
+        failures.append("Recursive VF (copy from submodule)")
+
+    success_count = len(DOWNLOADS) + 1 - len(failures)
     fail_count = len(failures)
 
     # Summary
@@ -113,7 +125,7 @@ def main():
     if fail_count > 0:
         sys.exit(1)
 
-    logger.info(f"All files downloaded to {BUILD_DIR}/")
+    logger.info(f"All files ready in {BUILD_DIR}/")
 
 
 if __name__ == "__main__":
