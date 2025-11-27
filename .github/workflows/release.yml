@@ -50,6 +50,7 @@ jobs:
           uv run merge
           uv run build
           uv run set-monospace
+          uv run create-condensed
 
       - name: Set version from tag date
         run: uv run set-version --date ${{ steps.tag_date.outputs.date }}

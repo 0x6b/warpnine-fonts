@@ -34,6 +34,7 @@ freeze-vf-features = "src.freeze_vf_features:main"
 set-monospace = "src.set_monospace:main"
 set-version = "src.set_version:main"
 test = "src.test:main"
+create-condensed = "src.create_condensed:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
