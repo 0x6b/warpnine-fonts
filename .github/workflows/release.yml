@@ -5,6 +5,13 @@ on:
     tags:
       - 'v[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
       - '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+  workflow_dispatch:
+    inputs:
+      version_date:
+        description: 'Version date (YYYY-MM-DD)'
+        required: true
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -17,14 +24,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract date from tag
-        id: tag_date
+      - name: Determine version date
+        id: version
         run: |
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          # Remove 'v' prefix if present
-          DATE="${TAG_NAME#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DATE="${{ inputs.version_date }}"
+          else
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            # Remove 'v' prefix if present
+            DATE="${TAG_NAME#v}"
+          fi
           echo "date=${DATE}" >> $GITHUB_OUTPUT
-          echo "Extracted date: ${DATE}"
+          echo "Version date: ${DATE}"
 
       - name: Install FontForge
         run: |
@@ -52,12 +63,13 @@ jobs:
           uv run set-monospace
           uv run create-condensed
 
-      - name: Set version from tag date
-        run: uv run set-version --date ${{ steps.tag_date.outputs.date }}
+      - name: Set version
+        run: uv run set-version --date ${{ steps.version.outputs.date }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.date }}
           files: |
             dist/*.ttf
             OFL

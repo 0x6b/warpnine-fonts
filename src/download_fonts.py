@@ -2,18 +2,19 @@
 """
 Script to download font files and license files
 
-Download Noto Sans Mono CJK JP and copy Recursive VF from submodule to build/
+Download Noto Sans Mono CJK JP and Recursive VF to build/
 """
 
-import shutil
 import sys
+import zipfile
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import requests
 
 from src.logger import logger
-from src.paths import BUILD_DIR, PROJECT_ROOT
+from src.paths import BUILD_DIR
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,13 @@ DOWNLOADS = [
         "Recursive License (OFL)",
     ),
 ]
+
+# Recursive VF from GitHub releases (inside zip)
+RECURSIVE_ZIP_URL = "https://github.com/arrowtype/recursive/releases/download/v1.085/ArrowType-Recursive-1.085.zip"
+RECURSIVE_ZIP_PATH = (
+    "ArrowType-Recursive-1.085/Recursive_Desktop/Recursive_VF_1.085.ttf"
+)
+RECURSIVE_OUTPUT = "Recursive_VF_1.085.ttf"
 
 
 def download_file(item: DownloadItem, output_dir: Path) -> bool:
@@ -75,29 +83,30 @@ def download_file(item: DownloadItem, output_dir: Path) -> bool:
         return False
 
 
-def copy_recursive_vf() -> bool:
-    """Copy Recursive VF from submodule to build directory"""
-    recursive_vf = (
-        PROJECT_ROOT
-        / "recursive/fonts/ArrowType-Recursive-1.085/Recursive_Desktop/Recursive_VF_1.085.ttf"
-    )
-    target = BUILD_DIR / "Recursive_VF_1.085.ttf"
+def download_recursive_vf() -> bool:
+    """Download Recursive VF from GitHub releases"""
+    target = BUILD_DIR / RECURSIVE_OUTPUT
 
-    if not recursive_vf.exists():
-        logger.error(f"Recursive VF not found: {recursive_vf}")
-        logger.error("Run: git submodule update --init --recursive")
-        return False
-
-    logger.info("Copying Recursive VF from submodule")
+    logger.info("Downloading Recursive VF")
     logger.info(f"  {target.name}")
 
     try:
-        shutil.copy2(recursive_vf, target)
+        response = requests.get(RECURSIVE_ZIP_URL, timeout=120)
+        response.raise_for_status()
+
+        # Extract the font from the zip
+        with zipfile.ZipFile(BytesIO(response.content)) as zf:
+            with zf.open(RECURSIVE_ZIP_PATH) as src:
+                target.write_bytes(src.read())
+
         size = target.stat().st_size / 1024 / 1024  # MB
-        logger.info(f"Copied ({size:.2f} MB)")
+        logger.info(f"Downloaded ({size:.2f} MB)")
         return True
-    except Exception as e:
-        logger.error(f"Failed to copy: {e}")
+    except requests.RequestException as e:
+        logger.error(f"Failed to download: {e}")
+        return False
+    except (zipfile.BadZipFile, KeyError) as e:
+        logger.error(f"Failed to extract from zip: {e}")
         return False
 
 
@@ -109,9 +118,9 @@ def main():
     # Download files
     failures = [item for item in DOWNLOADS if not download_file(item, BUILD_DIR)]
 
-    # Copy Recursive VF from submodule
-    if not copy_recursive_vf():
-        failures.append("Recursive VF (copy from submodule)")
+    # Download Recursive VF from GitHub
+    if not download_recursive_vf():
+        failures.append("Recursive VF")
 
     success_count = len(DOWNLOADS) + 1 - len(failures)
     fail_count = len(failures)

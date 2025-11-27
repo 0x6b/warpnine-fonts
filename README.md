@@ -40,14 +40,12 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
 - [FontForge](https://fontforge.org/)
-- Git (for submodule)
 
 ## Setup
 
 ```console
 $ brew install fontforge
 $ curl -LsSf https://astral.sh/uv/install.sh | sh
-$ git submodule update --init --recursive
 ```
 
 ## Build
@@ -66,7 +64,7 @@ That will generate the following fonts:
 You can run each step in the build pipeline manually.
 
 ```bash
-# Download Noto Sans Mono CJK JP and copy Recursive VF from submodule.
+# Download Noto Sans Mono CJK JP and Recursive VF.
 uv run download
 
 # Extract 16 Duotone instances from Recursive VF (Light through ExtraBlack).
