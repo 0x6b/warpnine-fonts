@@ -52,24 +52,8 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Build fonts (without version stamping)
-        run: |
-          uv run clean
-          uv run download
-          uv run extract-duotone
-          uv run remove-ligatures
-          uv run extract-weights
-          uv run subset
-          uv run merge
-          uv run freeze-features
-          uv run build
-          uv run copy-gsub
-          uv run freeze-vf-features
-          uv run set-monospace
-          uv run create-condensed
-
-      - name: Set version
-        run: uv run set-version --date ${{ steps.version.outputs.date }}
+      - name: Build fonts
+        run: uv run all --date ${{ steps.version.outputs.date }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
