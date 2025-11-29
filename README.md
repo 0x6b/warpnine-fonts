@@ -9,7 +9,7 @@ And condensed version of Recursive Sans.
 
 ## Download
 
-Pre-built fonts are available from [GitHub Releases](https://github.com/kaoru/warpnine-mono/releases). Each release includes:
+Pre-built fonts are available from [GitHub Releases](https://github.com/kaoru/warpnine-fonts/releases). Each release includes:
 
 - Variable Font: `WarpnineMono-VF.ttf` (recommended)
 - Static Fonts: Light through ExtraBlack, upright and italic
