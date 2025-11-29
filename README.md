@@ -1,9 +1,11 @@
-# Warpnine Mono
+# Warpnine Fonts
 
 Custom monospace font combining:
 
 - [Recursive Mono Duotone](https://github.com/arrowtype/recursive) 1.085 (Linear for Light/Regular, Casual for Medium+)
 - [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) commit f8d15753 for Japanese characters
+
+And condensed version of Recursive Sans.
 
 ## Download
 
