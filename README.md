@@ -11,6 +11,7 @@ Pre-built fonts are available from [GitHub Releases](https://github.com/kaoru/wa
 
 - Variable Font: `WarpnineMono-VF.ttf` (recommended)
 - Static Fonts: Light through ExtraBlack, upright and italic
+- Condensed Fonts: `WarpnineSansCondensed-*.ttf` (proportional sans-serif, 85% width, Latin only)
 - License file: `OFL`
 
 Releases are automatically built and published via GitHub Actions when a tag matching the pattern `v[YYYY-MM-DD]` or `[YYYY-MM-DD]` is pushed.
@@ -52,13 +53,17 @@ $ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```console
 $ uv run all
+$ uv run all --date 2025-01-15  # with explicit version date
 ```
 
 That will generate the following fonts:
 
 - Variable font: `dist/WarpnineMono-VF.ttf` (74 MB)
-- static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
+- Static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
+  - Each with upright and italic variants
+- Condensed fonts: `dist/WarpnineSansCondensed-*.ttf`
+  - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black
   - Each with upright and italic variants
 
 You can run each step in the build pipeline manually.
@@ -113,6 +118,10 @@ uv run freeze-vf-features
 # Ensure every output font advertises itself as monospaced:
 # This updates post.isFixedPitch, OS/2.panose.bProportion, and OS/2.xAvgCharWidth for all fonts in dist/.
 uv run set-monospace
+
+# Create condensed variant of Recursive Sans Linear (proportional, 85% width, Latin only).
+# Extracts static instances and applies horizontal scaling.
+uv run create-condensed
 
 # Embed a version string (`Version yyyy-mm-dd`) into each font.
 # The script synchronises the `name` and `head` tables so downstream apps see a consistent version number.
