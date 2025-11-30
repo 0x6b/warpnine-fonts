@@ -34,6 +34,7 @@ set-monospace = "src.set_monospace:main"
 set-version = "src.set_version:main"
 test = "src.test:main"
 create-condensed = "src.create_condensed:main"
+create-sans = "src.create_sans:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

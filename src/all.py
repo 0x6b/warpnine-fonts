@@ -4,7 +4,7 @@ Script to run all build steps in order.
 
 Runs clean → download → extract-duotone → remove-ligatures → extract-weights →
 subset → merge → freeze-features (static) → build → copy-gsub → set-monospace →
-create-condensed → freeze-features (VF & Sans) → set-version in order.
+create-condensed → create-sans → freeze-features (VF & Sans) → set-version in order.
 
 Static mono fonts are frozen after merge (while they still have GSUB), backed up,
 then restored after the VF build completes.
@@ -21,6 +21,7 @@ from src.build_variable import main as build_main
 from src.clean import main as clean_main
 from src.copy_gsub_to_vf import main as copy_gsub_main
 from src.create_condensed import main as condensed_main
+from src.create_sans import main as sans_main
 from src.download_fonts import main as download_main
 from src.extract_duotone import main as extract_duotone_main
 from src.extract_weights import main as extract_weights_main
@@ -28,6 +29,7 @@ from src.freeze_features import (
     MONO_FEATURES,
     MONO_STATIC_PATTERN,
     MONO_VF_PATTERN,
+    SANS_CONDENSED_PATTERN,
     SANS_FEATURES,
     SANS_PATTERN,
     freeze_features_in_font,
@@ -128,7 +130,7 @@ def restore_frozen_static() -> None:
 
 
 def freeze_vf_and_sans() -> None:
-    """Freeze features in VF and Sans fonts (after create-condensed)."""
+    """Freeze features in VF and Sans fonts (after create-condensed and create-sans)."""
     total = 0
     failures = []
 
@@ -141,7 +143,18 @@ def freeze_vf_and_sans() -> None:
             if not freeze_features_in_font(font_path, MONO_FEATURES):
                 failures.append(font_path.name)
 
-    # Freeze Sans
+    # Freeze Sans Condensed
+    sans_condensed_files = sorted(DIST_DIR.glob(SANS_CONDENSED_PATTERN))
+    if sans_condensed_files:
+        logger.info(
+            f"Freezing features in {len(sans_condensed_files)} Sans Condensed fonts"
+        )
+        total += len(sans_condensed_files)
+        for font_path in sans_condensed_files:
+            if not freeze_features_in_font(font_path, SANS_FEATURES):
+                failures.append(font_path.name)
+
+    # Freeze Sans (non-condensed)
     sans_files = sorted(DIST_DIR.glob(SANS_PATTERN))
     if sans_files:
         logger.info(f"Freezing features in {len(sans_files)} Sans fonts")
@@ -180,6 +193,7 @@ def main():
         ("restore-frozen", restore_frozen_static),
         ("set-monospace", monospace_main),
         ("create-condensed", condensed_main),
+        ("create-sans", sans_main),
         ("freeze-vf-and-sans", freeze_vf_and_sans),
     ]
 

@@ -5,7 +5,7 @@ Custom monospace font combining:
 - [Recursive Mono Duotone](https://github.com/arrowtype/recursive) 1.085 (Linear for Light/Regular, Casual for Medium+)
 - [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) commit f8d15753 for Japanese characters
 
-And condensed version of Recursive Sans.
+And proportional sans-serif variants based on Recursive Sans Linear.
 
 ## Download
 
@@ -13,6 +13,7 @@ Pre-built fonts are available from [GitHub Releases](https://github.com/0x6b/war
 
 - Variable Font: `WarpnineMono-VF.ttf` (recommended)
 - Static Fonts: Light through ExtraBlack, upright and italic
+- Sans Fonts: `WarpnineSans-*.ttf` (proportional sans-serif, Latin only)
 - Condensed Fonts: `WarpnineSansCondensed-*.ttf` (proportional sans-serif, 85% width, Latin only)
 - License file: `OFL`
 
@@ -57,6 +58,9 @@ That will generate the following fonts:
 - Variable font: `dist/WarpnineMono-VF.ttf` (74 MB)
 - Static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
+  - Each with upright and italic variants
+- Sans fonts: `dist/WarpnineSans-*.ttf`
+  - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black
   - Each with upright and italic variants
 - Condensed fonts: `dist/WarpnineSansCondensed-*.ttf`
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black
@@ -116,9 +120,12 @@ uv run set-monospace
 # Extracts static instances and applies horizontal scaling.
 uv run create-condensed
 
+# Create non-condensed variant of Recursive Sans Linear (proportional, Latin only).
+uv run create-sans
+
 # Freeze OpenType features into VF and Sans fonts.
 # WarpnineMono-VF: dlig, ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss11, ss12, pnum, liga
-# WarpnineSansCondensed: ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss12, case, titl, pnum, liga
+# WarpnineSans/WarpnineSansCondensed: ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss12, case, pnum, liga
 uv run freeze-features
 
 # Embed a version string (`Version yyyy-mm-dd`) into each font.
@@ -152,8 +159,9 @@ The build pipeline creates fonts with frozen OpenType features:
 6. Build variable font with fontTools varLib (GSUB removed before building)
 7. Copy GSUB table from original Recursive VF to the VF
 8. Restore frozen static fonts
-9. Create WarpnineSansCondensed from Recursive Sans Linear
-10. Freeze OpenType features in VF and Sans fonts
+9. Create WarpnineSansCondensed from Recursive Sans Linear (85% width)
+10. Create WarpnineSans from Recursive Sans Linear (100% width)
+11. Freeze OpenType features in VF and Sans fonts
 
 ### Font Axes
 
@@ -184,12 +192,11 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 - `ss11`: Simplified 1
 - `ss12`: Simplified @
 
-#### WarpnineSansCondensed (Frozen at Build)
+#### WarpnineSans and WarpnineSansCondensed (Frozen at Build)
 
 - `case`: Case-sensitive forms
 - `liga`: Standard ligatures
 - `pnum`: Proportional figures
-- `titl`: Titling alternates
 - `ss01`: Single-story a
 - `ss02`: Single-story g
 - `ss03`: Simplified f

@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from src.logger import logger
-from src.paths import BUILD_DIR, DIST_DIR
+from src.paths import DIST_DIR
 
 # Features to freeze for WarpnineMono
 MONO_FEATURES = [
@@ -34,7 +34,7 @@ MONO_FEATURES = [
     "liga",
 ]
 
-# Features to freeze for WarpnineSansCondensed
+# Features to freeze for WarpnineSans and WarpnineSansCondensed
 SANS_FEATURES = [
     "ss01",
     "ss02",
@@ -47,7 +47,6 @@ SANS_FEATURES = [
     "ss10",
     "ss12",
     "case",
-    "titl",
     "pnum",
     "liga",
 ]
@@ -58,11 +57,14 @@ MONO_STATIC_PATTERN = "WarpnineMono-[!V]*.ttf"
 # Variable font
 MONO_VF_PATTERN = "WarpnineMono-VF.ttf"
 # Sans condensed fonts
-SANS_PATTERN = "WarpnineSansCondensed-*.ttf"
+SANS_CONDENSED_PATTERN = "WarpnineSansCondensed-*.ttf"
+# Sans fonts (non-condensed)
+SANS_PATTERN = "WarpnineSans-*.ttf"
 
 FONT_CONFIGS = [
     (DIST_DIR, MONO_STATIC_PATTERN, MONO_FEATURES),
     (DIST_DIR, MONO_VF_PATTERN, MONO_FEATURES),
+    (DIST_DIR, SANS_CONDENSED_PATTERN, SANS_FEATURES),
     (DIST_DIR, SANS_PATTERN, SANS_FEATURES),
 ]
 
@@ -91,9 +93,9 @@ def freeze_features_in_font(font_path: Path, features: list[str]) -> bool:
             str(font_path),
             str(temp_path),
         ]
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
         temp_path.replace(font_path)
-        logger.info(f"  ✓ Features frozen successfully")
+        logger.info("  ✓ Features frozen successfully")
         return True
 
     except subprocess.CalledProcessError as e:
