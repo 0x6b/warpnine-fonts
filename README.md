@@ -23,17 +23,11 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 - Variable Font with 2 axes:
   - `wght`: 300 (Light) to 1000 (ExtraBlack)
   - `ital`: 0 (Upright) to 1 (Italic)
-- Programming Ligatures: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (frozen via `dlig`)
+- Programming Ligatures: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (frozen via `dlig` and `liga`)
 - Always-Active OpenType Features (frozen at build time):
-  - `dlig`: Discretionary ligatures (programming ligatures)
-  - `ss01`: Single-story a
-  - `ss02`: Single-story g
-  - `ss04`: Alternate @
-  - `ss05`: Simplified l
-  - `ss07`: Alternate i/j
-  - `ss08`: Serifless L and Z
-  - `ss10`: Dotted 0
-  - `ss12`: Simplified @
+  - `dlig`, `liga`, `pnum`
+  - `ss01` through `ss08`, `ss10`, `ss11`, `ss12`
+  - See [OpenType Features](#opentype-features) for details
 - CJK Support: Full Japanese character coverage (99% Kanji, 98% Hiragana/Katakana)
 - Static Fonts: Light through ExtraBlack, both upright and italic
 - Mixed CASL Style: Light/Regular use Linear (traditional), Medium+ use Casual (rounder)
@@ -101,6 +95,11 @@ uv run subset
 # Merge Recursive Duotone (English) and Noto CJK subset (Japanese) to dist/WarpnineMono-*.ttf.
 uv run merge
 
+# Freeze OpenType features in static mono fonts (while they still have GSUB).
+# Features: dlig, ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss11, ss12, pnum, liga
+# Static fonts are backed up before VF build and restored after.
+uv run freeze-features
+
 # Create a single Variable Font from the static fonts as dist/WarpnineMono-VF.ttf.
 # GSUB tables are removed before building to avoid varLib incompatibility.
 uv run build
@@ -117,9 +116,9 @@ uv run set-monospace
 # Extracts static instances and applies horizontal scaling.
 uv run create-condensed
 
-# Freeze OpenType features into fonts.
-# For WarpnineMono-VF: dlig, ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss11, ss12, pnum, liga
-# For WarpnineSansCondensed: ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss12, case, titl, pnum, liga
+# Freeze OpenType features into VF and Sans fonts.
+# WarpnineMono-VF: dlig, ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss11, ss12, pnum, liga
+# WarpnineSansCondensed: ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss12, case, titl, pnum, liga
 uv run freeze-features
 
 # Embed a version string (`Version yyyy-mm-dd`) into each font.
@@ -148,13 +147,13 @@ The build pipeline creates fonts with frozen OpenType features:
    - Medium and heavier (500-1000): Casual (CASL=1) for better readability
 2. Remove three-backtick ligature from extracted fonts
 3. Merge with Noto CJK using fontforge to add Japanese character support
-4. Build variable font with fontTools varLib (GSUB removed before building)
-5. Copy GSUB table from original Recursive VF, which includes:
-   - Programming ligatures (`liga`, `dlig`)
-   - FeatureVariations for axis-dependent glyph substitutions
-   - All stylistic sets and OpenType features
-6. Create WarpnineSansCondensed from Recursive Sans Linear
-7. Freeze OpenType features using `pyftfeatfreeze` for VF and Sans fonts
+4. Freeze OpenType features in static mono fonts (while GSUB is intact)
+5. Backup frozen static fonts
+6. Build variable font with fontTools varLib (GSUB removed before building)
+7. Copy GSUB table from original Recursive VF to the VF
+8. Restore frozen static fonts
+9. Create WarpnineSansCondensed from Recursive Sans Linear
+10. Freeze OpenType features in VF and Sans fonts
 
 ### Font Axes
 

@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from src.logger import logger
-from src.paths import DIST_DIR
+from src.paths import BUILD_DIR, DIST_DIR
 
 # Features to freeze for WarpnineMono
 MONO_FEATURES = [
@@ -52,10 +52,18 @@ SANS_FEATURES = [
     "liga",
 ]
 
-# Font family configurations
+# Font family configurations: (directory, pattern, features)
+# Static mono fonts (excluding VF)
+MONO_STATIC_PATTERN = "WarpnineMono-[!V]*.ttf"
+# Variable font
+MONO_VF_PATTERN = "WarpnineMono-VF.ttf"
+# Sans condensed fonts
+SANS_PATTERN = "WarpnineSansCondensed-*.ttf"
+
 FONT_CONFIGS = [
-    ("WarpnineMono-VF.ttf", MONO_FEATURES),
-    ("WarpnineSansCondensed-*.ttf", SANS_FEATURES),
+    (DIST_DIR, MONO_STATIC_PATTERN, MONO_FEATURES),
+    (DIST_DIR, MONO_VF_PATTERN, MONO_FEATURES),
+    (DIST_DIR, SANS_PATTERN, SANS_FEATURES),
 ]
 
 
@@ -102,13 +110,13 @@ def main():
     total_fonts = 0
     failures = []
 
-    for pattern, features in FONT_CONFIGS:
-        font_files = sorted(DIST_DIR.glob(pattern))
+    for directory, pattern, features in FONT_CONFIGS:
+        font_files = sorted(directory.glob(pattern))
 
         if not font_files:
             continue
 
-        logger.info(f"Processing {pattern}: {len(font_files)} fonts")
+        logger.info(f"Processing {directory}/{pattern}: {len(font_files)} fonts")
         total_fonts += len(font_files)
 
         for font_path in font_files:
