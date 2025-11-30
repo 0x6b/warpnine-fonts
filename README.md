@@ -70,7 +70,7 @@ That will generate the following fonts:
 
 You can run each step in the build pipeline manually.
 
-```bash
+````bash
 # Download Noto Sans Mono CJK JP and Recursive VF.
 uv run download
 
@@ -101,10 +101,6 @@ uv run subset
 # Merge Recursive Duotone (English) and Noto CJK subset (Japanese) to dist/WarpnineMono-*.ttf.
 uv run merge
 
-# Freeze OpenType features (dlig, ss01, ss02, ss04, ss05, ss07, ss08, ss10, ss12) into static fonts.
-# This makes these features always active in static fonts without requiring application support.
-uv run freeze-features
-
 # Create a single Variable Font from the static fonts as dist/WarpnineMono-VF.ttf.
 # GSUB tables are removed before building to avoid varLib incompatibility.
 uv run build
@@ -113,10 +109,6 @@ uv run build
 # This adds back all the OpenType features and ligatures to the variable font.
 uv run copy-gsub
 
-# Freeze OpenType features in the variable font as well.
-# Ensures the VF has the same frozen features as the static fonts.
-uv run freeze-vf-features
-
 # Ensure every output font advertises itself as monospaced:
 # This updates post.isFixedPitch, OS/2.panose.bProportion, and OS/2.xAvgCharWidth for all fonts in dist/.
 uv run set-monospace
@@ -124,6 +116,11 @@ uv run set-monospace
 # Create condensed variant of Recursive Sans Linear (proportional, 85% width, Latin only).
 # Extracts static instances and applies horizontal scaling.
 uv run create-condensed
+
+# Freeze OpenType features into fonts.
+# For WarpnineMono-VF: dlig, ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss11, ss12, pnum, liga
+# For WarpnineSansCondensed: ss01, ss02, ss03, ss04, ss05, ss06, ss07, ss08, ss10, ss12, case, titl, pnum, liga
+uv run freeze-features
 
 # Embed a version string (`Version yyyy-mm-dd`) into each font.
 # The script synchronises the `name` and `head` tables so downstream apps see a consistent version number.
@@ -138,7 +135,7 @@ uv run python -m http.server 8000
 
 # Clean up
 uv run clean
-```
+````
 
 ## Technical Details
 
@@ -151,15 +148,13 @@ The build pipeline creates fonts with frozen OpenType features:
    - Medium and heavier (500-1000): Casual (CASL=1) for better readability
 2. Remove three-backtick ligature from extracted fonts
 3. Merge with Noto CJK using fontforge to add Japanese character support
-4. Freeze OpenType features using `pyftfeatfreeze`:
-   - Static fonts: Features permanently applied to glyphs, GSUB removed
-   - Variable font: Features frozen after copying GSUB from Recursive VF
-5. Build variable font with fontTools varLib (GSUB removed before building)
-6. Copy GSUB table from original Recursive VF, which includes:
+4. Build variable font with fontTools varLib (GSUB removed before building)
+5. Copy GSUB table from original Recursive VF, which includes:
    - Programming ligatures (`liga`, `dlig`)
    - FeatureVariations for axis-dependent glyph substitutions
    - All stylistic sets and OpenType features
-7. Freeze features in VF to match static fonts
+6. Create WarpnineSansCondensed from Recursive Sans Linear
+7. Freeze OpenType features using `pyftfeatfreeze` for VF and Sans fonts
 
 ### Font Axes
 
@@ -171,27 +166,48 @@ The build pipeline creates fonts with frozen OpenType features:
 
 ### OpenType Features
 
-#### Always-Active Features (Frozen at Build)
+See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-code-config) for detail of the each feature.
 
-These features are permanently applied to all glyphs:
+#### WarpnineMono (Frozen at Build)
 
 - `dlig`: Discretionary ligatures (programming ligatures: `->`, `=>`, `>=`, `!=`, `===`, etc.)
+- `liga`: Standard ligatures
+- `pnum`: Proportional figures
 - `ss01`: Single-story a
 - `ss02`: Single-story g
-- `ss04`: Alternate @ symbol
+- `ss03`: Simplified f
+- `ss04`: Simplified i
 - `ss05`: Simplified l
-- `ss07`: Alternate i/j
+- `ss06`: Simplified r
+- `ss07`: Serifless I
+- `ss08`: Serifless L and Z
+- `ss10`: Dotted 0
+- `ss11`: Simplified 1
+- `ss12`: Simplified @
+
+#### WarpnineSansCondensed (Frozen at Build)
+
+- `case`: Case-sensitive forms
+- `liga`: Standard ligatures
+- `pnum`: Proportional figures
+- `titl`: Titling alternates
+- `ss01`: Single-story a
+- `ss02`: Single-story g
+- `ss03`: Simplified f
+- `ss04`: Simplified i
+- `ss05`: Simplified l
+- `ss06`: Simplified r
+- `ss07`: Serifless I
 - `ss08`: Serifless L and Z
 - `ss10`: Dotted 0
 - `ss12`: Simplified @
 
 #### Additional Features (Variable Font)
 
-The variable font retains 30+ OpenType features from Recursive:
+The variable font retains additional OpenType features from Recursive:
 
-- Ligatures: `liga`, `calt`
-- Stylistic Sets: `ss03`, `ss06`, `ss09`, `ss11`, `ss20`
-- Other: `zero`, `case`, `frac`, `locl`, and more
+- Stylistic Sets: `ss09`, `ss20`
+- Other: `zero`, `frac`, `locl`, `calt`, and more
 
 ## License
 

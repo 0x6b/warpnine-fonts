@@ -3,8 +3,8 @@
 Script to run all build steps in order.
 
 Runs clean → download → extract-duotone → remove-ligatures → extract-weights →
-subset → merge → freeze-features → build → copy-gsub → freeze-vf-features →
-set-monospace → create-condensed → set-version in order.
+subset → merge → build → copy-gsub → set-monospace → create-condensed →
+freeze-features → set-version in order.
 
 An optional --date flag can be passed to stamp a specific version date (YYYY-MM-DD).
 If omitted, set-version uses today's date.
@@ -21,7 +21,6 @@ from src.download_fonts import main as download_main
 from src.extract_duotone import main as extract_duotone_main
 from src.extract_weights import main as extract_weights_main
 from src.freeze_features import main as freeze_main
-from src.freeze_vf_features import main as freeze_vf_main
 from src.logger import logger
 from src.merge import main as merge_main
 from src.remove_ligatures import main as remove_ligatures_main
@@ -66,12 +65,11 @@ def main():
         ("extract-weights", extract_weights_main),
         ("subset", subset_main),
         ("merge", merge_main),
-        ("freeze-features", freeze_main),
         ("build", build_main),
         ("copy-gsub", copy_gsub_main),
-        ("freeze-vf-features", freeze_vf_main),
         ("set-monospace", monospace_main),
         ("create-condensed", condensed_main),
+        ("freeze-features", freeze_main),
     ]
 
     logger.info("Running all build steps")

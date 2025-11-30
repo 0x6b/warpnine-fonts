@@ -2,9 +2,8 @@
 """
 Script to freeze OpenType features into fonts.
 
-Permanently applies specific OpenType feature substitutions (dlig, ss01, ss02, ss04,
-ss05, ss07, ss08, ss10, ss12) to glyph outlines, making these features always active
-without requiring application support.
+Permanently applies specific OpenType feature substitutions to glyph outlines,
+making these features always active without requiring application support.
 
 This approach is based on recursive-code-config:
 https://github.com/arrowtype/recursive-code-config
@@ -17,34 +16,62 @@ from pathlib import Path
 from src.logger import logger
 from src.paths import DIST_DIR
 
-# Features to freeze
-# Note: 'case' feature is excluded as it can cause issues with feature freezing
-# (see recursive-code-config issue #20)
-FEATURES = [
+# Features to freeze for WarpnineMono
+MONO_FEATURES = [
     "dlig",
     "ss01",
     "ss02",
+    "ss03",
     "ss04",
     "ss05",
+    "ss06",
+    "ss07",
+    "ss08",
+    "ss10",
+    "ss11",
+    "ss12",
+    "pnum",
+    "liga",
+]
+
+# Features to freeze for WarpnineSansCondensed
+SANS_FEATURES = [
+    "ss01",
+    "ss02",
+    "ss03",
+    "ss04",
+    "ss05",
+    "ss06",
     "ss07",
     "ss08",
     "ss10",
     "ss12",
+    "case",
+    "titl",
+    "pnum",
+    "liga",
+]
+
+# Font family configurations
+FONT_CONFIGS = [
+    ("WarpnineMono-VF.ttf", MONO_FEATURES),
+    ("WarpnineSansCondensed-*.ttf", SANS_FEATURES),
 ]
 
 
-def freeze_features_in_font(font_path: Path) -> bool:
+def freeze_features_in_font(font_path: Path, features: list[str]) -> bool:
     """
     Freeze OpenType features into a font file using pyftfeatfreeze.
 
     Args:
         font_path: Path to the font file
+        features: List of feature tags to freeze
 
     Returns:
         True if successful, False if failed
     """
     logger.info(f"Freezing features in {font_path.name}")
-    features_str = f"rvrn,{','.join(FEATURES)}"
+    features_str = f"rvrn,{','.join(features)}"
     logger.info(f"  Features: {features_str}")
 
     temp_path = font_path.with_suffix(".tmp.ttf")
@@ -72,25 +99,29 @@ def freeze_features_in_font(font_path: Path) -> bool:
 
 def main():
     """Freeze features in all static fonts"""
-    font_files = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))
+    total_fonts = 0
+    failures = []
 
-    if not font_files:
-        logger.error("No WarpnineMono fonts found in dist/")
-        logger.error("  Run merge first")
+    for pattern, features in FONT_CONFIGS:
+        font_files = sorted(DIST_DIR.glob(pattern))
+
+        if not font_files:
+            continue
+
+        logger.info(f"Processing {pattern}: {len(font_files)} fonts")
+        total_fonts += len(font_files)
+
+        for font_path in font_files:
+            if not freeze_features_in_font(font_path, features):
+                failures.append(font_path.name)
+
+    if total_fonts == 0:
+        logger.error("No fonts found in dist/")
         sys.exit(1)
 
-    logger.info(f"Found {len(font_files)} fonts to process")
-
-    failures = []
-    for font_path in font_files:
-        if not freeze_features_in_font(font_path):
-            failures.append(font_path.name)
-
     # Summary
-    success_count = len(font_files) - len(failures)
-    logger.info(
-        f"Feature freezing summary: {success_count}/{len(font_files)} successful"
-    )
+    success_count = total_fonts - len(failures)
+    logger.info(f"Feature freezing summary: {success_count}/{total_fonts} successful")
 
     if failures:
         logger.error(f"Failed to freeze features in {len(failures)} fonts:")
