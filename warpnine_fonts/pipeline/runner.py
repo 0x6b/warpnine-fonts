@@ -17,7 +17,7 @@ from warpnine_fonts.operations.merge import (
     remove_ligatures_from_duotone,
 )
 from warpnine_fonts.operations.metadata import (
-    parse_date_string,
+    parse_version_string,
     set_monospace,
     stamp_font,
 )
@@ -69,15 +69,15 @@ def restore_frozen_static() -> None:
     logger.info("Restore complete")
 
 
-def run_set_version(date_str: str | None) -> None:
-    """Run set-version step with optional date argument."""
-    target_date = parse_date_string(date_str)
+def run_set_version(version_str: str | None) -> None:
+    """Run set-version step with optional version argument."""
+    target_date, version_tag = parse_version_string(version_str)
     fonts = sorted(DIST_DIR.glob("*.ttf"))
     if not fonts:
         logger.warning(f"No .ttf files found in {DIST_DIR}/")
         return
     for font_path in fonts:
-        stamp_font(font_path, target_date)
+        stamp_font(font_path, target_date, version_tag)
     logger.info("Version stamping complete.")
 
 
@@ -117,7 +117,7 @@ def run_all(date_string: str | None = None) -> None:
       17. set-version     - Stamp version date into all fonts
 
     Args:
-        date_string: Optional date to stamp (YYYY-MM-DD). Defaults to today.
+        date_string: Optional version to stamp (YYYY-MM-DD or YYYY-MM-DD.N). Defaults to today.
     """
     steps: list[tuple[str, Callable[[], None]]] = [
         ("clean", clean),

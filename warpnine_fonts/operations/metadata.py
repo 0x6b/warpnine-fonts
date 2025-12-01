@@ -54,20 +54,43 @@ def set_monospace() -> None:
     logger.info("Monospace metadata applied to all dist fonts.")
 
 
-def parse_date_string(value: str | None) -> date:
-    """Parse a date string or return today's date."""
+def parse_version_string(value: str | None) -> tuple[date, str]:
+    """
+    Parse a version string or return today's date.
+
+    Accepts formats:
+    - YYYY-MM-DD (e.g., 2024-12-01)
+    - YYYY-MM-DD.N (e.g., 2024-12-01.1)
+
+    Returns a tuple of (date, full_version_string).
+    """
     if value is None:
-        return date.today()
+        today = date.today()
+        return today, today.strftime("%Y-%m-%d")
+
+    # Try YYYY-MM-DD.N format first
+    if "." in value:
+        date_part, build_num = value.rsplit(".", 1)
+        try:
+            parsed_date = datetime.strptime(date_part, "%Y-%m-%d").date()
+            # Validate build number is numeric
+            int(build_num)
+            return parsed_date, value
+        except ValueError:
+            pass
+
+    # Try plain YYYY-MM-DD format
     try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
+        parsed_date = datetime.strptime(value, "%Y-%m-%d").date()
+        return parsed_date, value
     except ValueError as exc:
-        msg = f"Invalid date '{value}'. Expected YYYY-MM-DD."
+        msg = f"Invalid version '{value}'. Expected YYYY-MM-DD or YYYY-MM-DD.N."
         raise SystemExit(msg) from exc
 
 
-def format_version_string(target_date: date) -> str:
-    """Format version string from date."""
-    return f"Version {target_date:%Y-%m-%d}"
+def format_version_string(version: str) -> str:
+    """Format version string for name table."""
+    return f"Version {version}"
 
 
 def compute_font_revision(target_date: date) -> float:
@@ -83,10 +106,9 @@ def encode_name(record, text: str) -> None:
         record.string = text.encode("utf-16-be")
 
 
-def stamp_font(font_path: Path, target_date: date) -> None:
+def stamp_font(font_path: Path, target_date: date, version_tag: str) -> None:
     """Stamp version date into a font."""
-    version_string = format_version_string(target_date)
-    version_tag = target_date.strftime("%Y-%m-%d")
+    version_string = format_version_string(version_tag)
     revision_value = compute_font_revision(target_date)
 
     logger.info(f"{font_path.name}:")
@@ -118,9 +140,9 @@ def stamp_font(font_path: Path, target_date: date) -> None:
     logger.info(f"  Updated {updated} name records")
 
 
-def set_version(date_string: str | None = None) -> None:
+def set_version(version_string: str | None = None) -> None:
     """Set version date on all dist fonts."""
-    target_date = parse_date_string(date_string)
+    target_date, version_tag = parse_version_string(version_string)
 
     fonts = list(iter_fonts(DIST_DIR))
 
@@ -129,6 +151,6 @@ def set_version(date_string: str | None = None) -> None:
         return
 
     for font_path in fonts:
-        stamp_font(font_path, target_date)
+        stamp_font(font_path, target_date, version_tag)
 
     logger.info("Version stamping complete.")

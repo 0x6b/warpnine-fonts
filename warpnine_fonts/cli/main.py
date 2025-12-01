@@ -154,31 +154,31 @@ def freeze_vf_and_sans():
 @build.command("set-version")
 @click.option(
     "--date",
-    "date_string",
+    "version_string",
     type=str,
     default=None,
-    help="Date to embed (YYYY-MM-DD). Defaults to today.",
+    help="Version to embed (YYYY-MM-DD or YYYY-MM-DD.N). Defaults to today.",
 )
-def set_version(date_string):
+def set_version(version_string):
     """Stamp version date into fonts."""
     from warpnine_fonts.operations.metadata import set_version as do_set
 
-    do_set(date_string)
+    do_set(version_string)
 
 
 @build.command()
 @click.option(
     "--date",
-    "date_string",
+    "version_string",
     type=str,
     default=None,
-    help="Version date (YYYY-MM-DD). Defaults to today.",
+    help="Version (YYYY-MM-DD or YYYY-MM-DD.N). Defaults to today.",
 )
-def all(date_string):
+def all(version_string):
     """Run complete build pipeline."""
     from warpnine_fonts.pipeline.runner import run_all
 
-    run_all(date_string)
+    run_all(version_string)
 
 
 @cli.group()
