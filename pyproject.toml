@@ -1,17 +1,20 @@
 [project]
-name = "warpnine-mono"
+name = "warpnine-fonts"
 version = "0.1.0"
-description = "Custom monospace font combining Recursive Duotone and Noto Sans Mono CJK JP"
+description = "Custom fonts combining Recursive and Noto Sans Mono CJK JP"
 requires-python = ">=3.10"
 dependencies = [
     "fonttools[unicode]>=4.60.1",
     "opentype-feature-freezer>=1.32.2",
     "requests>=2.32.5",
+    "click>=8.1.0",
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.8.4",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
 ]
 
 [build-system]
@@ -19,25 +22,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-all = "src.all:main"
-clean = "src.clean:main"
-download = "src.download_fonts:main"
-extract-duotone = "src.extract_duotone:main"
-extract-weights = "src.extract_weights:main"
-subset = "src.subset:main"
-merge = "src.merge:main"
-freeze-features = "src.freeze_features:main"
-remove-ligatures = "src.remove_ligatures:main"
-build = "src.build_variable:main"
-copy-gsub = "src.copy_gsub_to_vf:main"
-set-monospace = "src.set_monospace:main"
-set-version = "src.set_version:main"
-test = "src.test:main"
-create-condensed = "src.create_condensed:main"
-create-sans = "src.create_sans:main"
+warpnine = "warpnine_fonts.cli.main:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["warpnine_fonts"]
 
 [tool.ruff]
 target-version = "py310"
@@ -56,3 +44,8 @@ ignore = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
