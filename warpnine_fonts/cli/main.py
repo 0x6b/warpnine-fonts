@@ -203,13 +203,26 @@ def frozen():
     validate_frozen()
 
 
+@validate.command()
+def sans():
+    """Validate WarpnineSans and WarpnineSansCondensed fonts."""
+    from warpnine_fonts.pipeline.validate import validate_sans
+
+    validate_sans()
+
+
 @validate.command("all")
 def validate_all():
-    """Run all validation tests (vf + frozen)."""
-    from warpnine_fonts.pipeline.validate import validate_frozen, validate_vf
+    """Run all validation tests (vf + frozen + sans)."""
+    from warpnine_fonts.pipeline.validate import (
+        validate_frozen,
+        validate_sans,
+        validate_vf,
+    )
 
     validate_vf()
     validate_frozen()
+    validate_sans()
 
 
 if __name__ == "__main__":

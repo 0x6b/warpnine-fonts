@@ -213,6 +213,9 @@ def create_condensed() -> None:
         scale_horizontal_metrics(font, CONDENSED_WIDTH)
         scale_font_wide_metrics(font, CONDENSED_WIDTH)
 
+        # Set width class to Condensed (3)
+        font["OS/2"].usWidthClass = 3
+
         # Update names
         update_sans_name_table(font, "Warpnine Sans Condensed", instance.style)
 

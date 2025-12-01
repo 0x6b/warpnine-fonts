@@ -9,7 +9,12 @@ from pathlib import Path
 
 from fontTools.ttLib import TTFont
 
-from warpnine_fonts.config.paths import DIST_DIR, WARPNINE_MONO
+from warpnine_fonts.config.paths import (
+    DIST_DIR,
+    WARPNINE_MONO,
+    WARPNINE_SANS,
+    WARPNINE_SANS_CONDENSED,
+)
 from warpnine_fonts.utils.logging import logger
 
 
@@ -389,4 +394,88 @@ def validate_frozen() -> None:
         logger.info(f"All {fonts_checked} fonts have correctly frozen features")
     else:
         logger.error("Some fonts have incorrect frozen features")
+        sys.exit(1)
+
+
+def test_sans_width_class(font_path: Path, expected_width_class: int) -> bool:
+    """Test that a sans font has the expected OS/2 usWidthClass."""
+    try:
+        font = TTFont(font_path)
+    except Exception as e:
+        logger.error(f"Failed to load font: {e}")
+        return False
+
+    actual = font["OS/2"].usWidthClass
+    font.close()
+
+    if actual == expected_width_class:
+        logger.info(f"  usWidthClass: {actual} (correct)")
+        return True
+    else:
+        logger.error(f"  usWidthClass: {actual} (expected {expected_width_class})")
+        return False
+
+
+def test_sans_family_name(font_path: Path, expected_family: str) -> bool:
+    """Test that a sans font has the expected typographic family name (nameID 16)."""
+    try:
+        font = TTFont(font_path)
+    except Exception as e:
+        logger.error(f"Failed to load font: {e}")
+        return False
+
+    name_table = font["name"]
+    typographic_family = name_table.getDebugName(16)
+    font.close()
+
+    if typographic_family == expected_family:
+        logger.info(f"  Typographic family: {typographic_family} (correct)")
+        return True
+    else:
+        logger.error(
+            f"  Typographic family: {typographic_family} (expected {expected_family})"
+        )
+        return False
+
+
+def validate_sans() -> None:
+    """Validate WarpnineSans and WarpnineSansCondensed fonts."""
+    logger.info("Validating Sans fonts")
+
+    # Width class values:
+    # 3 = Condensed
+    # 5 = Normal (Medium)
+    font_configs = [
+        (WARPNINE_SANS, "Warpnine Sans", 5),
+        (WARPNINE_SANS_CONDENSED, "Warpnine Sans Condensed", 3),
+    ]
+
+    all_passed = True
+    fonts_checked = 0
+
+    for prefix, expected_family, expected_width_class in font_configs:
+        font_files = sorted(DIST_DIR.glob(f"{prefix}-*.ttf"))
+
+        if not font_files:
+            logger.warning(f"No {prefix} fonts found")
+            continue
+
+        logger.info(f"--- {prefix} ({len(font_files)} fonts) ---")
+
+        for font_path in font_files:
+            logger.info(f"Checking {font_path.name}")
+            if not test_sans_width_class(font_path, expected_width_class):
+                all_passed = False
+            if not test_sans_family_name(font_path, expected_family):
+                all_passed = False
+            fonts_checked += 1
+
+    if fonts_checked == 0:
+        logger.error("No sans fonts found to validate")
+        sys.exit(1)
+
+    if all_passed:
+        logger.info(f"All {fonts_checked} sans fonts validated successfully")
+    else:
+        logger.error("Some sans fonts failed validation")
         sys.exit(1)
