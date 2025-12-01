@@ -4,11 +4,13 @@ on:
   push:
     tags:
       - 'v[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+      - 'v[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9]*'
       - '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+      - '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9]*'
   workflow_dispatch:
     inputs:
-      version_date:
-        description: 'Version date (YYYY-MM-DD)'
+      version:
+        description: 'Version (YYYY-MM-DD or YYYY-MM-DD.N)'
         required: true
         default: ''
         type: string
@@ -24,18 +26,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Determine version date
+      - name: Determine version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            DATE="${{ inputs.version_date }}"
+            VERSION="${{ inputs.version }}"
           else
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             # Remove 'v' prefix if present
-            DATE="${TAG_NAME#v}"
+            VERSION="${TAG_NAME#v}"
           fi
-          echo "date=${DATE}" >> $GITHUB_OUTPUT
-          echo "Version date: ${DATE}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
 
       - name: Install FontForge
         run: |
@@ -53,7 +55,7 @@ jobs:
           python-version: '3.10'
 
       - name: Build fonts
-        run: uv run warpnine build all --date ${{ steps.version.outputs.date }}
+        run: uv run warpnine build all --date ${{ steps.version.outputs.version }}
 
       - name: Validate fonts
         run: uv run warpnine validate all
@@ -61,7 +63,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.date }}
+          tag_name: v${{ steps.version.outputs.version }}
           files: |
             dist/*.ttf
             OFL
