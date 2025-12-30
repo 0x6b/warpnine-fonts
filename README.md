@@ -14,7 +14,7 @@ Pre-built fonts are available from [GitHub Releases](https://github.com/0x6b/war
 - Variable Font: `WarpnineMono-VF.ttf` (recommended)
 - Static Fonts: Light through ExtraBlack, upright and italic
 - Sans Fonts: `WarpnineSans-*.ttf` (proportional sans-serif, Latin only)
-- Condensed Fonts: `WarpnineSansCondensed-*.ttf` (proportional sans-serif, 85% width, Latin only)
+- Condensed Fonts: `WarpnineSansCondensed-*.ttf` (proportional sans-serif, 90% width, Latin only)
 - License file: `OFL`
 
 Releases are automatically built and published via GitHub Actions when a tag matching the pattern `v[YYYY-MM-DD]` or `[YYYY-MM-DD]` is pushed.

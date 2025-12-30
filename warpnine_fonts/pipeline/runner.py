@@ -111,7 +111,7 @@ def run_all(date_string: str | None = None) -> None:
       11. copy-gsub       - Copy GSUB table from Recursive VF to WarpnineMono VF
       12. restore-frozen  - Restore frozen static fonts from backup
       13. set-monospace   - Set monospace flags on all fonts in dist/
-      14. create-condensed - Create WarpnineSansCondensed (85% width)
+      14. create-condensed - Create WarpnineSansCondensed (90% width)
       15. create-sans     - Create WarpnineSans (proportional, Latin only)
       16. freeze-vf-sans  - Freeze features in VF and Sans fonts
       17. set-version     - Stamp version date into all fonts

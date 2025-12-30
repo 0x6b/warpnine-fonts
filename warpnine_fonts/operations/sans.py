@@ -20,7 +20,7 @@ from warpnine_fonts.core.instancer import extract_recursive_instance
 from warpnine_fonts.utils.logging import logger
 
 # Condensed width factor
-CONDENSED_WIDTH = 0.85
+CONDENSED_WIDTH = 0.90
 
 
 def update_sans_name_table(font: TTFont, family: str, style: str) -> None:
