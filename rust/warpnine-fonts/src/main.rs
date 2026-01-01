@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::path::PathBuf;
 
 mod clean;
+mod download;
 mod freeze;
 mod instance;
 mod merge;
@@ -28,6 +29,12 @@ enum Commands {
         /// Dist directory to clean
         #[arg(long, default_value = "dist")]
         dist_dir: PathBuf,
+    },
+    /// Download source fonts (Recursive VF, Noto CJK)
+    Download {
+        /// Build directory to download to
+        #[arg(long, default_value = "build")]
+        build_dir: PathBuf,
     },
     /// Set monospace flags on font files
     SetMonospace {
@@ -106,6 +113,9 @@ fn main() -> Result<()> {
             dist_dir,
         } => {
             clean::clean(&build_dir, &dist_dir)?;
+        }
+        Commands::Download { build_dir } => {
+            download::download(&build_dir)?;
         }
         Commands::SetMonospace { files } => {
             let results: Vec<_> = files

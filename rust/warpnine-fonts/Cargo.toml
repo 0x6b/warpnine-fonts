@@ -14,6 +14,8 @@ chrono = "0.4"
 rayon = "1.10"
 log = "0.4"
 env_logger = "0.11"
+reqwest = { version = "0.12", features = ["blocking"] }
+zip = "2"
 
 # Local font processing crates
 font-feature-freezer = { path = "../../../font-feature-freezer", default-features = false }
