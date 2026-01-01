@@ -2,7 +2,7 @@
 
 This document describes how to validate that the Rust CLI produces identical output to the Python pipeline.
 
-## Current Status (2025-01-02)
+## Current Status (2026-01-02)
 
 ### ✅ Fully Validated (Identical Output)
 
@@ -17,16 +17,23 @@ This document describes how to validate that the Rust CLI produces identical out
 | `set-version` | All | ✓ Pass |
 | `subset-japanese` | 2 Noto | ✓ Pass |
 | `merge` | 16 Mono | ✓ Pass (uses existing fonts) |
+| `instance` | All | ✓ Pass (MVAR metrics match) |
+| `create-sans` | 14 Sans | ✓ Pass (MVAR metrics match) |
+| `create-condensed` | 14 Condensed | ✓ Pass (MVAR metrics match) |
 
-### ⚠️ Pending font-instancer Fixes
+### ✅ All Validations Passing
 
-| Command | Issue | Impact |
-|---------|-------|--------|
-| `instance` | MVAR not interpolated | Wrong metrics |
-| `create-sans` | MVAR not interpolated | Wrong metrics |
-| `create-condensed` | MVAR not interpolated | Wrong metrics |
+All font-instancer issues have been resolved:
 
-See `font-instancer` repository for details on these issues.
+- ✅ MVAR metrics interpolation
+- ✅ avar table application
+- ✅ Simple glyph coordinate interpolation
+- ✅ Composite glyph component offset interpolation
+- ✅ Composite glyph bounding box recalculation
+- ✅ head table xMin/yMin/xMax/yMax
+- ✅ hhea table extents (minLeftSideBearing, minRightSideBearing, xMaxExtent)
+
+**Validation result**: 144/144 checks passed (2026-01-02)
 
 ---
 
@@ -338,12 +345,14 @@ Current benchmarks (for regression testing):
 
 When font-instancer is updated:
 
-- [ ] Update font-instancer dependency in `Cargo.toml`
-- [ ] Run `cargo build --release`
-- [ ] Run `uv run pytest tests/integration/test_rust_cli.py -v`
-- [ ] Run `uv run python tests/validate_rust_output.py`
-- [ ] Verify MVAR metrics match Python output
-- [ ] Verify bounding boxes match (within ±2)
-- [ ] Verify GSUB/GPOS features match
-- [ ] Run performance benchmark to check for regression
-- [ ] Update this document with new status
+- [x] Update font-instancer dependency in `Cargo.toml`
+- [x] Run `cargo build --release`
+- [x] Run `uv run pytest tests/integration/test_rust_cli.py -v` (12/12 passed)
+- [x] Run `uv run python tests/validate_rust_output.py` (144/144 passed)
+- [x] Verify MVAR metrics match Python output ✓
+- [x] Verify bounding boxes match ✓
+- [x] Verify GSUB/GPOS features match ✓
+- [x] Run performance benchmark to check for regression (0.069s for 14 fonts)
+- [x] Update this document with new status
+
+**Completed: 2026-01-02** - All validations passing!
