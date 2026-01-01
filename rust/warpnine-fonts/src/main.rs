@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::path::PathBuf;
 
 mod clean;
+mod condense;
 mod copy_table;
 mod download;
 mod freeze;
@@ -11,6 +12,7 @@ mod instance;
 mod ligatures;
 mod merge;
 mod metadata;
+mod sans;
 mod subset;
 
 #[derive(Parser)]
@@ -106,6 +108,27 @@ enum Commands {
         /// Output font file
         #[arg(short, long)]
         output: PathBuf,
+    },
+    /// Create WarpnineSans fonts from Recursive VF
+    CreateSans {
+        /// Input variable font
+        #[arg(long)]
+        input: PathBuf,
+        /// Output directory
+        #[arg(long, default_value = "dist")]
+        output_dir: PathBuf,
+    },
+    /// Create WarpnineSansCondensed fonts from Recursive VF
+    CreateCondensed {
+        /// Input variable font
+        #[arg(long)]
+        input: PathBuf,
+        /// Output directory
+        #[arg(long, default_value = "dist")]
+        output_dir: PathBuf,
+        /// Horizontal scale factor (default: 0.90)
+        #[arg(long, default_value = "0.90")]
+        scale: f32,
     },
 }
 
@@ -221,6 +244,16 @@ fn main() -> Result<()> {
         }
         Commands::Merge { inputs, output } => {
             merge::merge_fonts(&inputs, &output)?;
+        }
+        Commands::CreateSans { input, output_dir } => {
+            sans::create_sans(&input, &output_dir)?;
+        }
+        Commands::CreateCondensed {
+            input,
+            output_dir,
+            scale,
+        } => {
+            condense::create_condensed(&input, &output_dir, scale)?;
         }
     }
 
