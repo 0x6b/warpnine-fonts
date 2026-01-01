@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
-use font_instancer::{instantiate, AxisLocation};
+use font_instancer::{AxisLocation, instantiate};
 use read_fonts::{FontRef, TableProvider};
 use std::fs;
 use std::path::Path;
 use write_fonts::{
-    tables::name::{Name, NameRecord},
     FontBuilder,
+    tables::name::{Name, NameRecord},
 };
 
 #[derive(Clone, Copy)]
@@ -17,7 +17,11 @@ pub struct SansInstance {
 
 impl SansInstance {
     const fn new(style: &'static str, wght: f32, italic: bool) -> Self {
-        Self { style, wght, italic }
+        Self {
+            style,
+            wght,
+            italic,
+        }
     }
 
     pub fn mono(&self) -> f32 {
@@ -133,6 +137,10 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
         success += 1;
     }
 
-    println!("Created {} sans fonts in {}/", success, output_dir.display());
+    println!(
+        "Created {} sans fonts in {}/",
+        success,
+        output_dir.display()
+    );
     Ok(())
 }

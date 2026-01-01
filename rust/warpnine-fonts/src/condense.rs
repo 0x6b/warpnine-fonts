@@ -1,21 +1,24 @@
 use anyhow::{Context, Result};
-use font_instancer::{instantiate, AxisLocation};
+use font_instancer::{AxisLocation, instantiate};
 use read_fonts::tables::glyf::CurvePoint;
 use read_fonts::types::GlyphId;
 use read_fonts::{FontRef, TableProvider};
 use std::fs;
 use std::path::Path;
 use write_fonts::{
+    FontBuilder,
     from_obj::ToOwnedTable,
     tables::{
-        glyf::{Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyph, GlyfLocaBuilder, SimpleGlyph, Transform},
+        glyf::{
+            Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, GlyfLocaBuilder,
+            Glyph, SimpleGlyph, Transform,
+        },
         head::Head,
         hhea::Hhea,
         hmtx::{Hmtx, LongMetric},
         name::{Name, NameRecord},
         os2::Os2,
     },
-    FontBuilder,
 };
 
 use crate::sans::SANS_INSTANCES;
@@ -75,7 +78,11 @@ fn update_condensed_name_table(font_data: &[u8], family: &str, style: &str) -> R
 
 fn scale_simple_glyph(glyph: &read_fonts::tables::glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
     let mut contours = Vec::new();
-    let end_pts: Vec<u16> = glyph.end_pts_of_contours().iter().map(|e| e.get()).collect();
+    let end_pts: Vec<u16> = glyph
+        .end_pts_of_contours()
+        .iter()
+        .map(|e| e.get())
+        .collect();
     let all_points: Vec<CurvePoint> = glyph.points().collect();
 
     let mut start = 0usize;
@@ -129,11 +136,21 @@ fn scale_composite_glyph(
             glyph: c.glyph,
             anchor: new_anchor,
             flags: ComponentFlags {
-                round_xy_to_grid: c.flags.contains(read_fonts::tables::glyf::CompositeGlyphFlags::ROUND_XY_TO_GRID),
-                use_my_metrics: c.flags.contains(read_fonts::tables::glyf::CompositeGlyphFlags::USE_MY_METRICS),
-                scaled_component_offset: c.flags.contains(read_fonts::tables::glyf::CompositeGlyphFlags::SCALED_COMPONENT_OFFSET),
-                unscaled_component_offset: c.flags.contains(read_fonts::tables::glyf::CompositeGlyphFlags::UNSCALED_COMPONENT_OFFSET),
-                overlap_compound: c.flags.contains(read_fonts::tables::glyf::CompositeGlyphFlags::OVERLAP_COMPOUND),
+                round_xy_to_grid: c
+                    .flags
+                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::ROUND_XY_TO_GRID),
+                use_my_metrics: c
+                    .flags
+                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::USE_MY_METRICS),
+                scaled_component_offset: c.flags.contains(
+                    read_fonts::tables::glyf::CompositeGlyphFlags::SCALED_COMPONENT_OFFSET,
+                ),
+                unscaled_component_offset: c.flags.contains(
+                    read_fonts::tables::glyf::CompositeGlyphFlags::UNSCALED_COMPONENT_OFFSET,
+                ),
+                overlap_compound: c
+                    .flags
+                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::OVERLAP_COMPOUND),
             },
             transform: new_transform,
         });

@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{Datelike, NaiveDate};
 use read_fonts::{FontRef, TableProvider};
 use std::fs;
 use std::path::Path;
 use write_fonts::{
+    FontBuilder,
     from_obj::ToOwnedTable,
     tables::{
         head::Head,
@@ -11,7 +12,6 @@ use write_fonts::{
         os2::Os2,
         post::Post,
     },
-    FontBuilder,
 };
 
 // Monospace settings
@@ -141,8 +141,10 @@ pub fn set_version(path: &Path, target_date: NaiveDate, version_tag: &str) -> Re
                     .filter(|s: &&str| !s.is_empty())
                     .collect();
                 let new_parts = if !parts.is_empty() {
-                    let mut new_parts: Vec<String> =
-                        parts[..parts.len() - 1].iter().map(|s: &&str| s.to_string()).collect();
+                    let mut new_parts: Vec<String> = parts[..parts.len() - 1]
+                        .iter()
+                        .map(|s: &&str| s.to_string())
+                        .collect();
                     new_parts.push(version_tag.to_string());
                     new_parts
                 } else {

@@ -1,66 +1,30 @@
 use anyhow::{Context, Result};
-use read_fonts::tables::gsub::SubstitutionSubtables;
-use read_fonts::types::{GlyphId, GlyphId16 as ReadGlyphId16};
-use read_fonts::{FontRef, TableProvider};
+use read_fonts::tables::gsub::{ChainedSequenceContext, SubstitutionSubtables};
+use read_fonts::types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16};
+use read_fonts::{FontRef, TableProvider, TableRef};
 use std::fs;
 use std::path::Path;
-use write_fonts::tables::gsub::{SingleSubst, SubstitutionChainContext, SubstitutionLookup};
-use write_fonts::tables::layout::{ChainedSequenceContext, ChainedSequenceContextFormat3, Lookup, LookupFlag};
-use write_fonts::types::GlyphId16;
-use write_fonts::FontBuilder;
 
-fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<GlyphId> {
+fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<u16> {
     let post = font.post().ok()?;
-    for gid in 0..font.maxp().ok()?.num_glyphs() {
+    let num_glyphs = font.maxp().ok()?.num_glyphs();
+    for gid in 0..num_glyphs {
         if let Some(glyph_name) = post.glyph_name(ReadGlyphId16::new(gid)) {
             if glyph_name == name {
-                return Some(GlyphId::new(gid as u32));
+                return Some(gid);
             }
         }
     }
     None
 }
 
-fn coverage_contains_glyph(
-    coverage: &read_fonts::tables::layout::CoverageTable,
-    glyph: GlyphId,
-) -> bool {
-    coverage.iter().any(|g| g == glyph)
-}
-
-fn get_single_subst_mapping(
-    subtable: &read_fonts::tables::gsub::SingleSubst,
-    glyph: GlyphId,
-) -> Option<GlyphId> {
-    match subtable {
-        read_fonts::tables::gsub::SingleSubst::Format1(s) => {
-            let cov = s.coverage().ok()?;
-            if cov.get(glyph).is_some() {
-                let delta = s.delta_glyph_id();
-                let new_gid = (glyph.to_u32() as i32 + delta as i32) as u32;
-                Some(GlyphId::new(new_gid))
-            } else {
-                None
-            }
-        }
-        read_fonts::tables::gsub::SingleSubst::Format2(s) => {
-            let cov = s.coverage().ok()?;
-            let idx = cov.get(glyph)?;
-            let subs = s.substitute_glyph_ids();
-            subs.get(idx as usize).map(|g| GlyphId::new(g.get().to_u32()))
-        }
-    }
-}
-
-fn get_single_subst_coverage<'a>(
-    subtable: &'a read_fonts::tables::gsub::SingleSubst<'a>,
-) -> Option<read_fonts::tables::layout::CoverageTable<'a>> {
-    match subtable {
-        read_fonts::tables::gsub::SingleSubst::Format1(s) => s.coverage().ok(),
-        read_fonts::tables::gsub::SingleSubst::Format2(s) => s.coverage().ok(),
-    }
-}
-
+/// Remove the three-backtick ligature from a font.
+///
+/// The ligature in Recursive fonts uses:
+/// - Type 6 Format 1 chaining contextual substitution
+/// - Rules that match grave+grave+grave and call a ligature lookup
+///
+/// We clear the SubstLookupRecord by setting seq_lookup_count to 0.
 pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
     let data = fs::read(path).context("Failed to read font")?;
     let font = FontRef::new(&data).context("Failed to parse font")?;
@@ -81,278 +45,241 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         }
     };
 
-    let grave3_gid = find_glyph_id_for_name(&font, "grave_grave_grave.code");
+    // Get the raw GSUB table data and its offset in the file
+    let gsub_tag = read_fonts::types::Tag::new(b"GSUB");
+    let gsub_record = font
+        .table_directory
+        .table_records()
+        .iter()
+        .find(|r| r.tag() == gsub_tag)
+        .context("GSUB table not found in directory")?;
+    let gsub_offset = gsub_record.offset() as usize;
 
     let lookup_list = gsub.lookup_list().context("Failed to read lookup list")?;
-    let lookups: Vec<_> = lookup_list.lookups().iter().collect();
 
-    let mut type6_to_clear = Vec::new();
-    let mut type1_to_modify = Vec::new();
-
-    for (lookup_idx, lookup_result) in lookups.iter().enumerate() {
+    for (lookup_idx, lookup_result) in lookup_list.lookups().iter().enumerate() {
         let lookup = match lookup_result {
             Ok(l) => l,
             Err(_) => continue,
         };
 
-        match lookup.subtables() {
-            Ok(SubstitutionSubtables::ChainContextual(subtables)) => {
-                for subtable_result in subtables.iter() {
-                    if let Ok(
-                        read_fonts::tables::gsub::ChainedSequenceContext::Format3(subtable),
-                    ) = subtable_result
-                    {
-                        let input_coverages: Vec<_> =
-                            subtable.input_coverages().iter().flatten().collect();
-                        let lookahead_coverages: Vec<_> =
-                            subtable.lookahead_coverages().iter().flatten().collect();
+        // Type 6 is chaining contextual
+        if lookup.lookup_type() != 6 {
+            continue;
+        }
 
-                        if !input_coverages.is_empty()
-                            && coverage_contains_glyph(&input_coverages[0], grave_gid)
-                            && lookahead_coverages.len() == 2
-                            && coverage_contains_glyph(&lookahead_coverages[0], grave_gid)
-                            && coverage_contains_glyph(&lookahead_coverages[1], grave_gid)
-                        {
-                            println!(
-                                "  Found three-backtick pattern in Lookup {}",
-                                lookup_idx
-                            );
-                            type6_to_clear.push(lookup_idx);
-                        }
-                    }
+        let subtables = match lookup.subtables() {
+            Ok(SubstitutionSubtables::ChainContextual(s)) => s,
+            _ => continue,
+        };
+
+        for subtable_result in subtables.iter() {
+            let subtable = match subtable_result {
+                Ok(ChainedSequenceContext::Format1(s)) => s,
+                _ => continue,
+            };
+
+            // Check if coverage contains grave
+            let coverage = match subtable.coverage() {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            let grave_coverage_idx = match coverage.get(GlyphId::new(grave_gid as u32)) {
+                Some(idx) => idx,
+                None => continue,
+            };
+
+            // Get the rule sets
+            let rule_sets = subtable.chained_seq_rule_sets();
+
+            // Get the rule set for grave
+            let rule_set = match rule_sets.get(grave_coverage_idx as usize) {
+                Some(Ok(rs)) => rs,
+                _ => continue,
+            };
+
+            // Check each rule
+            for rule_result in rule_set.chained_seq_rules().iter() {
+                let rule: TableRef<'_, read_fonts::tables::layout::ChainedSequenceRuleMarker> =
+                    match rule_result {
+                        Ok(r) => r,
+                        Err(_) => continue,
+                    };
+
+                // Check if this is a grave+grave+grave pattern
+                let input_seq = rule.input_sequence();
+                if input_seq.len() != 2 {
+                    continue;
                 }
-            }
-            Ok(SubstitutionSubtables::Single(subtables)) => {
-                if let Some(grave3) = grave3_gid {
-                    for subtable_result in subtables.iter() {
-                        if let Ok(subtable) = subtable_result {
-                            if let Some(mapped) = get_single_subst_mapping(&subtable, grave_gid) {
-                                if mapped == grave3 {
-                                    println!(
-                                        "  Found grave → grave_grave_grave.code in Lookup {}",
-                                        lookup_idx
-                                    );
-                                    type1_to_modify.push((lookup_idx, subtable.clone()));
-                                }
-                            }
-                        }
-                    }
+
+                let all_grave = input_seq
+                    .iter()
+                    .all(|g: &BigEndian<ReadGlyphId16>| g.get().to_u32() == grave_gid as u32);
+
+                if !all_grave {
+                    continue;
                 }
+
+                // Check if there are SubstLookupRecords to clear
+                let lookup_count = rule.seq_lookup_count();
+                if lookup_count == 0 {
+                    continue;
+                }
+
+                println!(
+                    "  Found three-backtick pattern in Lookup {} (rule has {} lookup records)",
+                    lookup_idx, lookup_count
+                );
             }
-            _ => {}
         }
     }
 
-    if type6_to_clear.is_empty() && type1_to_modify.is_empty() {
-        println!("  No three-backtick ligature found");
+    // Since calculating exact offsets through the nested structure is complex,
+    // let's search for the specific byte pattern and patch it.
+    // The grave glyph ID is typically around 0x0265 (613).
+    // We're looking for: grave grave (as input sequence), followed by seq_lookup_count > 0
+
+    let grave_be = (grave_gid as u16).to_be_bytes();
+    let mut modified_data = data.clone();
+    let mut modifications = 0;
+
+    // Search within GSUB table for the pattern
+    let gsub_data = font
+        .table_data(gsub_tag)
+        .context("Failed to get GSUB data")?;
+    let gsub_bytes = gsub_data.as_ref();
+
+    // We need to find ChainedSequenceRule structures that have:
+    // - input_glyph_count = 3 (meaning 2 glyphs in input_sequence since first is implicit)
+    // - input_sequence = [grave, grave]
+    // - seq_lookup_count > 0
+
+    // Pattern to search for within GSUB:
+    // ... [input_glyph_count=0x0003] [grave] [grave] [lookahead_count] ... [seq_lookup_count > 0]
+
+    let input_count_pattern = 0x0003u16.to_be_bytes();
+
+    for i in 0..gsub_bytes.len().saturating_sub(20) {
+        // Check for input_glyph_count = 3
+        if gsub_bytes[i..i + 2] != input_count_pattern {
+            continue;
+        }
+
+        // Check for grave, grave following
+        if i + 6 > gsub_bytes.len() {
+            continue;
+        }
+        if gsub_bytes[i + 2..i + 4] != grave_be || gsub_bytes[i + 4..i + 6] != grave_be {
+            continue;
+        }
+
+        // Read lookahead_glyph_count at i+6
+        if i + 8 > gsub_bytes.len() {
+            continue;
+        }
+        let lookahead_count = u16::from_be_bytes([gsub_bytes[i + 6], gsub_bytes[i + 7]]) as usize;
+
+        // seq_lookup_count is at i + 8 + lookahead_count * 2
+        let seq_lookup_count_offset = i + 8 + lookahead_count * 2;
+        if seq_lookup_count_offset + 2 > gsub_bytes.len() {
+            continue;
+        }
+
+        let seq_lookup_count = u16::from_be_bytes([
+            gsub_bytes[seq_lookup_count_offset],
+            gsub_bytes[seq_lookup_count_offset + 1],
+        ]);
+
+        if seq_lookup_count > 0 && seq_lookup_count < 10 {
+            // Sanity check
+            println!(
+                "  Patching seq_lookup_count at GSUB offset 0x{:x} (was {})",
+                seq_lookup_count_offset, seq_lookup_count
+            );
+
+            // Patch in the file
+            let file_offset = gsub_offset + seq_lookup_count_offset;
+            modified_data[file_offset] = 0;
+            modified_data[file_offset + 1] = 0;
+            modifications += 1;
+        }
+    }
+
+    if modifications == 0 {
+        println!("  No matching patterns found to patch");
         return Ok(false);
     }
 
-    let mut new_lookups: Vec<SubstitutionLookup> = Vec::new();
+    // We also need to look for backtrack patterns like [backtrack=grave] [input_count=3] [grave] [grave]
+    // Pattern: [backtrack_count=1] [grave] [input_count=3] [grave] [grave] ...
 
-    for (lookup_idx, lookup_result) in lookups.iter().enumerate() {
-        let lookup = match lookup_result {
-            Ok(l) => l,
-            Err(_) => continue,
-        };
+    let backtrack_one_pattern = 0x0001u16.to_be_bytes();
 
-        if type6_to_clear.contains(&lookup_idx) {
-            let empty_subtable = ChainedSequenceContextFormat3 {
-                backtrack_coverages: vec![],
-                input_coverages: vec![],
-                lookahead_coverages: vec![],
-                seq_lookup_records: vec![],
-            };
-            let inner = Lookup::<SubstitutionChainContext>::new(
-                LookupFlag::from_bits_truncate(lookup.lookup_flag().to_bits()),
-                vec![ChainedSequenceContext::Format3(empty_subtable).into()],
-            );
-            new_lookups.push(SubstitutionLookup::ChainContextual(inner));
-        } else if type1_to_modify.iter().any(|(idx, _)| *idx == lookup_idx) {
-            let (_, subtable) = type1_to_modify
-                .iter()
-                .find(|(idx, _)| *idx == lookup_idx)
-                .unwrap();
-
-            if let Some(cov) = get_single_subst_coverage(subtable) {
-                let mut new_glyphs = Vec::new();
-                let mut new_substitutes = Vec::new();
-
-                for input_gid in cov.iter() {
-                    if input_gid == grave_gid {
-                        if let Some(grave3) = grave3_gid {
-                            if let Some(mapped) = get_single_subst_mapping(subtable, grave_gid) {
-                                if mapped == grave3 {
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                    if let Some(out_gid) =
-                        get_single_subst_mapping(subtable, GlyphId::new(input_gid.to_u32()))
-                    {
-                        new_glyphs.push(GlyphId16::new(input_gid.to_u32() as u16));
-                        new_substitutes.push(GlyphId16::new(out_gid.to_u32() as u16));
-                    }
-                }
-
-                if !new_glyphs.is_empty() {
-                    let new_coverage =
-                        write_fonts::tables::layout::CoverageTable::format_1(new_glyphs);
-                    let new_subtable =
-                        SingleSubst::format_2(new_coverage, new_substitutes);
-                    let inner = Lookup::<SingleSubst>::new(
-                        LookupFlag::from_bits_truncate(lookup.lookup_flag().to_bits()),
-                        vec![new_subtable],
-                    );
-                    new_lookups.push(SubstitutionLookup::Single(inner));
-                }
-            }
-        } else {
-            match lookup.subtables() {
-                Ok(SubstitutionSubtables::Single(subtables)) => {
-                    let mut write_subtables = Vec::new();
-                    for subtable_result in subtables.iter() {
-                        if let Ok(subtable) = subtable_result {
-                            if let Some(cov) = get_single_subst_coverage(&subtable) {
-                                let glyphs: Vec<_> = cov
-                                    .iter()
-                                    .map(|g| GlyphId16::new(g.to_u32() as u16))
-                                    .collect();
-                                let subs: Vec<_> = cov
-                                    .iter()
-                                    .filter_map(|g| {
-                                        get_single_subst_mapping(&subtable, GlyphId::new(g.to_u32()))
-                                    })
-                                    .map(|g| GlyphId16::new(g.to_u32() as u16))
-                                    .collect();
-                                if glyphs.len() == subs.len() && !glyphs.is_empty() {
-                                    let new_cov =
-                                        write_fonts::tables::layout::CoverageTable::format_1(
-                                            glyphs,
-                                        );
-                                    write_subtables
-                                        .push(SingleSubst::format_2(new_cov, subs));
-                                }
-                            }
-                        }
-                    }
-                    if !write_subtables.is_empty() {
-                        let inner = Lookup::<SingleSubst>::new(
-                            LookupFlag::from_bits_truncate(lookup.lookup_flag().to_bits()),
-                            write_subtables,
-                        );
-                        new_lookups.push(SubstitutionLookup::Single(inner));
-                    }
-                }
-                Ok(SubstitutionSubtables::ChainContextual(_)) => {
-                    let empty_subtable = ChainedSequenceContextFormat3 {
-                        backtrack_coverages: vec![],
-                        input_coverages: vec![],
-                        lookahead_coverages: vec![],
-                        seq_lookup_records: vec![],
-                    };
-                    let inner = Lookup::<SubstitutionChainContext>::new(
-                        LookupFlag::from_bits_truncate(lookup.lookup_flag().to_bits()),
-                        vec![ChainedSequenceContext::Format3(empty_subtable).into()],
-                    );
-                    new_lookups.push(SubstitutionLookup::ChainContextual(inner));
-                }
-                _ => {}
-            }
-        }
-    }
-
-    let new_lookup_list = write_fonts::tables::gsub::SubstitutionLookupList::new(new_lookups);
-    let new_gsub = rebuild_gsub(&gsub, new_lookup_list)?;
-
-    let mut builder = FontBuilder::new();
-    for record in font.table_directory.table_records() {
-        let tag = record.tag();
-        if tag == read_fonts::types::Tag::new(b"GSUB") {
+    for i in 0..gsub_bytes.len().saturating_sub(20) {
+        // Check for backtrack_glyph_count = 1
+        if gsub_bytes[i..i + 2] != backtrack_one_pattern {
             continue;
         }
-        if let Some(table_data) = font.table_data(tag) {
-            builder.add_raw(tag, table_data);
+
+        // Check for grave in backtrack
+        if i + 4 > gsub_bytes.len() {
+            continue;
+        }
+        if gsub_bytes[i + 2..i + 4] != grave_be {
+            continue;
+        }
+
+        // Check for input_glyph_count = 3
+        if i + 6 > gsub_bytes.len() {
+            continue;
+        }
+        if gsub_bytes[i + 4..i + 6] != input_count_pattern {
+            continue;
+        }
+
+        // Check for grave, grave in input
+        if i + 10 > gsub_bytes.len() {
+            continue;
+        }
+        if gsub_bytes[i + 6..i + 8] != grave_be || gsub_bytes[i + 8..i + 10] != grave_be {
+            continue;
+        }
+
+        // lookahead_count at i+10
+        if i + 12 > gsub_bytes.len() {
+            continue;
+        }
+        let lookahead_count = u16::from_be_bytes([gsub_bytes[i + 10], gsub_bytes[i + 11]]) as usize;
+
+        // seq_lookup_count at i + 12 + lookahead_count * 2
+        let seq_lookup_count_offset = i + 12 + lookahead_count * 2;
+        if seq_lookup_count_offset + 2 > gsub_bytes.len() {
+            continue;
+        }
+
+        let seq_lookup_count = u16::from_be_bytes([
+            gsub_bytes[seq_lookup_count_offset],
+            gsub_bytes[seq_lookup_count_offset + 1],
+        ]);
+
+        if seq_lookup_count > 0 && seq_lookup_count < 10 {
+            println!(
+                "  Patching seq_lookup_count at GSUB offset 0x{:x} (was {}, backtrack pattern)",
+                seq_lookup_count_offset, seq_lookup_count
+            );
+
+            let file_offset = gsub_offset + seq_lookup_count_offset;
+            if modified_data[file_offset] != 0 || modified_data[file_offset + 1] != 0 {
+                modified_data[file_offset] = 0;
+                modified_data[file_offset + 1] = 0;
+                modifications += 1;
+            }
         }
     }
-    builder.add_table(&new_gsub)?;
 
-    let output = builder.build();
-    fs::write(path, output).context("Failed to write modified font")?;
+    fs::write(path, &modified_data).context("Failed to write modified font")?;
+    println!("  Saved modified font ({} patches applied)", modifications);
 
-    println!("  Saved modified font");
     Ok(true)
-}
-
-fn rebuild_gsub(
-    original: &read_fonts::tables::gsub::Gsub,
-    lookup_list: write_fonts::tables::gsub::SubstitutionLookupList,
-) -> Result<write_fonts::tables::gsub::Gsub> {
-    let script_list = original.script_list()?;
-    let feature_list = original.feature_list()?;
-
-    let mut new_script_list = write_fonts::tables::layout::ScriptList::default();
-    for script_record in script_list.script_records() {
-        let script_tag = script_record.script_tag();
-        let script = script_record.script(script_list.offset_data())?;
-
-        let mut new_script = write_fonts::tables::layout::Script::default();
-
-        if let Some(default_lang_sys) = script.default_lang_sys() {
-            let dls = default_lang_sys?;
-            let mut new_dls = write_fonts::tables::layout::LangSys::default();
-            new_dls.required_feature_index = dls.required_feature_index();
-            new_dls.feature_indices = dls.feature_indices().iter().map(|i| i.get()).collect();
-            new_script.default_lang_sys = new_dls.into();
-        }
-
-        let mut lang_sys_records = Vec::new();
-        for lang_sys_record in script.lang_sys_records() {
-            let lang_tag = lang_sys_record.lang_sys_tag();
-            let lang_sys = lang_sys_record.lang_sys(script.offset_data())?;
-
-            let mut new_lang_sys = write_fonts::tables::layout::LangSys::default();
-            new_lang_sys.required_feature_index = lang_sys.required_feature_index();
-            new_lang_sys.feature_indices =
-                lang_sys.feature_indices().iter().map(|i| i.get()).collect();
-
-            lang_sys_records.push(write_fonts::tables::layout::LangSysRecord {
-                lang_sys_tag: lang_tag,
-                lang_sys: new_lang_sys.into(),
-            });
-        }
-        new_script.lang_sys_records = lang_sys_records;
-
-        new_script_list
-            .script_records
-            .push(write_fonts::tables::layout::ScriptRecord {
-                script_tag,
-                script: new_script.into(),
-            });
-    }
-
-    let mut new_feature_list = write_fonts::tables::layout::FeatureList::default();
-    for feature_record in feature_list.feature_records() {
-        let feature_tag = feature_record.feature_tag();
-        let feature = feature_record.feature(feature_list.offset_data())?;
-
-        let mut new_feature = write_fonts::tables::layout::Feature::default();
-        new_feature.feature_params = None.into();
-        new_feature.lookup_list_indices =
-            feature.lookup_list_indices().iter().map(|i| i.get()).collect();
-
-        new_feature_list
-            .feature_records
-            .push(write_fonts::tables::layout::FeatureRecord {
-                feature_tag,
-                feature: new_feature.into(),
-            });
-    }
-
-    Ok(write_fonts::tables::gsub::Gsub::new(
-        new_script_list,
-        new_feature_list,
-        lookup_list,
-    ))
 }

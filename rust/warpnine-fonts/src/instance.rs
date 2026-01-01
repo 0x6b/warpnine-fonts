@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use font_instancer::{instantiate, AxisLocation};
+use font_instancer::{AxisLocation, instantiate};
 use std::fs;
 use std::path::Path;
 

@@ -44,8 +44,9 @@ pub fn freeze_features(files: &[PathBuf], features: &[String]) -> Result<()> {
 fn freeze_single(path: &PathBuf, features: &[String]) -> Result<usize> {
     let data = fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
-    let (frozen_data, stats) = freeze_features_with_stats(&data, features.iter().map(|s| s.as_str()))
-        .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
+    let (frozen_data, stats) =
+        freeze_features_with_stats(&data, features.iter().map(|s| s.as_str()))
+            .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
 
     fs::write(path, frozen_data).with_context(|| format!("Failed to write {}", path.display()))?;
 
