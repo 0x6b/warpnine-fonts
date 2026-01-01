@@ -3,12 +3,15 @@ use clap::{Parser, Subcommand};
 use rayon::prelude::*;
 use std::path::PathBuf;
 
+mod freeze;
+mod instance;
+mod merge;
 mod metadata;
 mod subset;
 
 #[derive(Parser)]
 #[command(name = "warpnine-fonts")]
-#[command(about = "Fast font metadata operations for Warpnine fonts")]
+#[command(about = "Fast font operations for Warpnine fonts")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -40,9 +43,51 @@ enum Commands {
         #[arg(required = true)]
         output: PathBuf,
     },
+    /// Freeze OpenType features into fonts
+    Freeze {
+        /// Features to freeze (e.g., ss01,ss02,rvrn)
+        #[arg(short, long, value_delimiter = ',')]
+        features: Vec<String>,
+        /// Font files to process
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+    },
+    /// Create static instance from variable font
+    Instance {
+        /// Axis values in format TAG=VALUE (e.g., wght=700)
+        #[arg(short, long = "axis", value_parser = parse_axis)]
+        axes: Vec<(String, f32)>,
+        /// Input variable font
+        #[arg(required = true)]
+        input: PathBuf,
+        /// Output static font
+        #[arg(required = true)]
+        output: PathBuf,
+    },
+    /// Merge multiple fonts into one
+    Merge {
+        /// Input font files to merge
+        #[arg(required = true, num_args = 2..)]
+        inputs: Vec<PathBuf>,
+        /// Output font file
+        #[arg(short, long)]
+        output: PathBuf,
+    },
+}
+
+fn parse_axis(s: &str) -> Result<(String, f32), String> {
+    let parts: Vec<&str> = s.split('=').collect();
+    if parts.len() != 2 {
+        return Err(format!("Invalid axis format '{}', expected TAG=VALUE", s));
+    }
+    let value: f32 = parts[1]
+        .parse()
+        .map_err(|_| format!("Invalid value '{}' for axis '{}'", parts[1], parts[0]))?;
+    Ok((parts[0].to_string(), value))
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
     let cli = Cli::parse();
 
     match cli.command {
@@ -94,6 +139,19 @@ fn main() -> Result<()> {
         }
         Commands::SubsetJapanese { input, output } => {
             subset::subset_japanese(&input, &output)?;
+        }
+        Commands::Freeze { features, files } => {
+            freeze::freeze_features(&files, &features)?;
+        }
+        Commands::Instance {
+            axes,
+            input,
+            output,
+        } => {
+            instance::create_instance(&input, &output, &axes)?;
+        }
+        Commands::Merge { inputs, output } => {
+            merge::merge_fonts(&inputs, &output)?;
         }
     }
 

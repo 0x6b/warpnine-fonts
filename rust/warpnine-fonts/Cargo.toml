@@ -12,6 +12,13 @@ hb-subset = { version = "0.3", features = ["bundled"] }
 anyhow = "1"
 chrono = "0.4"
 rayon = "1.10"
+log = "0.4"
+env_logger = "0.11"
+
+# Local font processing crates
+font-feature-freezer = { path = "../../../font-feature-freezer", default-features = false }
+font-instancer = { path = "../../../font-instancer", default-features = false }
+font-merger = { path = "../../../font-merger" }
 
 [[bin]]
 name = "warpnine-fonts"
