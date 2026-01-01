@@ -8,6 +8,7 @@ description = "Fast font metadata operations for Warpnine fonts"
 clap = { version = "4", features = ["derive"] }
 read-fonts = "0.36"
 write-fonts = "0.44"
+hb-subset = { version = "0.3", features = ["bundled"] }
 anyhow = "1"
 chrono = "0.4"
 rayon = "1.10"

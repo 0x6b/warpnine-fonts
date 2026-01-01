@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::path::PathBuf;
 
 mod metadata;
+mod subset;
 
 #[derive(Parser)]
 #[command(name = "warpnine-fonts")]
@@ -29,6 +30,15 @@ enum Commands {
         /// Font files to process
         #[arg(required = true)]
         files: Vec<PathBuf>,
+    },
+    /// Subset font to Japanese Unicode ranges
+    SubsetJapanese {
+        /// Input font file
+        #[arg(required = true)]
+        input: PathBuf,
+        /// Output font file
+        #[arg(required = true)]
+        output: PathBuf,
     },
 }
 
@@ -81,6 +91,9 @@ fn main() -> Result<()> {
                 }
             }
             println!("Set version {version_tag}: {success} succeeded, {failed} failed");
+        }
+        Commands::SubsetJapanese { input, output } => {
+            subset::subset_japanese(&input, &output)?;
         }
     }
 
