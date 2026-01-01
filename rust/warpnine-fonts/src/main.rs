@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::path::PathBuf;
 
 mod clean;
+mod copy_table;
 mod download;
 mod freeze;
 mod instance;
@@ -35,6 +36,15 @@ enum Commands {
         /// Build directory to download to
         #[arg(long, default_value = "build")]
         build_dir: PathBuf,
+    },
+    /// Copy GSUB table from source font to target font
+    CopyGsub {
+        /// Source font file
+        #[arg(long)]
+        from: PathBuf,
+        /// Target font file
+        #[arg(long)]
+        to: PathBuf,
     },
     /// Set monospace flags on font files
     SetMonospace {
@@ -116,6 +126,9 @@ fn main() -> Result<()> {
         }
         Commands::Download { build_dir } => {
             download::download(&build_dir)?;
+        }
+        Commands::CopyGsub { from, to } => {
+            copy_table::copy_gsub(&from, &to)?;
         }
         Commands::SetMonospace { files } => {
             let results: Vec<_> = files
