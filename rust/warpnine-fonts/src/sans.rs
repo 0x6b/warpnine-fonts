@@ -58,7 +58,7 @@ pub const SANS_INSTANCES: &[SansInstance] = &[
     SansInstance::new("BlackItalic", 900.0, true),
 ];
 
-fn update_sans_name_table(font_data: &[u8], family: &str, style: &str) -> Result<Vec<u8>> {
+fn update_sans_metadata(font_data: &[u8], family: &str, style: &str, weight: u16) -> Result<Vec<u8>> {
     let font = FontRef::new(font_data)?;
     let name = font.name()?;
 
@@ -106,7 +106,20 @@ fn update_sans_name_table(font_data: &[u8], family: &str, style: &str) -> Result
     }
     builder.add_table(&new_name)?;
 
-    Ok(builder.build())
+    let mut output = builder.build();
+
+    // Patch OS/2 usWeightClass (offset 4, 2 bytes)
+    let os2_tag = read_fonts::types::Tag::new(b"OS/2");
+    if let Some(os2_record) = font.table_directory.table_records().iter().find(|r| r.tag() == os2_tag) {
+        let os2_offset = os2_record.offset() as usize;
+        let weight_offset = os2_offset + 4; // usWeightClass is at offset 4 in OS/2
+        if weight_offset + 2 <= output.len() {
+            output[weight_offset] = (weight >> 8) as u8;
+            output[weight_offset + 1] = (weight & 0xff) as u8;
+        }
+    }
+
+    Ok(output)
 }
 
 pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
@@ -130,7 +143,7 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", instance.style))?;
 
-        let final_data = update_sans_name_table(&static_data, "Warpnine Sans", instance.style)?;
+        let final_data = update_sans_metadata(&static_data, "Warpnine Sans", instance.style, instance.wght as u16)?;
 
         fs::write(&output, final_data)?;
         println!("  Created: {}", output.display());

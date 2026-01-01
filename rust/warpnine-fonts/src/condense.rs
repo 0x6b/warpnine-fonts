@@ -171,7 +171,7 @@ fn scale_composite_glyph(
     composite
 }
 
-fn apply_horizontal_scale(font_data: &[u8], scale_x: f32) -> Result<Vec<u8>> {
+fn apply_horizontal_scale(font_data: &[u8], scale_x: f32, weight_class: u16) -> Result<Vec<u8>> {
     let font = FontRef::new(font_data)?;
 
     let mut builder = FontBuilder::new();
@@ -274,6 +274,7 @@ fn apply_horizontal_scale(font_data: &[u8], scale_x: f32) -> Result<Vec<u8>> {
         let mut new_os2: Os2 = os2.to_owned_table();
         new_os2.x_avg_char_width = (new_os2.x_avg_char_width as f32 * scale_x).round() as i16;
         new_os2.us_width_class = WIDTH_CLASS_CONDENSED;
+        new_os2.us_weight_class = weight_class;
         builder.add_table(&new_os2)?;
     }
 
@@ -305,7 +306,7 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", instance.style))?;
 
-        let scaled_data = apply_horizontal_scale(&static_data, scale)?;
+        let scaled_data = apply_horizontal_scale(&static_data, scale, instance.wght as u16)?;
 
         let final_data =
             update_condensed_name_table(&scaled_data, "Warpnine Sans Condensed", instance.style)?;
