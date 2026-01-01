@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use rayon::prelude::*;
 use std::path::PathBuf;
 
+mod clean;
 mod freeze;
 mod instance;
 mod merge;
@@ -19,6 +20,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Remove build artifacts (build/ and dist/ directories)
+    Clean {
+        /// Build directory to clean
+        #[arg(long, default_value = "build")]
+        build_dir: PathBuf,
+        /// Dist directory to clean
+        #[arg(long, default_value = "dist")]
+        dist_dir: PathBuf,
+    },
     /// Set monospace flags on font files
     SetMonospace {
         /// Font files to process
@@ -91,6 +101,12 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Clean {
+            build_dir,
+            dist_dir,
+        } => {
+            clean::clean(&build_dir, &dist_dir)?;
+        }
         Commands::SetMonospace { files } => {
             let results: Vec<_> = files
                 .par_iter()
