@@ -8,6 +8,7 @@ mod copy_table;
 mod download;
 mod freeze;
 mod instance;
+mod ligatures;
 mod merge;
 mod metadata;
 mod subset;
@@ -45,6 +46,12 @@ enum Commands {
         /// Target font file
         #[arg(long)]
         to: PathBuf,
+    },
+    /// Remove three-backtick ligature from fonts
+    RemoveLigatures {
+        /// Font files to process
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
     },
     /// Set monospace flags on font files
     SetMonospace {
@@ -129,6 +136,29 @@ fn main() -> Result<()> {
         }
         Commands::CopyGsub { from, to } => {
             copy_table::copy_gsub(&from, &to)?;
+        }
+        Commands::RemoveLigatures { files } => {
+            let results: Vec<_> = files
+                .par_iter()
+                .map(|path| {
+                    println!("Processing {}", path.display());
+                    ligatures::remove_grave_ligature(path)
+                        .with_context(|| format!("Failed to process {}", path.display()))
+                })
+                .collect();
+
+            let mut success = 0;
+            let mut failed = 0;
+            for result in results {
+                match result {
+                    Ok(_) => success += 1,
+                    Err(e) => {
+                        eprintln!("{e:?}");
+                        failed += 1;
+                    }
+                }
+            }
+            println!("Remove ligatures: {success} succeeded, {failed} failed");
         }
         Commands::SetMonospace { files } => {
             let results: Vec<_> = files
