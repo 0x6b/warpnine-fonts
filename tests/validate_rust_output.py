@@ -209,6 +209,48 @@ def validate_core_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
     return results
 
 
+def validate_hmtx(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate per-glyph horizontal metrics (advance widths).
+
+    Note: LSB values may differ due to glyph coordinate interpolation differences,
+    but advance widths should always match.
+    """
+    results = {"pass": [], "fail": []}
+
+    rs_hmtx = rust_font["hmtx"].metrics
+    py_hmtx = python_font["hmtx"].metrics
+
+    rs_glyphs = set(rs_hmtx.keys())
+    py_glyphs = set(py_hmtx.keys())
+
+    if rs_glyphs != py_glyphs:
+        only_rust = rs_glyphs - py_glyphs
+        only_python = py_glyphs - rs_glyphs
+        if only_rust:
+            results["fail"].append(f"hmtx glyphs only in Rust: {len(only_rust)}")
+        if only_python:
+            results["fail"].append(f"hmtx glyphs only in Python: {len(only_python)}")
+        return results
+
+    width_mismatched = []
+    for glyph in rs_glyphs:
+        rs_width, _ = rs_hmtx[glyph]
+        py_width, _ = py_hmtx[glyph]
+        if rs_width != py_width:
+            width_mismatched.append(
+                f"{glyph}: Rust={rs_width} Python={py_width}"
+            )
+
+    if width_mismatched:
+        results["fail"].append(
+            f"hmtx widths differ for {len(width_mismatched)} glyphs: {width_mismatched[:3]}..."
+        )
+    else:
+        results["pass"].append(f"hmtx widths ({len(rs_glyphs)} glyphs)")
+
+    return results
+
+
 def validate_os2_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
     """Validate OS/2 typo and win metrics."""
     results = {"pass": [], "fail": []}
@@ -277,6 +319,11 @@ def validate_font_pair(rust_path: Path, python_path: Path) -> tuple[int, int, li
     os2 = validate_os2_metrics(rust_font, python_font)
     all_pass.extend(os2["pass"])
     all_fail.extend(os2["fail"])
+
+    # hmtx (per-glyph advance widths)
+    hmtx = validate_hmtx(rust_font, python_font)
+    all_pass.extend(hmtx["pass"])
+    all_fail.extend(hmtx["fail"])
 
     # Features (should always pass)
     features = validate_features(rust_font, python_font)
