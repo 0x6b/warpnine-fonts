@@ -29,6 +29,8 @@ use crate::{
     subset::subset_japanese,
 };
 
+type PipelineStep = (&'static str, fn(&PipelineContext) -> Result<()>);
+
 /// Pipeline execution context
 pub struct PipelineContext {
     pub build_dir: PathBuf,
@@ -421,7 +423,7 @@ pub fn build_all(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> 
     println!("Warpnine Fonts Build Pipeline (Rust)");
     println!("═══════════════════════════════════════════════════════════════════════════════");
 
-    let steps: Vec<(&str, fn(&PipelineContext) -> Result<()>)> = vec![
+    let steps: Vec<PipelineStep> = vec![
         ("clean", step_clean),
         ("download", step_download),
         ("extract-duotone", step_extract_duotone),
@@ -473,7 +475,7 @@ pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
     println!("Warpnine Mono Build Pipeline (Rust)");
     println!("═══════════════════════════════════════════════════════════════════════════════");
 
-    let steps: Vec<(&str, fn(&PipelineContext) -> Result<()>)> = vec![
+    let steps: Vec<PipelineStep> = vec![
         ("clean", step_clean),
         ("download", step_download),
         ("extract-duotone", step_extract_duotone),

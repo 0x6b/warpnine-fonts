@@ -554,11 +554,10 @@ fn build_simple_glyph_variations(
 
         // Compute deltas for all regions for this point
         let mut prev_deltas: Vec<(i16, i16)> = Vec::with_capacity(num_regions);
-        for region_idx in 0..num_regions {
+        for (region_idx, raw_deltas) in all_raw_deltas.iter_mut().enumerate() {
             let delta = model.compute_delta_2d_for_region(&point_values, region_idx, &prev_deltas);
             prev_deltas.push(delta);
-            all_raw_deltas[region_idx]
-                .push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
+            raw_deltas.push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
         }
     }
     DELTA_COMPUTE_NS.fetch_add(delta_start.elapsed().as_nanos() as u64, Ordering::Relaxed);
