@@ -185,7 +185,7 @@ fn check_lang_sys(
     }
 }
 
-fn apply_modifications(gsub_bytes: &mut Vec<u8>, modifications: &[LangSysModification]) {
+fn apply_modifications(gsub_bytes: &mut [u8], modifications: &[LangSysModification]) {
     for modification in modifications {
         let count_offset = modification.offset + 4;
         write_u16_be(gsub_bytes, count_offset, modification.new_feature_count);

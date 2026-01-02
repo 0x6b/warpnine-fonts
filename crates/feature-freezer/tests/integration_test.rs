@@ -46,10 +46,10 @@ fn get_name_record(data: &[u8], name_id: u16) -> Option<String> {
     let font = FontRef::new(data).unwrap();
     if let Ok(name) = font.name() {
         for record in name.name_record() {
-            if record.name_id().to_u16() == name_id {
-                if let Ok(s) = record.string(name.string_data()) {
-                    return Some(s.to_string());
-                }
+            if record.name_id().to_u16() == name_id
+                && let Ok(s) = record.string(name.string_data())
+            {
+                return Some(s.to_string());
             }
         }
     }
@@ -65,7 +65,7 @@ fn test_freeze_onum_opensans() {
     // Equivalent to pyftfeatfreeze test_freeze with onum feature
     let font_data = include_bytes!("fixtures/OpenSans-Bold.subset.ttf");
 
-    let frozen = freeze_features(font_data, &["onum"]).unwrap();
+    let frozen = freeze_features(font_data, ["onum"]).unwrap();
 
     let names = cmap_to_names(&frozen);
 
@@ -90,7 +90,7 @@ fn test_freeze_onum_opensans() {
 fn test_freeze_pnum_opensans() {
     let font_data = include_bytes!("fixtures/OpenSans-Bold.subset.ttf");
 
-    let frozen = freeze_features(font_data, &["pnum"]).unwrap();
+    let frozen = freeze_features(font_data, ["pnum"]).unwrap();
 
     let names = cmap_to_names(&frozen);
 
@@ -102,7 +102,7 @@ fn test_freeze_pnum_opensans() {
 fn test_freeze_multiple_features_opensans() {
     let font_data = include_bytes!("fixtures/OpenSans-Bold.subset.ttf");
 
-    let frozen = freeze_features(font_data, &["onum", "pnum"]).unwrap();
+    let frozen = freeze_features(font_data, ["onum", "pnum"]).unwrap();
 
     let names = cmap_to_names(&frozen);
 
@@ -116,7 +116,7 @@ fn test_freeze_ss01_alternate_substitution() {
     // Tests that 'a' maps to first alternate 'a.alt1'
     let font_data = include_bytes!("fixtures/SubGlyphsWithoutUnicode.ttf");
 
-    let frozen = freeze_features(font_data, &["ss01"]).unwrap();
+    let frozen = freeze_features(font_data, ["ss01"]).unwrap();
 
     let names = cmap_to_names(&frozen);
 
@@ -128,7 +128,7 @@ fn test_freeze_nonexistent_feature() {
     // Equivalent to pyftfeatfreeze test_cant_open (tests error handling)
     let font_data = include_bytes!("fixtures/OpenSans-Bold.subset.ttf");
 
-    let result = freeze_features(font_data, &["xxxx"]);
+    let result = freeze_features(font_data, ["xxxx"]);
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -143,7 +143,7 @@ fn test_freeze_nonexistent_feature() {
 fn test_freeze_with_stats() {
     let font_data = include_bytes!("fixtures/OpenSans-Bold.subset.ttf");
 
-    let (frozen, stats) = freeze_features_with_stats(font_data, &["onum"]).unwrap();
+    let (frozen, stats) = freeze_features_with_stats(font_data, ["onum"]).unwrap();
 
     assert_eq!(stats.features_requested, 1);
     assert!(stats.lookups_processed > 0);
@@ -157,7 +157,7 @@ fn test_freeze_with_stats() {
 fn test_freeze_lnum_keeps_default_numerals() {
     let font_data = include_bytes!("fixtures/OpenSans-Bold.subset.ttf");
 
-    let frozen = freeze_features(font_data, &["lnum"]).unwrap();
+    let frozen = freeze_features(font_data, ["lnum"]).unwrap();
 
     let names = cmap_to_names(&frozen);
 
@@ -171,7 +171,7 @@ fn test_original_font_unchanged() {
 
     let original_names = cmap_to_names(font_data);
 
-    let _frozen = freeze_features(font_data, &["onum"]).unwrap();
+    let _frozen = freeze_features(font_data, ["onum"]).unwrap();
 
     let after_names = cmap_to_names(font_data);
 
@@ -183,7 +183,7 @@ fn test_original_font_unchanged() {
 fn test_invalid_font_data() {
     let bad_data = b"not a font";
 
-    let result = freeze_features(bad_data, &["onum"]);
+    let result = freeze_features(bad_data, ["onum"]);
 
     assert!(result.is_err());
 }

@@ -1084,16 +1084,14 @@ mod tests {
             let glyph_id = GlyphId::new(gid as u32);
             let lsb = hmtx.side_bearing(glyph_id).unwrap_or(0);
 
-            if let Some(glyph) = loca.get_glyf(glyph_id, &glyf).ok().flatten() {
-                if let Glyph::Simple(simple) = glyph {
-                    if simple.num_points() > 0 {
-                        let x_min = simple.points().map(|p| p.x).min().unwrap_or(0);
-                        assert_eq!(
-                            lsb, x_min,
-                            "glyph {gid}: LSB ({lsb}) should equal xMin ({x_min})"
-                        );
-                    }
-                }
+            if let Some(Glyph::Simple(simple)) = loca.get_glyf(glyph_id, &glyf).ok().flatten()
+                && simple.num_points() > 0
+            {
+                let x_min = simple.points().map(|p| p.x).min().unwrap_or(0);
+                assert_eq!(
+                    lsb, x_min,
+                    "glyph {gid}: LSB ({lsb}) should equal xMin ({x_min})"
+                );
             }
         }
     }
