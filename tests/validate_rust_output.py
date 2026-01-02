@@ -209,6 +209,52 @@ def validate_core_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
     return results
 
 
+def validate_os2_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate OS/2 typo and win metrics."""
+    results = {"pass": [], "fail": []}
+
+    checks = [
+        (
+            "OS/2.sTypoAscender",
+            rust_font["OS/2"].sTypoAscender,
+            python_font["OS/2"].sTypoAscender,
+        ),
+        (
+            "OS/2.sTypoDescender",
+            rust_font["OS/2"].sTypoDescender,
+            python_font["OS/2"].sTypoDescender,
+        ),
+        (
+            "OS/2.sTypoLineGap",
+            rust_font["OS/2"].sTypoLineGap,
+            python_font["OS/2"].sTypoLineGap,
+        ),
+        (
+            "OS/2.usWinAscent",
+            rust_font["OS/2"].usWinAscent,
+            python_font["OS/2"].usWinAscent,
+        ),
+        (
+            "OS/2.usWinDescent",
+            rust_font["OS/2"].usWinDescent,
+            python_font["OS/2"].usWinDescent,
+        ),
+        (
+            "OS/2.fsSelection",
+            rust_font["OS/2"].fsSelection,
+            python_font["OS/2"].fsSelection,
+        ),
+    ]
+
+    for name, rs_val, py_val in checks:
+        if rs_val == py_val:
+            results["pass"].append(name)
+        else:
+            results["fail"].append(f"{name}: Rust={rs_val} Python={py_val}")
+
+    return results
+
+
 def validate_font_pair(rust_path: Path, python_path: Path) -> tuple[int, int, list]:
     """Validate a single font pair. Returns (pass_count, fail_count, failures)."""
     rust_font = TTFont(rust_path)
@@ -226,6 +272,11 @@ def validate_font_pair(rust_path: Path, python_path: Path) -> tuple[int, int, li
     core = validate_core_metrics(rust_font, python_font)
     all_pass.extend(core["pass"])
     all_fail.extend(core["fail"])
+
+    # OS/2 typo and win metrics
+    os2 = validate_os2_metrics(rust_font, python_font)
+    all_pass.extend(os2["pass"])
+    all_fail.extend(os2["fail"])
 
     # Features (should always pass)
     features = validate_features(rust_font, python_font)
