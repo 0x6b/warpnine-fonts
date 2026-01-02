@@ -436,16 +436,7 @@ fn build_simple_glyph_variations(
         // Apply IUP optimization with tolerance of 0.5 (half a unit)
         // Note: We keep all deltas including phantom points - gvar requires them
         let iup_start = Instant::now();
-        
-        // Skip IUP for very small glyphs (overhead not worth it)
-        let deltas = if num_points <= 8 {
-            TOTAL_POINTS.fetch_add(num_points, Ordering::Relaxed);
-            REQUIRED_POINTS.fetch_add(num_points, Ordering::Relaxed);
-            raw_deltas
-                .iter()
-                .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
-                .collect()
-        } else {
+        let deltas =
             match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
                 Ok(optimized) => {
                     // Track IUP statistics (outline points only, not phantom)
@@ -475,8 +466,7 @@ fn build_simple_glyph_variations(
                         .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
                         .collect()
                 }
-            }
-        };
+            };
         IUP_OPTIMIZE_NS.fetch_add(iup_start.elapsed().as_nanos() as u64, Ordering::Relaxed);
 
         glyph_deltas.push(GlyphDeltas::new(tents, deltas));
