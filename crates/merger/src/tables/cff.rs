@@ -20,11 +20,10 @@
 //! For fonts with CFF outlines, users may want to convert to TrueType outlines
 //! before merging, or use fontTools' merge functionality instead.
 
-use crate::context::MergeContext;
-use crate::Result;
-use log::info;
-use log::warn;
+use log::{info, warn};
 use read_fonts::{FontRef, TableProvider};
+
+use crate::{context::MergeContext, Result};
 
 /// Check if any font has CFF outlines
 ///

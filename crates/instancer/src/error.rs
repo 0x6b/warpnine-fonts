@@ -1,5 +1,6 @@
-use read_fonts::ReadError;
 use std::result;
+
+use read_fonts::ReadError;
 use write_fonts::{BuilderError, error};
 
 /// Error types for font-instancer.
@@ -27,12 +28,7 @@ pub enum Error {
     Write(#[from] error::Error),
 
     #[error("invalid axis value {value} for {tag} (range: {min}..{max})")]
-    InvalidAxisValue {
-        tag: String,
-        value: f32,
-        min: f32,
-        max: f32,
-    },
+    InvalidAxisValue { tag: String, value: f32, min: f32, max: f32 },
 }
 
 pub type Result<T> = result::Result<T, Error>;

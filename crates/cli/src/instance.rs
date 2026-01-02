@@ -1,10 +1,11 @@
+use std::{
+    fs::{create_dir_all, read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
 use font_instancer::{AxisLocation, instantiate};
 use rayon::prelude::*;
-use std::fs::create_dir_all;
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
 
 pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> Result<()> {
     let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
@@ -14,10 +15,7 @@ pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> R
         .map(|(tag, value)| AxisLocation::new(tag, *value))
         .collect();
 
-    let axis_desc: Vec<String> = axes
-        .iter()
-        .map(|(tag, val)| format!("{tag}={val}"))
-        .collect();
+    let axis_desc: Vec<String> = axes.iter().map(|(tag, val)| format!("{tag}={val}")).collect();
     println!("Creating instance with axes: {}", axis_desc.join(", "));
 
     let static_data = instantiate(&data, &locations)
@@ -52,11 +50,7 @@ pub fn create_instances_batch(
     output_dir: &Path,
     instances: &[InstanceDef],
 ) -> Result<()> {
-    println!(
-        "Creating {} instances from {}",
-        instances.len(),
-        input.display()
-    );
+    println!("Creating {} instances from {}", instances.len(), input.display());
 
     let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
 

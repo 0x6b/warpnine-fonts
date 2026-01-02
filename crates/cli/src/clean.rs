@@ -1,6 +1,6 @@
+use std::{fs::remove_dir_all, path::Path};
+
 use anyhow::Result;
-use std::fs::remove_dir_all;
-use std::path::Path;
 
 pub fn clean(build_dir: &Path, dist_dir: &Path) -> Result<()> {
     let mut removed = 0;

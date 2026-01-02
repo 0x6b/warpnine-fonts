@@ -1,7 +1,8 @@
 //! Error types for font feature freezing operations.
 
-use read_fonts::ReadError;
 use std::result;
+
+use read_fonts::ReadError;
 use write_fonts::BuilderError;
 
 /// Errors that can occur during font feature freezing.

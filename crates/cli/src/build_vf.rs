@@ -1,7 +1,8 @@
 //! Build variable font from static masters.
 
-use anyhow::{Context, Result};
-use std::path::Path;
+use std::{fs::write, path::Path};
+
+use anyhow::{Context, Result, bail};
 use warpnine_font_vf_builder::{Axis, DesignSpace, Instance, Source, build_variable_font};
 
 /// WarpnineMono designspace configuration.
@@ -17,11 +18,8 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
     // 16 static masters: 8 weights × 2 styles
     let sources = vec![
         // Light
-        Source::new(
-            dist_dir.join("WarpnineMono-Light.ttf"),
-            vec![("wght", 300.0), ("ital", 0.0)],
-        )
-        .with_style_name("Light"),
+        Source::new(dist_dir.join("WarpnineMono-Light.ttf"), vec![("wght", 300.0), ("ital", 0.0)])
+            .with_style_name("Light"),
         Source::new(
             dist_dir.join("WarpnineMono-LightItalic.ttf"),
             vec![("wght", 300.0), ("ital", 1.0)],
@@ -33,17 +31,11 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
             vec![("wght", 400.0), ("ital", 0.0)],
         )
         .with_style_name("Regular"),
-        Source::new(
-            dist_dir.join("WarpnineMono-Italic.ttf"),
-            vec![("wght", 400.0), ("ital", 1.0)],
-        )
-        .with_style_name("Italic"),
+        Source::new(dist_dir.join("WarpnineMono-Italic.ttf"), vec![("wght", 400.0), ("ital", 1.0)])
+            .with_style_name("Italic"),
         // Medium
-        Source::new(
-            dist_dir.join("WarpnineMono-Medium.ttf"),
-            vec![("wght", 500.0), ("ital", 0.0)],
-        )
-        .with_style_name("Medium"),
+        Source::new(dist_dir.join("WarpnineMono-Medium.ttf"), vec![("wght", 500.0), ("ital", 0.0)])
+            .with_style_name("Medium"),
         Source::new(
             dist_dir.join("WarpnineMono-MediumItalic.ttf"),
             vec![("wght", 500.0), ("ital", 1.0)],
@@ -61,11 +53,8 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
         )
         .with_style_name("SemiBold Italic"),
         // Bold
-        Source::new(
-            dist_dir.join("WarpnineMono-Bold.ttf"),
-            vec![("wght", 700.0), ("ital", 0.0)],
-        )
-        .with_style_name("Bold"),
+        Source::new(dist_dir.join("WarpnineMono-Bold.ttf"), vec![("wght", 700.0), ("ital", 0.0)])
+            .with_style_name("Bold"),
         Source::new(
             dist_dir.join("WarpnineMono-BoldItalic.ttf"),
             vec![("wght", 700.0), ("ital", 1.0)],
@@ -83,11 +72,8 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
         )
         .with_style_name("ExtraBold Italic"),
         // Black
-        Source::new(
-            dist_dir.join("WarpnineMono-Black.ttf"),
-            vec![("wght", 900.0), ("ital", 0.0)],
-        )
-        .with_style_name("Black"),
+        Source::new(dist_dir.join("WarpnineMono-Black.ttf"), vec![("wght", 900.0), ("ital", 0.0)])
+            .with_style_name("Black"),
         Source::new(
             dist_dir.join("WarpnineMono-BlackItalic.ttf"),
             vec![("wght", 900.0), ("ital", 1.0)],
@@ -138,7 +124,7 @@ pub fn build_warpnine_mono_vf(dist_dir: &Path, output: &Path) -> Result<()> {
     // Verify all source fonts exist
     for source in &designspace.sources {
         if !source.path.exists() {
-            anyhow::bail!("Source font not found: {}", source.path.display());
+            bail!("Source font not found: {}", source.path.display());
         }
     }
 
@@ -148,11 +134,10 @@ pub fn build_warpnine_mono_vf(dist_dir: &Path, output: &Path) -> Result<()> {
     let vf_data =
         build_variable_font(&designspace).with_context(|| "Failed to build variable font")?;
 
-    std::fs::write(output, &vf_data)
-        .with_context(|| format!("Failed to write {}", output.display()))?;
+    write(output, &vf_data).with_context(|| format!("Failed to write {}", output.display()))?;
 
     let size_mb = vf_data.len() as f64 / 1024.0 / 1024.0;
-    println!("  Output: {} ({:.2} MB)", output.display(), size_mb);
+    println!("  Output: {} ({size_mb:.2} MB)", output.display());
 
     Ok(())
 }

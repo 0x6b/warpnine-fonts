@@ -12,18 +12,18 @@
 //!
 //! When merging fonts:
 //!
-//! 1. **Global hint tables (`fpgm`, `prep`, `cvt`)**: Copied from the first font only.
-//!    This is because different fonts typically have incompatible hinting programs
-//!    that cannot be safely merged.
+//! 1. **Global hint tables (`fpgm`, `prep`, `cvt`)**: Copied from the first font only. This is
+//!    because different fonts typically have incompatible hinting programs that cannot be safely
+//!    merged.
 //!
-//! 2. **Per-glyph instructions**: Preserved from each font's glyphs as they are
-//!    copied to the merged font. These instructions are stored in the `glyf` table.
+//! 2. **Per-glyph instructions**: Preserved from each font's glyphs as they are copied to the
+//!    merged font. These instructions are stored in the `glyf` table.
 //!
 //! # Implications
 //!
 //! - Glyphs from the first font will render with their original hinting quality
-//! - Glyphs from subsequent fonts may not hint correctly if they rely on
-//!   `fpgm` functions or `cvt` values that differ from the first font
+//! - Glyphs from subsequent fonts may not hint correctly if they rely on `fpgm` functions or `cvt`
+//!   values that differ from the first font
 //! - For best results, merge fonts that share similar hinting strategies
 //!
 //! # Future Improvements
@@ -38,8 +38,7 @@
 //!
 //! However, this is extremely complex and may introduce subtle rendering bugs.
 
-use log::debug;
-use log::warn;
+use log::{debug, warn};
 use read_fonts::{types::Tag, FontRef};
 
 /// Check if fonts have compatible hinting

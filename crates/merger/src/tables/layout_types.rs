@@ -3,8 +3,9 @@
 //! These types encapsulate the state management for merging OpenType
 //! layout tables, replacing raw HashMaps and Vecs.
 
-use read_fonts::types::Tag;
 use std::collections::HashMap;
+
+use read_fonts::types::Tag;
 
 /// Index into the merged feature list
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -117,10 +118,7 @@ impl ScriptLangFeatureMap {
                 let lang_raw = lang_map
                     .into_iter()
                     .map(|(lang, features)| {
-                        (
-                            lang.tag(),
-                            features.into_iter().map(|f| f.as_u16()).collect(),
-                        )
+                        (lang.tag(), features.into_iter().map(|f| f.as_u16()).collect())
                     })
                     .collect();
                 (script.tag(), lang_raw)
@@ -138,10 +136,7 @@ pub struct MergedFeature {
 
 impl MergedFeature {
     pub fn new(tag: Tag, lookup_indices: Vec<LookupIndex>) -> Self {
-        Self {
-            tag,
-            lookup_indices,
-        }
+        Self { tag, lookup_indices }
     }
 }
 
@@ -176,12 +171,7 @@ impl MergedFeatureList {
     pub fn into_raw(self) -> Vec<(Tag, Vec<u16>)> {
         self.features
             .into_iter()
-            .map(|f| {
-                (
-                    f.tag,
-                    f.lookup_indices.into_iter().map(|l| l.as_u16()).collect(),
-                )
-            })
+            .map(|f| (f.tag, f.lookup_indices.into_iter().map(|l| l.as_u16()).collect()))
             .collect()
     }
 }
@@ -211,10 +201,7 @@ mod tests {
     fn test_merged_feature_list() {
         let mut list = MergedFeatureList::new();
 
-        let idx = list.add(
-            Tag::new(b"liga"),
-            vec![LookupIndex::new(0), LookupIndex::new(1)],
-        );
+        let idx = list.add(Tag::new(b"liga"), vec![LookupIndex::new(0), LookupIndex::new(1)]);
         assert_eq!(idx.as_u16(), 0);
 
         let idx2 = list.add(Tag::new(b"kern"), vec![LookupIndex::new(2)]);

@@ -1,8 +1,10 @@
+use std::{
+    fs::{read, write},
+    path::Path,
+};
+
 use anyhow::Result;
 use read_fonts::{FontRef, TableProvider};
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
 use write_fonts::{
     FontBuilder,
     tables::name::{Name, NameRecord},

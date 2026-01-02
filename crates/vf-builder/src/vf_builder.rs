@@ -1,27 +1,33 @@
 //! Variable font builder implementation.
 
-use crate::designspace::DesignSpace;
-use crate::error::{Error, Result};
-use crate::variation_model::VariationModel;
+use std::{collections::HashSet, time::Instant};
 
 use log::info;
-use read_fonts::types::{F2Dot14, Fixed, GlyphId, NameId, Tag};
-use read_fonts::{FontData, FontRef, TableProvider};
-use std::collections::HashSet;
-use std::time::Instant;
-use write_fonts::FontBuilder;
-use write_fonts::from_obj::FromObjRef;
-use write_fonts::tables::fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord};
-use write_fonts::tables::glyf::{
-    CompositeGlyph as WriteCompositeGlyph, GlyfLocaBuilder, Glyph as WriteGlyph,
-    SimpleGlyph as WriteSimpleGlyph,
+use read_fonts::{
+    FontData, FontRef, TableProvider,
+    types::{F2Dot14, Fixed, GlyphId, NameId, Tag},
 };
-use write_fonts::tables::gvar::{
-    GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent, iup::iup_delta_optimize,
+use write_fonts::{
+    FontBuilder,
+    from_obj::FromObjRef,
+    tables::{
+        fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord},
+        glyf::{
+            CompositeGlyph as WriteCompositeGlyph, GlyfLocaBuilder, Glyph as WriteGlyph,
+            SimpleGlyph as WriteSimpleGlyph,
+        },
+        gvar::{GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent, iup::iup_delta_optimize},
+        head::Head,
+        name::{Name, NameRecord},
+        stat::{AxisRecord as StatAxisRecord, AxisValue, AxisValueTableFlags, Stat},
+    },
 };
-use write_fonts::tables::head::Head;
-use write_fonts::tables::name::{Name, NameRecord};
-use write_fonts::tables::stat::{AxisRecord as StatAxisRecord, AxisValue, AxisValueTableFlags, Stat};
+
+use crate::{
+    designspace::DesignSpace,
+    error::{Error, Result},
+    variation_model::VariationModel,
+};
 
 /// Tables that should NOT be copied (variation-specific or rebuilt).
 const SKIP_TABLES: &[Tag] = &[
@@ -51,20 +57,14 @@ const INSTANCE_NAME_ID_START: u16 = 256;
 pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     designspace.validate().map_err(Error::InvalidDesignspace)?;
 
-    info!(
-        "Building variable font from {} masters",
-        designspace.sources.len()
-    );
+    info!("Building variable font from {} masters", designspace.sources.len());
 
     // Load all master fonts
     let master_data: Vec<Vec<u8>> = designspace
         .sources
         .iter()
         .map(|source| {
-            std::fs::read(&source.path).map_err(|e| Error::ReadFont {
-                path: source.path.clone(),
-                source: e,
-            })
+            read(&source.path).map_err(|e| Error::ReadFont { path: source.path.clone(), source: e })
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -72,16 +72,12 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
         .iter()
         .zip(designspace.sources.iter())
         .map(|(data, source)| {
-            FontRef::new(data).map_err(|e| Error::ParseFont {
-                path: source.path.clone(),
-                message: e.to_string(),
-            })
+            FontRef::new(data)
+                .map_err(|e| Error::ParseFont { path: source.path.clone(), message: e.to_string() })
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let default_idx = designspace
-        .default_source_index()
-        .ok_or(Error::NoDefaultSource)?;
+    let default_idx = designspace.default_source_index().ok_or(Error::NoDefaultSource)?;
     let default_font = &masters[default_idx];
 
     // Verify glyph compatibility
@@ -99,7 +95,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     })?;
 
     let num_glyphs = default_font.maxp()?.num_glyphs();
-    info!("Processing {} glyphs", num_glyphs);
+    info!("Processing {num_glyphs} glyphs");
 
     // Build gvar table
     let gvar_start = Instant::now();
@@ -138,10 +134,10 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     let skip_set: HashSet<Tag> = SKIP_TABLES.iter().copied().collect();
     for record in default_font.table_directory.table_records() {
         let tag = record.tag();
-        if !skip_set.contains(&tag) {
-            if let Some(data) = default_font.table_data(tag) {
-                builder.add_raw(tag, data);
-            }
+        if !skip_set.contains(&tag)
+            && let Some(data) = default_font.table_data(tag)
+        {
+            builder.add_raw(tag, data);
         }
     }
 
@@ -231,7 +227,7 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
     let instance_name_ids: HashSet<u16> = (INSTANCE_NAME_ID_START
         ..INSTANCE_NAME_ID_START + designspace.instances.len() as u16)
         .collect();
-    
+
     // Name IDs used for STAT table values
     let stat_name_ids: HashSet<u16> = [280, 281, 282, 283, 284, 285, 286, 287, 290, 291]
         .into_iter()
@@ -295,38 +291,43 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
         (286, "Black"),
         (287, "ExtraBlack"),
     ];
-    
+
     for (name_id, name) in stat_weight_names {
         // Windows
         new_records.push(NameRecord::new(
-            3, 1, 0x409,
+            3,
+            1,
+            0x409,
             read_fonts::types::NameId::new(name_id),
             name.to_string().into(),
         ));
         // Mac
         new_records.push(NameRecord::new(
-            1, 0, 0,
+            1,
+            0,
+            0,
             read_fonts::types::NameId::new(name_id),
             name.to_string().into(),
         ));
     }
-    
+
     // Italic values (name IDs 290-291)
-    let stat_italic_names = [
-        (290, "Upright"),
-        (291, "Italic"),
-    ];
-    
+    let stat_italic_names = [(290, "Upright"), (291, "Italic")];
+
     for (name_id, name) in stat_italic_names {
         // Windows
         new_records.push(NameRecord::new(
-            3, 1, 0x409,
+            3,
+            1,
+            0x409,
             read_fonts::types::NameId::new(name_id),
             name.to_string().into(),
         ));
         // Mac
         new_records.push(NameRecord::new(
-            1, 0, 0,
+            1,
+            0,
+            0,
             read_fonts::types::NameId::new(name_id),
             name.to_string().into(),
         ));
@@ -334,14 +335,27 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
 
     // Sort records by (platformID, encodingID, languageID, nameID)
     new_records.sort_by(|a, b| {
-        (a.platform_id, a.encoding_id, a.language_id, a.name_id)
-            .cmp(&(b.platform_id, b.encoding_id, b.language_id, b.name_id))
+        (a.platform_id, a.encoding_id, a.language_id, a.name_id).cmp(&(
+            b.platform_id,
+            b.encoding_id,
+            b.language_id,
+            b.name_id,
+        ))
     });
 
     Ok(Name::new(new_records))
 }
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::{
+    fs::read,
+    result,
+    sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+};
+
+use kurbo::{Point, Vec2};
+use log::warn;
+use read_fonts::tables::glyf::{CompositeGlyph, SimpleGlyph};
+use write_fonts::tables::loca::LocaFormat;
 
 static TOTAL_POINTS: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_POINTS: AtomicUsize = AtomicUsize::new(0);
@@ -366,11 +380,11 @@ fn build_gvar(
     let master_glyfs: Vec<_> = masters
         .iter()
         .map(|m| m.glyf())
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        .collect::<result::Result<Vec<_>, _>>()?;
     let master_locas: Vec<_> = masters
         .iter()
         .map(|m| m.loca(None))
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        .collect::<result::Result<Vec<_>, _>>()?;
 
     let axis_count = designspace.axes.len() as u16;
 
@@ -387,28 +401,23 @@ fn build_gvar(
     let required = REQUIRED_POINTS.load(Ordering::Relaxed);
     let optional = OPTIONAL_POINTS.load(Ordering::Relaxed);
     info!(
-        "Glyph variations computed in {:.2}s ({} glyphs, {:.0} glyphs/sec)",
-        variations_elapsed,
-        num_glyphs,
+        "Glyph variations computed in {variations_elapsed:.2}s ({num_glyphs} glyphs, {:.0} glyphs/sec)",
         num_glyphs as f64 / variations_elapsed
     );
     info!(
-        "IUP statistics: {} total points, {} required ({:.1}%), {} optional ({:.1}%)",
-        total,
-        required,
+        "IUP statistics: {total} total points, {required} required ({:.1}%), {optional} optional ({:.1}%)",
         required as f64 / total as f64 * 100.0,
-        optional,
         optional as f64 / total as f64 * 100.0
     );
-    
+
     let delta_secs = DELTA_COMPUTE_NS.load(Ordering::Relaxed) as f64 / 1_000_000_000.0;
     let iup_secs = IUP_OPTIMIZE_NS.load(Ordering::Relaxed) as f64 / 1_000_000_000.0;
-    info!("Time breakdown: delta_compute={:.2}s, iup_optimize={:.2}s", delta_secs, iup_secs);
+    info!("Time breakdown: delta_compute={delta_secs:.2}s, iup_optimize={iup_secs:.2}s");
 
     let gvar_build_start = Instant::now();
     let gvar = Gvar::new(all_variations, axis_count).map_err(Error::GvarBuild)?;
     info!("Gvar::new() took {:.2}s", gvar_build_start.elapsed().as_secs_f64());
-    
+
     Ok(gvar)
 }
 
@@ -456,7 +465,7 @@ fn build_glyph_variations(
 
 fn build_simple_glyph_variations(
     gid: GlyphId,
-    default_simple: &read_fonts::tables::glyf::SimpleGlyph,
+    default_simple: &SimpleGlyph,
     designspace: &DesignSpace,
     master_glyfs: &[read_fonts::tables::glyf::Glyf],
     master_locas: &[read_fonts::tables::loca::Loca],
@@ -494,7 +503,7 @@ fn build_simple_glyph_variations(
     }
 
     // Get default master coordinates for IUP optimization
-    let default_coords: Vec<kurbo::Point> = default_simple
+    let default_coords: Vec<Point> = default_simple
         .points()
         .map(|p| kurbo::Point::new(f64::from(p.x), f64::from(p.y)))
         .collect();
@@ -528,28 +537,28 @@ fn build_simple_glyph_variations(
     let delta_start = Instant::now();
     let num_regions = model.regions.len();
     let num_masters = master_points.len();
-    
+
     // Pre-allocate point_values buffer to avoid repeated allocations
     let mut point_values: Vec<(i16, i16)> = vec![(0, 0); num_masters];
-    
+
     // all_raw_deltas[region_idx] = Vec of deltas for that region
-    let mut all_raw_deltas: Vec<Vec<kurbo::Vec2>> = (0..num_regions)
-        .map(|_| Vec::with_capacity(num_points + 4))
-        .collect();
-    
+    let mut all_raw_deltas: Vec<Vec<Vec2>> =
+        (0..num_regions).map(|_| Vec::with_capacity(num_points + 4)).collect();
+
     // For each point, compute deltas across all regions
     for point_idx in 0..num_points {
         // Fill point_values buffer (no allocation)
         for (master_idx, points) in master_points.iter().enumerate() {
             point_values[master_idx] = points[point_idx];
         }
-        
+
         // Compute deltas for all regions for this point
         let mut prev_deltas: Vec<(i16, i16)> = Vec::with_capacity(num_regions);
         for region_idx in 0..num_regions {
             let delta = model.compute_delta_2d_for_region(&point_values, region_idx, &prev_deltas);
             prev_deltas.push(delta);
-            all_raw_deltas[region_idx].push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
+            all_raw_deltas[region_idx]
+                .push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
         }
     }
     DELTA_COMPUTE_NS.fetch_add(delta_start.elapsed().as_nanos() as u64, Ordering::Relaxed);
@@ -595,11 +604,7 @@ fn build_simple_glyph_variations(
                 }
                 Err(e) => {
                     // Log the error for debugging
-                    log::warn!(
-                        "IUP optimization failed for glyph {}: {:?}",
-                        gid.to_u32(),
-                        e
-                    );
+                    warn!("IUP optimization failed for glyph {}: {e:?}", gid.to_u32());
                     // Fall back to marking all as required (including phantom points)
                     raw_deltas
                         .iter()
@@ -617,7 +622,7 @@ fn build_simple_glyph_variations(
 
 fn build_composite_glyph_variations(
     gid: GlyphId,
-    default_composite: &read_fonts::tables::glyf::CompositeGlyph,
+    default_composite: &CompositeGlyph,
     designspace: &DesignSpace,
     master_glyfs: &[read_fonts::tables::glyf::Glyf],
     master_locas: &[read_fonts::tables::loca::Loca],
@@ -631,7 +636,7 @@ fn build_composite_glyph_variations(
     // Collect component offsets from all masters
     let mut master_offsets: Vec<Vec<(i16, i16)>> = Vec::with_capacity(designspace.sources.len());
 
-    for (_master_idx, (glyf, loca)) in master_glyfs.iter().zip(master_locas.iter()).enumerate() {
+    for (glyf, loca) in master_glyfs.iter().zip(master_locas.iter()) {
         let glyph = loca.get_glyf(gid, glyf).ok().flatten();
 
         let offsets: Vec<(i16, i16)> = match glyph {
@@ -703,11 +708,7 @@ fn build_composite_glyph_variations(
 
 fn build_glyf_loca(
     default_font: &FontRef,
-) -> Result<(
-    write_fonts::tables::glyf::Glyf,
-    write_fonts::tables::loca::Loca,
-    write_fonts::tables::loca::LocaFormat,
-)> {
+) -> Result<(write_fonts::tables::glyf::Glyf, write_fonts::tables::loca::Loca, LocaFormat)> {
     use read_fonts::tables::glyf::Glyph;
 
     let glyf = default_font.glyf()?;
@@ -740,10 +741,7 @@ fn build_glyf_loca(
     Ok(builder.build())
 }
 
-fn build_head(
-    default_font: &FontRef,
-    loca_format: write_fonts::tables::loca::LocaFormat,
-) -> Result<Head> {
+fn build_head(default_font: &FontRef, loca_format: LocaFormat) -> Result<Head> {
     let head = default_font.head()?;
 
     Ok(Head::new(
@@ -787,7 +785,7 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
 
     // Build axis values for each named instance/weight
     let mut axis_values: Vec<AxisValue> = Vec::new();
-    
+
     // For weight axis: add values for each weight stop
     // Standard weight values with name IDs starting at 280
     let weight_values: [(f64, &str, u16); 8] = [
@@ -800,7 +798,7 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
         (900.0, "Black", 286),
         (1000.0, "ExtraBlack", 287),
     ];
-    
+
     for (value, _name, name_id) in weight_values {
         let mut flags = AxisValueTableFlags::empty();
         // Mark Regular (400) as the elidable default
@@ -817,10 +815,10 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
 
     // For italic axis: add values for upright and italic
     let italic_values: [(f64, &str, u16, bool); 2] = [
-        (0.0, "Upright", 290, true),  // Upright is elidable default
+        (0.0, "Upright", 290, true), // Upright is elidable default
         (1.0, "Italic", 291, false),
     ];
-    
+
     for (value, _name, name_id, is_default) in italic_values {
         let mut flags = AxisValueTableFlags::empty();
         if is_default {

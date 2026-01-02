@@ -1,8 +1,11 @@
 //! Core types for font feature freezing configuration and results.
 
+use std::{
+    collections::{BTreeSet, HashSet},
+    fmt::{self, Formatter, Result},
+};
+
 use read_fonts::types::Tag;
-use std::collections::{BTreeSet, HashSet};
-use std::fmt::{self, Formatter, Result};
 
 /// Options controlling how features are frozen into the font.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

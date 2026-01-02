@@ -1,9 +1,10 @@
+use std::{
+    fs::{create_dir_all, read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
 use rayon::prelude::*;
-use std::fs::create_dir_all;
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
 use warpnine_font_merger::Merger;
 
 pub fn merge_fonts(inputs: &[impl AsRef<Path>], output: &Path) -> Result<()> {
@@ -23,9 +24,7 @@ pub fn merge_fonts(inputs: &[impl AsRef<Path>], output: &Path) -> Result<()> {
     let font_refs: Vec<&[u8]> = font_data.iter().map(|v| v.as_slice()).collect();
 
     let merger = Merger::default();
-    let merged_data = merger
-        .merge(&font_refs)
-        .with_context(|| "Failed to merge fonts")?;
+    let merged_data = merger.merge(&font_refs).with_context(|| "Failed to merge fonts")?;
 
     if let Some(parent) = output.parent() {
         create_dir_all(parent)?;
@@ -44,36 +43,30 @@ pub fn merge_batch(
     fallback: &Path,
     output_dir: &Path,
 ) -> Result<()> {
-    println!(
-        "Merging {} fonts with {}",
-        base_fonts.len(),
-        fallback.display()
-    );
+    println!("Merging {} fonts with {}", base_fonts.len(), fallback.display());
 
     let fallback_data =
         read(fallback).with_context(|| format!("Failed to read {}", fallback.display()))?;
 
     create_dir_all(output_dir)?;
 
-    base_fonts
-        .par_iter()
-        .try_for_each(|base_path| -> Result<()> {
-            let base_path = base_path.as_ref();
-            let base_data = read(base_path)
-                .with_context(|| format!("Failed to read {}", base_path.display()))?;
+    base_fonts.par_iter().try_for_each(|base_path| -> Result<()> {
+        let base_path = base_path.as_ref();
+        let base_data =
+            read(base_path).with_context(|| format!("Failed to read {}", base_path.display()))?;
 
-            let merger = Merger::default();
-            let merged_data = merger
-                .merge(&[base_data.as_slice(), fallback_data.as_slice()])
-                .with_context(|| format!("Failed to merge {}", base_path.display()))?;
+        let merger = Merger::default();
+        let merged_data = merger
+            .merge(&[base_data.as_slice(), fallback_data.as_slice()])
+            .with_context(|| format!("Failed to merge {}", base_path.display()))?;
 
-            let output = output_dir.join(base_path.file_name().unwrap());
-            write(&output, &merged_data)
-                .with_context(|| format!("Failed to write {}", output.display()))?;
+        let output = output_dir.join(base_path.file_name().unwrap());
+        write(&output, &merged_data)
+            .with_context(|| format!("Failed to write {}", output.display()))?;
 
-            println!("  Merged: {}", output.display());
-            Ok(())
-        })?;
+        println!("  Merged: {}", output.display());
+        Ok(())
+    })?;
 
     println!("Merged {} fonts", base_fonts.len());
     Ok(())

@@ -3,11 +3,12 @@
 //! Test fixtures from: https://github.com/twardoch/fonttools-opentype-feature-freezer/tree/master/tests
 //! OpenSans-Bold.subset.ttf is licensed under Apache License 2.0
 
+use std::collections::HashMap;
+
 use font_feature_freezer::{
     FreezeOptions, freeze, freeze_features, freeze_features_with_stats, report,
 };
 use read_fonts::{FontRef, TableProvider};
-use std::collections::HashMap;
 
 fn get_cmap(data: &[u8]) -> HashMap<u32, u16> {
     let font = FontRef::new(data).unwrap();
@@ -201,11 +202,7 @@ fn test_freeze_with_suffix() {
 
     // Family name should have " onum" appended
     let family = get_name_record(&result.data, 1).unwrap();
-    assert!(
-        family.contains("onum"),
-        "Expected 'onum' in family name: {}",
-        family
-    );
+    assert!(family.contains("onum"), "Expected 'onum' in family name: {}", family);
 }
 
 #[test]
@@ -243,15 +240,9 @@ fn test_freeze_warns_on_glyphs_without_unicode() {
     let result = freeze(font_data, &options).unwrap();
 
     // Should have warning about xxx -> yyy substitution
+    assert!(!result.warnings.is_empty(), "Expected warnings for glyphs without unicode");
     assert!(
-        !result.warnings.is_empty(),
-        "Expected warnings for glyphs without unicode"
-    );
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.contains("xxx") && w.contains("yyy")),
+        result.warnings.iter().any(|w| w.contains("xxx") && w.contains("yyy")),
         "Expected warning about xxx -> yyy, got: {:?}",
         result.warnings
     );

@@ -1,10 +1,12 @@
 //! OS/2 table merging
 
-use crate::strategies::{first, max, min};
-use crate::Result;
 use read_fonts::{tables::os2::Os2 as ReadOs2, FontRef, TableProvider};
-use write_fonts::tables::os2::Os2;
-use write_fonts::tables::os2::SelectionFlags;
+use write_fonts::tables::os2::{Os2, SelectionFlags};
+
+use crate::{
+    strategies::{first, max, min},
+    Result,
+};
 
 pub fn merge_os2(fonts: &[FontRef]) -> Result<Option<Os2>> {
     let tables: Vec<ReadOs2> = fonts.iter().filter_map(|f| f.os2().ok()).collect();
@@ -49,22 +51,14 @@ pub fn merge_os2(fonts: &[FontRef]) -> Result<Option<Os2>> {
     let s_cap_heights: Vec<i16> = tables.iter().filter_map(|t| t.s_cap_height()).collect();
 
     // Merge Unicode ranges (OR)
-    let ul_unicode_range1: u32 = tables
-        .iter()
-        .map(|t| t.ul_unicode_range_1())
-        .fold(0, |a, b| a | b);
-    let ul_unicode_range2: u32 = tables
-        .iter()
-        .map(|t| t.ul_unicode_range_2())
-        .fold(0, |a, b| a | b);
-    let ul_unicode_range3: u32 = tables
-        .iter()
-        .map(|t| t.ul_unicode_range_3())
-        .fold(0, |a, b| a | b);
-    let ul_unicode_range4: u32 = tables
-        .iter()
-        .map(|t| t.ul_unicode_range_4())
-        .fold(0, |a, b| a | b);
+    let ul_unicode_range1: u32 =
+        tables.iter().map(|t| t.ul_unicode_range_1()).fold(0, |a, b| a | b);
+    let ul_unicode_range2: u32 =
+        tables.iter().map(|t| t.ul_unicode_range_2()).fold(0, |a, b| a | b);
+    let ul_unicode_range3: u32 =
+        tables.iter().map(|t| t.ul_unicode_range_3()).fold(0, |a, b| a | b);
+    let ul_unicode_range4: u32 =
+        tables.iter().map(|t| t.ul_unicode_range_4()).fold(0, |a, b| a | b);
 
     // Merge code page ranges (OR)
     let ul_code_page_range1: Option<u32> = tables
@@ -80,16 +74,8 @@ pub fn merge_os2(fonts: &[FontRef]) -> Result<Option<Os2>> {
     let fs_selection = merge_fs_selection(&tables);
 
     // Compute char range from all fonts
-    let us_first_char_index = tables
-        .iter()
-        .map(|t| t.us_first_char_index())
-        .min()
-        .unwrap_or(0);
-    let us_last_char_index = tables
-        .iter()
-        .map(|t| t.us_last_char_index())
-        .max()
-        .unwrap_or(0);
+    let us_first_char_index = tables.iter().map(|t| t.us_first_char_index()).min().unwrap_or(0);
+    let us_last_char_index = tables.iter().map(|t| t.us_last_char_index()).max().unwrap_or(0);
 
     // Get panose as array
     let panose: [u8; 10] = first_table.panose_10().try_into().unwrap_or([0; 10]);
@@ -125,32 +111,16 @@ pub fn merge_os2(fonts: &[FontRef]) -> Result<Option<Os2>> {
         us_win_ascent: max(&us_win_ascents)?,
         us_win_descent: max(&us_win_descents)?,
         // Version 1+ fields
-        ul_code_page_range_1: if max_version >= 1 {
-            ul_code_page_range1.or(Some(0))
-        } else {
-            None
-        },
-        ul_code_page_range_2: if max_version >= 1 {
-            ul_code_page_range2.or(Some(0))
-        } else {
-            None
-        },
+        ul_code_page_range_1: if max_version >= 1 { ul_code_page_range1.or(Some(0)) } else { None },
+        ul_code_page_range_2: if max_version >= 1 { ul_code_page_range2.or(Some(0)) } else { None },
         // Version 2+ fields
         sx_height: if max_version >= 2 {
-            Some(if sx_heights.is_empty() {
-                0
-            } else {
-                max(&sx_heights)?
-            })
+            Some(if sx_heights.is_empty() { 0 } else { max(&sx_heights)? })
         } else {
             None
         },
         s_cap_height: if max_version >= 2 {
-            Some(if s_cap_heights.is_empty() {
-                0
-            } else {
-                max(&s_cap_heights)?
-            })
+            Some(if s_cap_heights.is_empty() { 0 } else { max(&s_cap_heights)? })
         } else {
             None
         },

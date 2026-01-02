@@ -1,27 +1,32 @@
 //! Main Merger implementation
 
-use crate::context::{GlyphOrder, MergeContext};
-use crate::options::Options;
-use crate::tables::cff::{check_cff, merge_cff, merge_cff2};
-use crate::tables::cmap::merge_cmap;
-use crate::tables::glyf::merge_glyf;
-use crate::tables::head::merge_head;
-use crate::tables::hhea::merge_hhea;
-use crate::tables::hint::{check_hint_compatibility, log_hint_info};
-use crate::tables::hmtx::merge_hmtx;
-use crate::tables::layout::{merge_gpos, merge_gsub};
-use crate::tables::maxp::merge_maxp;
-use crate::tables::name::merge_name;
-use crate::tables::os2::merge_os2;
-use crate::tables::post::merge_post;
-use crate::tables::vhea::merge_vhea;
-use crate::tables::vmtx::merge_vmtx;
+use std::collections::HashSet;
 
-use crate::{MergeError, Result};
 use log::info;
 use read_fonts::{types::Tag, FontRef, TableProvider};
-use std::collections::HashSet;
 use write_fonts::FontBuilder;
+
+use crate::{
+    context::{GlyphOrder, MergeContext},
+    options::Options,
+    tables::{
+        cff::{check_cff, merge_cff, merge_cff2},
+        cmap::merge_cmap,
+        glyf::merge_glyf,
+        head::merge_head,
+        hhea::merge_hhea,
+        hint::{check_hint_compatibility, log_hint_info},
+        hmtx::merge_hmtx,
+        layout::{merge_gpos, merge_gsub},
+        maxp::merge_maxp,
+        name::merge_name,
+        os2::merge_os2,
+        post::merge_post,
+        vhea::merge_vhea,
+        vmtx::merge_vmtx,
+    },
+    MergeError, Result,
+};
 
 /// Constant table tags to avoid repeated construction
 const HANDLED_TABLES: &[[u8; 4]] = &[
@@ -69,10 +74,7 @@ impl Merger {
         let glyph_order = GlyphOrder::compute(fonts);
         let total_glyphs = glyph_order.total_glyphs();
 
-        info!(
-            "Merging {} fonts with {total_glyphs} total glyphs",
-            fonts.len()
-        );
+        info!("Merging {} fonts with {total_glyphs} total glyphs", fonts.len());
 
         let (cmap, duplicate_info) = merge_cmap(fonts, &glyph_order)?;
 
@@ -89,11 +91,8 @@ impl Merger {
         let vmtx = merge_vmtx(&ctx)?;
 
         let has_cff = check_cff(ctx.fonts())?;
-        let (glyf_loca, cff_data) = if has_cff {
-            (None, merge_cff(&ctx)?)
-        } else {
-            (merge_glyf(&ctx)?, None)
-        };
+        let (glyf_loca, cff_data) =
+            if has_cff { (None, merge_cff(&ctx)?) } else { (merge_glyf(&ctx)?, None) };
         let cff2_data = merge_cff2(&ctx)?;
 
         let gsub = merge_gsub(&ctx)?;
@@ -159,10 +158,7 @@ impl Merger {
             if upem == first_upem {
                 Ok(())
             } else {
-                Err(MergeError::IncompatibleUnitsPerEm {
-                    expected: first_upem,
-                    actual: upem,
-                })
+                Err(MergeError::IncompatibleUnitsPerEm { expected: first_upem, actual: upem })
             }
         })
     }

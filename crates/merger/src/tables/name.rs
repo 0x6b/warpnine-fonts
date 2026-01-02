@@ -1,8 +1,9 @@
 //! name table merging
 
-use crate::Result;
 use read_fonts::{types::Tag, FontRef};
 use write_fonts::FontBuilder;
+
+use crate::Result;
 
 /// Merge name tables from multiple fonts
 ///

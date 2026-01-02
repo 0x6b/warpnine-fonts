@@ -1,9 +1,11 @@
+use std::{
+    fs::{create_dir_all, read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
 use font_instancer::{AxisLocation, instantiate};
-use read_fonts::tables::glyf::CurvePoint;
-use read_fonts::types::GlyphId;
-use read_fonts::{FontRef, TableProvider};
-use std::path::Path;
+use read_fonts::{FontRef, TableProvider, tables, tables::glyf::CurvePoint, types::GlyphId};
 use write_fonts::{
     FontBuilder,
     from_obj::ToOwnedTable,
@@ -21,10 +23,6 @@ use write_fonts::{
 };
 
 use crate::sans::SANS_INSTANCES;
-use read_fonts::tables;
-use std::fs::create_dir_all;
-use std::fs::read;
-use std::fs::write;
 
 const WIDTH_CLASS_CONDENSED: u16 = 3;
 
@@ -81,11 +79,7 @@ fn update_condensed_name_table(font_data: &[u8], family: &str, style: &str) -> R
 
 fn scale_simple_glyph(glyph: &read_fonts::tables::glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
     let mut contours = Vec::new();
-    let end_pts: Vec<u16> = glyph
-        .end_pts_of_contours()
-        .iter()
-        .map(|e| e.get())
-        .collect();
+    let end_pts: Vec<u16> = glyph.end_pts_of_contours().iter().map(|e| e.get()).collect();
     let all_points: Vec<CurvePoint> = glyph.points().collect();
 
     let mut start = 0usize;
@@ -118,10 +112,7 @@ fn scale_composite_glyph(glyph: &tables::glyf::CompositeGlyph, scale_x: f32) -> 
 
     for c in glyph.components() {
         let new_anchor = match c.anchor {
-            Anchor::Offset { x, y } => Anchor::Offset {
-                x: (x as f32 * scale_x).round() as i16,
-                y,
-            },
+            Anchor::Offset { x, y } => Anchor::Offset { x: (x as f32 * scale_x).round() as i16, y },
             Anchor::Point { base, component } => Anchor::Point { base, component },
         };
 
@@ -289,11 +280,7 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
 
     for instance in SANS_INSTANCES {
         let output = output_dir.join(format!("WarpnineSansCondensed-{}.ttf", instance.style));
-        println!(
-            "Creating {} condensed ({:.0}%)",
-            instance.style,
-            scale * 100.0
-        );
+        println!("Creating {} condensed ({:.0}%)", instance.style, scale * 100.0);
 
         let locations = vec![
             AxisLocation::new("MONO", instance.mono()),
@@ -316,9 +303,6 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         success += 1;
     }
 
-    println!(
-        "Created {success} condensed fonts in {}/",
-        output_dir.display()
-    );
+    println!("Created {success} condensed fonts in {}/", output_dir.display());
     Ok(())
 }

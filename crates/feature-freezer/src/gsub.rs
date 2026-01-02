@@ -1,10 +1,13 @@
 //! GSUB (Glyph Substitution) table processing.
 
-use crate::Result;
-use read_fonts::tables::gsub::SubstitutionLookup;
-use read_fonts::tables::gsub::{Gsub, SingleSubst, SubstitutionSubtables};
-use read_fonts::tables::layout::CoverageTable;
 use std::collections::{BTreeSet, HashMap};
+
+use read_fonts::tables::{
+    gsub::{Gsub, SingleSubst, SubstitutionLookup, SubstitutionSubtables},
+    layout::CoverageTable,
+};
+
+use crate::Result;
 
 /// A map of glyph substitutions extracted from GSUB lookups.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -105,10 +108,9 @@ struct Coverage<'a>(CoverageTable<'a>);
 impl Coverage<'_> {
     fn get(&self, index: u16) -> Option<u16> {
         match &self.0 {
-            CoverageTable::Format1(f) => f
-                .glyph_array()
-                .get(index as usize)
-                .map(|g| g.get().to_u32() as u16),
+            CoverageTable::Format1(f) => {
+                f.glyph_array().get(index as usize).map(|g| g.get().to_u32() as u16)
+            }
             CoverageTable::Format2(f) => f.range_records().iter().find_map(|r| {
                 let (start, end, base) = (
                     r.start_glyph_id().to_u32() as u16,

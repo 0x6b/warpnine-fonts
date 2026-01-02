@@ -1,10 +1,14 @@
 //! head table merging
 
-use crate::strategies::{equal, max, merge_bits, min};
-use crate::{MergeError, Result};
-use read_fonts::{tables::head::Head as ReadHead, FontRef, TableProvider};
 use std::result;
+
+use read_fonts::{tables::head::Head as ReadHead, FontRef, TableProvider};
 use write_fonts::tables::head::Head;
+
+use crate::{
+    strategies::{equal, max, merge_bits, min},
+    MergeError, Result,
+};
 
 /// Bit map for merging head.flags
 /// true = OR, false = AND, None = take first

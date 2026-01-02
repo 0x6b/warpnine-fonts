@@ -1,20 +1,23 @@
 //! Font parsing, freezing, and serialization.
 
-use crate::{Result, error::Error, gsub::GlyphSubstitutions, types::*};
-use read_fonts::tables::gsub::Gsub;
+use std::{
+    collections::{BTreeSet, HashMap, HashSet},
+    fmt::Formatter,
+    iter::once,
+    result,
+};
+
 use read_fonts::{
     FontRef, TableProvider,
+    tables::gsub::Gsub,
     types::{GlyphId16, NameId},
 };
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fmt::Formatter;
-use std::iter::once;
-use std::result;
-use write_fonts::BuilderError;
-use write_fonts::FontBuilder;
-use write_fonts::tables::cmap::{
-    Cmap, CmapSubtable, EncodingRecord, PlatformId, SequentialMapGroup,
+use write_fonts::{
+    BuilderError, FontBuilder,
+    tables::cmap::{Cmap, CmapSubtable, EncodingRecord, PlatformId, SequentialMapGroup},
 };
+
+use crate::{Result, error::Error, gsub::GlyphSubstitutions, types::*};
 
 /// A parsed font ready for feature freezing.
 pub struct Font<'a> {
@@ -46,10 +49,7 @@ impl AsRef<[u8]> for Font<'_> {
 
 impl<'a> Font<'a> {
     pub fn new(data: &'a [u8]) -> Result<Self> {
-        Ok(Self {
-            data,
-            inner: FontRef::new(data)?,
-        })
+        Ok(Self { data, inner: FontRef::new(data)? })
     }
 
     pub fn report(&self) -> Result<FontReport> {
@@ -79,20 +79,13 @@ impl<'a> Font<'a> {
             .into_iter()
             .collect();
 
-        Ok(FontReport {
-            scripts_langs,
-            features,
-        })
+        Ok(FontReport { scripts_langs, features })
     }
 
     pub fn freeze(&self, options: &FreezeOptions) -> Result<FreezeResult> {
         let gsub = self.inner.gsub().map_err(|_| Error::NoGsub)?;
 
-        let lookup_indices = FeatureResolver {
-            gsub: &gsub,
-            options,
-        }
-        .resolve()?;
+        let lookup_indices = FeatureResolver { gsub: &gsub, options }.resolve()?;
         if lookup_indices.is_empty() {
             return Err(Error::NoMatchingFeatures(options.features.clone()));
         }
@@ -151,11 +144,7 @@ impl FeatureResolver<'_> {
             .feature_records()
             .iter()
             .enumerate()
-            .filter(|(i, _)| {
-                feature_indices
-                    .as_ref()
-                    .is_none_or(|fi| fi.contains(&(*i as u16)))
-            })
+            .filter(|(i, _)| feature_indices.as_ref().is_none_or(|fi| fi.contains(&(*i as u16))))
             .filter(|(_, r)| feature_tags.contains(&r.feature_tag()))
             .flat_map(|(_, r)| {
                 r.feature(feature_list.offset_data())
@@ -174,11 +163,7 @@ impl FeatureResolver<'_> {
         let mut indices = HashSet::new();
 
         for sr in script_list.script_records() {
-            if !self
-                .options
-                .filter
-                .matches_script(&sr.script_tag().to_string())
-            {
+            if !self.options.filter.matches_script(&sr.script_tag().to_string()) {
                 continue;
             }
             let Ok(script) = sr.script(script_list.offset_data()) else {
@@ -187,10 +172,7 @@ impl FeatureResolver<'_> {
 
             if self.options.filter.lang.is_some() {
                 for lr in script.lang_sys_records() {
-                    if self
-                        .options
-                        .filter
-                        .matches_lang(&lr.lang_sys_tag().to_string())
+                    if self.options.filter.matches_lang(&lr.lang_sys_tag().to_string())
                         && let Ok(ls) = lr.lang_sys(script.offset_data())
                     {
                         indices.extend(ls.feature_indices().iter().map(|i| i.get()));
@@ -218,8 +200,7 @@ impl GlyphInfo {
             .map(|(post, maxp)| {
                 (0..maxp.num_glyphs())
                     .filter_map(|gid| {
-                        post.glyph_name(GlyphId16::new(gid))
-                            .map(|n| (gid, n.to_string()))
+                        post.glyph_name(GlyphId16::new(gid)).map(|n| (gid, n.to_string()))
                     })
                     .collect()
             })
@@ -243,10 +224,8 @@ impl GlyphInfo {
     fn analyze(&self, subs: &GlyphSubstitutions) -> (Vec<String>, Vec<String>) {
         let (mut warnings, mut names) = (Vec::new(), Vec::new());
         for (&from, &to) in subs.iter().filter(|(f, t)| f != t) {
-            let (from_uni, to_uni) = (
-                self.has_unicode.contains(&from),
-                self.has_unicode.contains(&to),
-            );
+            let (from_uni, to_uni) =
+                (self.has_unicode.contains(&from), self.has_unicode.contains(&to));
             if !from_uni && !to_uni {
                 let (fn_, tn) = (
                     self.names.get(&from).map_or("?", String::as_str),
@@ -254,12 +233,7 @@ impl GlyphInfo {
                 );
                 warnings.push(format!("Cannot remap '{fn_}' -> '{tn}' because neither has a Unicode value assigned in any of the cmap tables."));
             } else {
-                names.push(
-                    self.names
-                        .get(&to)
-                        .cloned()
-                        .unwrap_or_else(|| format!("gid{to}")),
-                );
+                names.push(self.names.get(&to).cloned().unwrap_or_else(|| format!("gid{to}")));
             }
         }
         (warnings, names)
@@ -326,10 +300,7 @@ impl<'a> FontEditor<'a> {
         let records: Vec<_> = records
             .iter()
             .map(|r| {
-                let orig = r
-                    .string(string_data)
-                    .map(|s| s.to_string())
-                    .unwrap_or_default();
+                let orig = r.string(string_data).map(|s| s.to_string()).unwrap_or_default();
                 let new_string = match r.name_id().to_u16() {
                     1 | 4 | 16 | 18 | 21 => orig.replace(&family_old, &family_new),
                     3 => format!("{orig};featfreeze:{features_csv}"),

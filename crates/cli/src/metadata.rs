@@ -1,10 +1,11 @@
+use std::{
+    fs::{read, write},
+    path::Path,
+};
+
 use anyhow::{Result, anyhow};
 use chrono::{Datelike, NaiveDate};
 use read_fonts::{FontRef, TableProvider};
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
-use write_fonts::types::Fixed;
 use write_fonts::{
     FontBuilder,
     from_obj::ToOwnedTable,
@@ -14,6 +15,7 @@ use write_fonts::{
         os2::Os2,
         post::Post,
     },
+    types::Fixed,
 };
 
 // Monospace settings
@@ -83,9 +85,7 @@ pub fn parse_version_string(value: Option<&str>) -> Result<(NaiveDate, String)> 
                 return Ok((parsed, v.to_string()));
             }
 
-            Err(anyhow!(
-                "Invalid version '{v}'. Expected YYYY-MM-DD or YYYY-MM-DD.N."
-            ))
+            Err(anyhow!("Invalid version '{v}'. Expected YYYY-MM-DD or YYYY-MM-DD.N."))
         }
     }
 }

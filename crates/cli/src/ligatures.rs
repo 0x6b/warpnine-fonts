@@ -1,11 +1,17 @@
+use std::{
+    fs::{read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
-use read_fonts::tables::gsub::{ChainedSequenceContext, SubstitutionSubtables};
-use read_fonts::tables::layout::ChainedSequenceRuleMarker;
-use read_fonts::types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16};
-use read_fonts::{FontRef, TableProvider, TableRef};
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
+use read_fonts::{
+    FontRef, TableProvider, TableRef,
+    tables::{
+        gsub::{ChainedSequenceContext, SubstitutionSubtables},
+        layout::ChainedSequenceRuleMarker,
+    },
+    types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16},
+};
 
 fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<u16> {
     let post = font.post().ok()?;
@@ -145,9 +151,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
     let mut modifications = 0;
 
     // Search within GSUB table for the pattern
-    let gsub_data = font
-        .table_data(gsub_tag)
-        .context("Failed to get GSUB data")?;
+    let gsub_data = font.table_data(gsub_tag).context("Failed to get GSUB data")?;
     let gsub_bytes = gsub_data.as_ref();
 
     // We need to find ChainedSequenceRule structures that have:
@@ -210,8 +214,8 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         return Ok(false);
     }
 
-    // We also need to look for backtrack patterns like [backtrack=grave] [input_count=3] [grave] [grave]
-    // Pattern: [backtrack_count=1] [grave] [input_count=3] [grave] [grave] ...
+    // We also need to look for backtrack patterns like [backtrack=grave] [input_count=3] [grave]
+    // [grave] Pattern: [backtrack_count=1] [grave] [input_count=3] [grave] [grave] ...
 
     let backtrack_one_pattern = 0x0001u16.to_be_bytes();
 

@@ -1,18 +1,20 @@
 //! cmap table merging
 
-use crate::context::GlyphOrder;
-use crate::glyph_order::GlyphName;
-use crate::types::{Codepoint, GlyphId};
-use crate::{MergeError, Result};
-use indexmap::map::Entry;
-use indexmap::IndexMap;
-use read_fonts::types;
+use std::collections::HashMap;
+
+use indexmap::{map::Entry, IndexMap};
 use read_fonts::{
     tables::cmap::{Cmap as ReadCmap, CmapSubtable, PlatformId},
-    FontRef, TableProvider,
+    types, FontRef, TableProvider,
 };
-use std::collections::HashMap;
 use write_fonts::tables::cmap::Cmap;
+
+use crate::{
+    context::GlyphOrder,
+    glyph_order::GlyphName,
+    types::{Codepoint, GlyphId},
+    MergeError, Result,
+};
 
 /// Information about duplicate glyphs (same codepoint, different glyphs)
 #[derive(Debug, Default)]
@@ -29,9 +31,7 @@ pub fn merge_cmap(
     glyph_order: &GlyphOrder,
 ) -> Result<(Cmap, DuplicateGlyphInfo)> {
     let mut codepoint_to_glyph: IndexMap<Codepoint, GlyphName> = IndexMap::new();
-    let mut duplicate_info = DuplicateGlyphInfo {
-        per_font: vec![HashMap::new(); fonts.len()],
-    };
+    let mut duplicate_info = DuplicateGlyphInfo { per_font: vec![HashMap::new(); fonts.len()] };
 
     for (font_idx, font) in fonts.iter().enumerate() {
         let cmap = font.cmap()?;
@@ -106,9 +106,7 @@ fn find_best_subtable<'a>(cmap: &'a ReadCmap<'a>) -> Option<CmapSubtable<'a>> {
     }
 
     // Take any subtable
-    records
-        .iter()
-        .find_map(|r| r.subtable(cmap.offset_data()).ok())
+    records.iter().find_map(|r| r.subtable(cmap.offset_data()).ok())
 }
 
 fn iter_cmap_subtable(subtable: &CmapSubtable) -> Vec<(Codepoint, GlyphId)> {

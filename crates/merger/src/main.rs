@@ -1,6 +1,9 @@
+use std::{
+    fs::{read, write},
+    path::PathBuf,
+};
+
 use clap::Parser;
-use std::fs::{read, write};
-use std::path::PathBuf;
 use warpnine_font_merger::{Merger, Options, Result};
 
 #[derive(Parser)]
@@ -28,11 +31,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.verbose {
-        eprintln!(
-            "Merging {} fonts into {}",
-            cli.input_files.len(),
-            cli.output.display()
-        );
+        eprintln!("Merging {} fonts into {}", cli.input_files.len(), cli.output.display());
     }
 
     let font_data: Vec<Vec<u8>> = cli
@@ -48,9 +47,7 @@ fn main() -> Result<()> {
 
     let font_refs: Vec<&[u8]> = font_data.iter().map(Vec::as_slice).collect();
 
-    let options = Options::new()
-        .drop_tables(cli.drop_tables)
-        .verbose(cli.verbose);
+    let options = Options::new().drop_tables(cli.drop_tables).verbose(cli.verbose);
 
     let merger = Merger::new(options);
     let merged = merger.merge(&font_refs)?;

@@ -3,6 +3,8 @@
 //! Implements the core algorithm for computing how master contributions
 //! are weighted at different locations in the design space.
 
+use std::iter::once;
+
 use crate::designspace::DesignSpace;
 
 /// A region in the variation space, defined by (start, peak, end) tuples.
@@ -178,14 +180,10 @@ impl VariationModel {
         // Sort masters by "support" - masters with fewer non-zero axes come first
         // This ensures proper delta accumulation
         regions_with_idx.sort_by_key(|(_, region)| {
-            region
-                .axes
-                .iter()
-                .filter(|(_, peak, _)| *peak != 0.0)
-                .count()
+            region.axes.iter().filter(|(_, peak, _)| *peak != 0.0).count()
         });
 
-        let master_order: Vec<usize> = std::iter::once(default_idx)
+        let master_order: Vec<usize> = once(default_idx)
             .chain(regions_with_idx.iter().map(|(idx, _)| *idx))
             .collect();
 
@@ -205,12 +203,7 @@ impl VariationModel {
             })
             .collect();
 
-        Some(Self {
-            regions,
-            default_idx,
-            master_order,
-            region_scalars,
-        })
+        Some(Self { regions, default_idx, master_order, region_scalars })
     }
 
     /// Compute deltas from master values.
@@ -282,7 +275,7 @@ impl VariationModel {
     }
 
     /// Compute 2D delta for a single region (more efficient for per-point calls).
-    /// 
+    ///
     /// This avoids allocating a Vec for all regions when only one is needed.
     #[inline]
     pub fn compute_delta_2d_for_region(
@@ -315,9 +308,10 @@ impl VariationModel {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use crate::designspace::{Axis, Source};
-    use std::path::PathBuf;
 
     fn make_2axis_designspace() -> DesignSpace {
         let axes = vec![
@@ -327,22 +321,10 @@ mod tests {
 
         // 4 corner masters
         let sources = vec![
-            Source::new(
-                PathBuf::from("Regular.ttf"),
-                vec![("wght", 400.0), ("ital", 0.0)],
-            ),
-            Source::new(
-                PathBuf::from("Bold.ttf"),
-                vec![("wght", 900.0), ("ital", 0.0)],
-            ),
-            Source::new(
-                PathBuf::from("Italic.ttf"),
-                vec![("wght", 400.0), ("ital", 1.0)],
-            ),
-            Source::new(
-                PathBuf::from("BoldItalic.ttf"),
-                vec![("wght", 900.0), ("ital", 1.0)],
-            ),
+            Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
+            Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 900.0), ("ital", 0.0)]),
+            Source::new(PathBuf::from("Italic.ttf"), vec![("wght", 400.0), ("ital", 1.0)]),
+            Source::new(PathBuf::from("BoldItalic.ttf"), vec![("wght", 900.0), ("ital", 1.0)]),
         ];
 
         DesignSpace::new(axes, sources)

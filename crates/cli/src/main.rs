@@ -1,23 +1,21 @@
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
+use build_vf::build_warpnine_mono_vf;
 use calt::fix_calt_registration;
 use clap::{Parser, Subcommand};
 use condense::create_condensed;
 use copy_table::copy_gsub;
 use env_logger::init;
 use freeze::freeze_features;
-use instance::InstanceDef;
-use instance::create_instance;
-use instance::create_instances_batch;
+use instance::{InstanceDef, create_instance, create_instances_batch};
 use ligatures::remove_grave_ligature;
-use merge::merge_batch;
-use merge::merge_fonts;
-use metadata::parse_version_string;
-use metadata::set_monospace;
-use metadata::set_version;
+use merge::{merge_batch, merge_fonts};
+use metadata::{parse_version_string, set_monospace, set_version};
 use naming::set_name;
+use pipeline::{build_all, build_mono};
 use rayon::prelude::*;
 use sans::create_sans;
-use std::path::PathBuf;
 use subset::subset_japanese;
 
 mod build_vf;
@@ -264,10 +262,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Clean {
-            build_dir,
-            dist_dir,
-        } => {
+        Commands::Clean { build_dir, dist_dir } => {
             clean::clean(&build_dir, &dist_dir)?;
         }
         Commands::Download { build_dir } => {
@@ -348,25 +343,13 @@ fn main() -> Result<()> {
         Commands::SubsetJapanese { input, output } => {
             subset_japanese(&input, &output)?;
         }
-        Commands::Freeze {
-            features,
-            auto_rvrn,
-            files,
-        } => {
+        Commands::Freeze { features, auto_rvrn, files } => {
             freeze_features(&files, &features, auto_rvrn)?;
         }
-        Commands::Instance {
-            axes,
-            input,
-            output,
-        } => {
+        Commands::Instance { axes, input, output } => {
             create_instance(&input, &output, &axes)?;
         }
-        Commands::InstanceBatch {
-            input,
-            output_dir,
-            instances,
-        } => {
+        Commands::InstanceBatch { input, output_dir, instances } => {
             let defs: Vec<InstanceDef> = instances
                 .into_iter()
                 .map(|(name, axes)| instance::InstanceDef { name, axes })
@@ -376,21 +359,13 @@ fn main() -> Result<()> {
         Commands::Merge { inputs, output } => {
             merge_fonts(&inputs, &output)?;
         }
-        Commands::MergeBatch {
-            base_fonts,
-            fallback,
-            output_dir,
-        } => {
+        Commands::MergeBatch { base_fonts, fallback, output_dir } => {
             merge_batch(&base_fonts, &fallback, &output_dir)?;
         }
         Commands::CreateSans { input, output_dir } => {
             create_sans(&input, &output_dir)?;
         }
-        Commands::CreateCondensed {
-            input,
-            output_dir,
-            scale,
-        } => {
+        Commands::CreateCondensed { input, output_dir, scale } => {
             create_condensed(&input, &output_dir, scale)?;
         }
         Commands::SetName {
@@ -400,12 +375,8 @@ fn main() -> Result<()> {
             copyright_extra,
             files,
         } => {
-            let font_naming = naming::FontNaming {
-                family,
-                style,
-                postscript_family,
-                copyright_extra,
-            };
+            let font_naming =
+                naming::FontNaming { family, style, postscript_family, copyright_extra };
 
             let results: Vec<_> = files
                 .par_iter()
@@ -451,21 +422,13 @@ fn main() -> Result<()> {
             println!("Fix calt: {success} succeeded, {failed} failed");
         }
         Commands::BuildVf { dist_dir, output } => {
-            build_vf::build_warpnine_mono_vf(&dist_dir, &output)?;
+            build_warpnine_mono_vf(&dist_dir, &output)?;
         }
-        Commands::Build {
-            build_dir,
-            dist_dir,
-            version,
-        } => {
-            pipeline::build_all(&build_dir, &dist_dir, version)?;
+        Commands::Build { build_dir, dist_dir, version } => {
+            build_all(&build_dir, &dist_dir, version)?;
         }
-        Commands::BuildMono {
-            build_dir,
-            dist_dir,
-            version,
-        } => {
-            pipeline::build_mono(&build_dir, &dist_dir, version)?;
+        Commands::BuildMono { build_dir, dist_dir, version } => {
+            build_mono(&build_dir, &dist_dir, version)?;
         }
     }
 

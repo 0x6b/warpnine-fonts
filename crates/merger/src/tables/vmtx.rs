@@ -1,12 +1,10 @@
 //! vmtx table merging
 
-use crate::context::MergeContext;
-use crate::glyph_order::GlyphName;
-use crate::types::GlyphId;
-use crate::Result;
 use indexmap::IndexMap;
 use read_fonts::TableProvider;
 use write_fonts::tables::vmtx::Vmtx;
+
+use crate::{context::MergeContext, glyph_order::GlyphName, types::GlyphId, Result};
 
 #[derive(Debug, Clone)]
 pub struct VerticalGlyphMetrics {
@@ -44,30 +42,17 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
                 (lm.advance.get(), lm.side_bearing.get())
             } else {
                 let last_advance = if num_v_metrics > 0 {
-                    vmtx.v_metrics()
-                        .get(num_v_metrics - 1)
-                        .unwrap()
-                        .advance
-                        .get()
+                    vmtx.v_metrics().get(num_v_metrics - 1).unwrap().advance.get()
                 } else {
                     0
                 };
                 let tsb_idx = gid - num_v_metrics;
-                let tsb = vmtx
-                    .top_side_bearings()
-                    .get(tsb_idx)
-                    .map(|b| b.get())
-                    .unwrap_or(0);
+                let tsb = vmtx.top_side_bearings().get(tsb_idx).map(|b| b.get()).unwrap_or(0);
                 (last_advance, tsb)
             };
 
-            metrics_map.insert(
-                glyph_name.clone(),
-                VerticalGlyphMetrics {
-                    advance_height: advance,
-                    tsb,
-                },
-            );
+            metrics_map
+                .insert(glyph_name.clone(), VerticalGlyphMetrics { advance_height: advance, tsb });
         }
     }
 
@@ -78,10 +63,7 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
         let metrics = metrics_map
             .get(name)
             .cloned()
-            .unwrap_or(VerticalGlyphMetrics {
-                advance_height: 0,
-                tsb: 0,
-            });
+            .unwrap_or(VerticalGlyphMetrics { advance_height: 0, tsb: 0 });
 
         v_metrics.push(write_fonts::tables::vmtx::LongMetric {
             advance: metrics.advance_height,
@@ -89,8 +71,5 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
         });
     }
 
-    Ok(Some(Vmtx {
-        v_metrics,
-        top_side_bearings: Vec::new(),
-    }))
+    Ok(Some(Vmtx { v_metrics, top_side_bearings: Vec::new() }))
 }

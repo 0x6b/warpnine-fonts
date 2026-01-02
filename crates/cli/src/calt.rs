@@ -1,10 +1,16 @@
+use std::{
+    fs::{read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
-use read_fonts::tables::gsub::{FeatureList, ScriptList};
-use read_fonts::tables::layout::LangSys;
-use read_fonts::{FontRef, TableProvider};
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
+use read_fonts::{
+    FontRef, TableProvider,
+    tables::{
+        gsub::{FeatureList, ScriptList},
+        layout::LangSys,
+    },
+};
 use write_fonts::FontBuilder;
 
 pub fn fix_calt_registration(path: &Path) -> Result<()> {
@@ -39,9 +45,7 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let gsub_data = font
-        .table_data(read_fonts::types::Tag::new(b"GSUB"))
-        .unwrap();
+    let gsub_data = font.table_data(read_fonts::types::Tag::new(b"GSUB")).unwrap();
     let mut gsub_bytes = gsub_data.as_bytes().to_vec();
 
     let modifications =
@@ -157,11 +161,7 @@ fn check_lang_sys(
 
     for &calt_idx in calt_indices {
         if !new_indices.contains(&calt_idx) {
-            let insert_pos = if new_indices.len() > 1 {
-                1
-            } else {
-                new_indices.len()
-            };
+            let insert_pos = if new_indices.len() > 1 { 1 } else { new_indices.len() };
             new_indices.insert(insert_pos, calt_idx);
             modified = true;
         }

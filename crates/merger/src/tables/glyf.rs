@@ -9,18 +9,23 @@
 //! instructions that reference incompatible function numbers or CVT indices
 //! could cause rendering errors or crashes.
 
-use crate::context::MergeContext;
-use crate::glyph_order::GlyphName;
-use crate::types::{GlyphId, MegaGlyphId};
-use crate::Result;
-use read_fonts::{tables::glyf::Glyph as ReadGlyph, TableProvider};
 use std::collections::HashMap;
-use write_fonts::tables::glyf::{
-    Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyf, GlyfLocaBuilder, Glyph,
-    SimpleGlyph, Transform,
+
+use read_fonts::{tables::glyf::Glyph as ReadGlyph, TableProvider};
+use write_fonts::tables::{
+    glyf::{
+        Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyf, GlyfLocaBuilder,
+        Glyph, SimpleGlyph, Transform,
+    },
+    loca::{Loca, LocaFormat},
 };
-use write_fonts::tables::loca::Loca;
-use write_fonts::tables::loca::LocaFormat;
+
+use crate::{
+    context::MergeContext,
+    glyph_order::GlyphName,
+    types::{GlyphId, MegaGlyphId},
+    Result,
+};
 
 /// Merge glyf tables from multiple fonts
 ///
@@ -80,13 +85,8 @@ pub fn merge_glyf(ctx: &MergeContext) -> Result<Option<(Glyf, Loca, LocaFormat)>
             };
 
             let strip_hinting = font_idx > 0;
-            let converted = convert_glyph(
-                &glyph,
-                font_idx,
-                &gid_to_name,
-                name_to_new_gid,
-                strip_hinting,
-            );
+            let converted =
+                convert_glyph(&glyph, font_idx, &gid_to_name, name_to_new_gid, strip_hinting);
 
             glyph_map.insert(glyph_name.clone(), converted);
         }
@@ -152,17 +152,9 @@ fn convert_glyph(
             };
 
             // Strip hinting instructions from non-first fonts
-            let instructions = if strip_hinting {
-                vec![]
-            } else {
-                simple.instructions().to_vec()
-            };
+            let instructions = if strip_hinting { vec![] } else { simple.instructions().to_vec() };
 
-            let simple_glyph = SimpleGlyph {
-                bbox,
-                contours,
-                instructions,
-            };
+            let simple_glyph = SimpleGlyph { bbox, contours, instructions };
 
             Glyph::Simple(simple_glyph)
         }

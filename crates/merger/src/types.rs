@@ -3,10 +3,12 @@
 //! These types prevent mixing up different kinds of IDs and provide
 //! self-documenting APIs.
 
+use std::{
+    fmt,
+    fmt::{Formatter, Result},
+};
+
 use read_fonts::types::Tag;
-use std::fmt;
-use std::fmt::Formatter;
-use std::fmt::Result;
 
 macro_rules! u16_id {
     ($(#[$meta:meta])* $name:ident, $label:literal) => {

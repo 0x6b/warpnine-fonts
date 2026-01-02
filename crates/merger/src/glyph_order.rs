@@ -3,9 +3,12 @@
 //! This module provides the `GlyphName` type which wraps glyph name strings
 //! with proper trait implementations for use in collections.
 
-use std::fmt::Formatter;
-use std::fmt::Result;
-use std::{borrow::Borrow, fmt, ops::Deref};
+use std::{
+    borrow::Borrow,
+    fmt,
+    fmt::{Formatter, Result},
+    ops::Deref,
+};
 
 /// A glyph name that may have been disambiguated during merging
 ///
@@ -92,8 +95,9 @@ impl From<GlyphName> for String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
+
+    use super::*;
 
     #[test]
     fn test_glyph_name_display() {

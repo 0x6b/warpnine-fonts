@@ -1,8 +1,8 @@
-use read_fonts::ReadError;
 use std::{io, result};
+
+use read_fonts::ReadError;
 use thiserror::Error;
-use write_fonts::error;
-use write_fonts::BuilderError;
+use write_fonts::{error, BuilderError};
 
 #[derive(Error, Debug)]
 pub enum MergeError {
@@ -22,10 +22,7 @@ pub enum MergeError {
     IncompatibleUnitsPerEm { expected: u16, actual: u16 },
 
     #[error("table values must be equal for '{table}' field '{field}'")]
-    NotEqual {
-        table: &'static str,
-        field: &'static str,
-    },
+    NotEqual { table: &'static str, field: &'static str },
 
     #[error("required table '{0}' not found")]
     MissingTable(&'static str),

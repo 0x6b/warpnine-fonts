@@ -1,9 +1,11 @@
+use std::{
+    fs::{read, write},
+    path::PathBuf,
+};
+
 use anyhow::{Context, Result};
 use font_feature_freezer::freeze_features_with_stats;
 use rayon::prelude::*;
-use std::fs::read;
-use std::fs::write;
-use std::path::PathBuf;
 
 pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) -> Result<()> {
     if features.is_empty() {
@@ -22,10 +24,7 @@ pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) 
     let feature_list = features.join(",");
     println!("Freezing features: {feature_list}");
 
-    let results: Vec<_> = files
-        .par_iter()
-        .map(|path| freeze_single(path, &features))
-        .collect();
+    let results: Vec<_> = files.par_iter().map(|path| freeze_single(path, &features)).collect();
 
     let mut success = 0;
     let mut failed = 0;

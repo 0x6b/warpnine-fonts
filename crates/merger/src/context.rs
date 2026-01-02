@@ -5,14 +5,17 @@
 //! - `GidRemap`: Mapping from source font GIDs to merged GIDs
 //! - `MergeContext`: The central context passed to all table mergers
 
-use crate::glyph_order::GlyphName;
-use crate::options::Options;
-use crate::tables::cmap::DuplicateGlyphInfo;
-use crate::types::{FontIndex, GlyphId, MegaGlyphId};
-use indexmap::map::Entry;
-use indexmap::IndexMap;
-use read_fonts::{tables::post::Post, FontRef, TableProvider};
 use std::collections::HashMap;
+
+use indexmap::{map::Entry, IndexMap};
+use read_fonts::{tables::post::Post, FontRef, TableProvider};
+
+use crate::{
+    glyph_order::GlyphName,
+    options::Options,
+    tables::cmap::DuplicateGlyphInfo,
+    types::{FontIndex, GlyphId, MegaGlyphId},
+};
 
 /// Unified glyph ordering across all fonts being merged
 ///
@@ -68,11 +71,7 @@ impl GlyphOrder {
             .map(|(i, n)| (n.clone(), MegaGlyphId::new(i as u16)))
             .collect();
 
-        Self {
-            mega,
-            per_font,
-            name_to_mega,
-        }
+        Self { mega, per_font, name_to_mega }
     }
 
     /// Get the mega glyph order (all unique names)
@@ -191,9 +190,7 @@ impl<'a> MergeContext<'a> {
         duplicate_info: DuplicateGlyphInfo,
         options: &'a Options,
     ) -> Self {
-        let remaps = (0..fonts.len())
-            .map(|i| glyph_order.create_remap(i))
-            .collect();
+        let remaps = (0..fonts.len()).map(|i| glyph_order.create_remap(i)).collect();
 
         Self {
             fonts,

@@ -1,12 +1,13 @@
-use clap::Parser;
-use font_instancer::{AxisLocation, instantiate};
-use skrifa::MetadataProvider;
 use std::{
     fs::{read, write},
     io,
     path::{Path, PathBuf},
     process::ExitCode,
 };
+
+use clap::Parser;
+use font_instancer::{AxisLocation, instantiate};
+use skrifa::MetadataProvider;
 
 #[derive(Debug, thiserror::Error)]
 enum CliError {
@@ -81,10 +82,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
 }
 
 fn parse_locations(args: &[String]) -> Result<Vec<AxisLocation>, CliError> {
-    args.iter()
-        .map(String::as_str)
-        .map(parse_axis_spec)
-        .collect()
+    args.iter().map(String::as_str).map(parse_axis_spec).collect()
 }
 
 fn parse_axis_spec(s: &str) -> Result<AxisLocation, CliError> {
@@ -96,9 +94,7 @@ fn parse_axis_spec(s: &str) -> Result<AxisLocation, CliError> {
         return Err(CliError::InvalidTag(tag.to_string()));
     }
 
-    let value: f32 = value
-        .parse()
-        .map_err(|_| CliError::InvalidValue(value.to_string()))?;
+    let value: f32 = value.parse().map_err(|_| CliError::InvalidValue(value.to_string()))?;
 
     Ok(AxisLocation::new(tag, value))
 }

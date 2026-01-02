@@ -1,18 +1,14 @@
 //! GSUB/GPOS layout table merging
 
-use crate::context::{GidRemap, GlyphOrder, MergeContext};
-use crate::convert::{MarkArrayExt, ToWrite};
-use crate::tables::cmap::DuplicateGlyphInfo;
-use crate::tables::layout_types::{
-    FeatureIndex, LangTag, LookupIndex, MergedFeatureList, ScriptLangFeatureMap, ScriptTag,
-};
-use crate::Result;
-use font_types::BigEndian;
-use font_types::GlyphId16;
-use read_fonts::tables;
-use read_fonts::tables::layout;
-use read_fonts::{tables::gpos as read_gpos, types::Tag, TableProvider};
 use std::collections::HashMap;
+
+use font_types::{BigEndian, GlyphId16};
+use read_fonts::{
+    tables,
+    tables::{gpos as read_gpos, layout},
+    types::Tag,
+    TableProvider,
+};
 use write_fonts::tables::{
     gpos::{
         self, AnchorTable, BaseArray, BaseRecord, Class1Record, Class2Record, ComponentRecord,
@@ -32,6 +28,18 @@ use write_fonts::tables::{
         ScriptRecord, SequenceContext, SequenceContextFormat1, SequenceContextFormat2,
         SequenceContextFormat3, SequenceLookupRecord, SequenceRule, SequenceRuleSet,
     },
+};
+
+use crate::{
+    context::{GidRemap, GlyphOrder, MergeContext},
+    convert::{MarkArrayExt, ToWrite},
+    tables::{
+        cmap::DuplicateGlyphInfo,
+        layout_types::{
+            FeatureIndex, LangTag, LookupIndex, MergedFeatureList, ScriptLangFeatureMap, ScriptTag,
+        },
+    },
+    Result,
 };
 
 /// Merge GSUB tables from multiple fonts
@@ -169,10 +177,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Single(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::Single(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         ReadLookup::Multiple(read_lookup) => {
             let mut subtables = Vec::new();
@@ -204,10 +209,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Multiple(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::Multiple(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         ReadLookup::Alternate(read_lookup) => {
             let mut subtables = Vec::new();
@@ -239,10 +241,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Alternate(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::Alternate(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         ReadLookup::Ligature(read_lookup) => {
             let mut subtables = Vec::new();
@@ -286,10 +285,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Ligature(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::Ligature(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         ReadLookup::Contextual(read_lookup) => {
             let mut subtables = Vec::new();
@@ -303,10 +299,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Contextual(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::Contextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         ReadLookup::ChainContextual(read_lookup) => {
             let mut subtables = Vec::new();
@@ -320,10 +313,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::ChainContextual(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::ChainContextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         ReadLookup::Extension(_) => {
             // Extension lookups wrap other lookup types - would need recursive handling
@@ -369,10 +359,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Reverse(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(WriteLookup::Reverse(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
     }
 }
@@ -480,10 +467,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Single(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::Single(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::Pair(read_lookup) => {
             let mut subtables = Vec::new();
@@ -566,10 +550,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Pair(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::Pair(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::Cursive(read_lookup) => {
             let mut subtables = Vec::new();
@@ -597,10 +578,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Cursive(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::Cursive(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::MarkToBase(read_lookup) => {
             let mut subtables = Vec::new();
@@ -647,10 +625,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::MarkToBase(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::MarkToBase(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::MarkToLig(read_lookup) => {
             let mut subtables = Vec::new();
@@ -705,10 +680,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::MarkToLig(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::MarkToLig(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::MarkToMark(read_lookup) => {
             let mut subtables = Vec::new();
@@ -755,10 +727,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::MarkToMark(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::MarkToMark(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::Contextual(read_lookup) => {
             let mut subtables = Vec::new();
@@ -772,10 +741,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Contextual(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::Contextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::ChainContextual(read_lookup) => {
             let mut subtables = Vec::new();
@@ -789,10 +755,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::ChainContextual(Lookup::new(
-                read_lookup.lookup_flag(),
-                subtables,
-            )))
+            Some(PositionLookup::ChainContextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
         }
         read_gpos::PositionLookup::Extension(_) => {
             // Extension lookups wrap other lookup types - would need recursive handling
@@ -825,9 +788,7 @@ fn remap_class_def(
         .iter()
         .filter_map(|(gid, class)| {
             let old = gid.to_u32() as u16;
-            gid_remap
-                .get_u16(old)
-                .map(|new| (GlyphId16::new(new), class))
+            gid_remap.get_u16(old).map(|new| (GlyphId16::new(new), class))
         })
         .collect();
     ClassDef::from_iter(mappings)
@@ -988,12 +949,9 @@ fn convert_gsub_chained_context(
                 })
                 .collect();
 
-            Some(SubstitutionChainContext::from(
-                ChainedSequenceContext::Format1(ChainedSequenceContextFormat1::new(
-                    remapped_cov,
-                    chained_seq_rule_sets,
-                )),
-            ))
+            Some(SubstitutionChainContext::from(ChainedSequenceContext::Format1(
+                ChainedSequenceContextFormat1::new(remapped_cov, chained_seq_rule_sets),
+            )))
         }
         ReadChainCtx::Format2(f2) => {
             let coverage = f2.coverage().ok()?;
@@ -1039,15 +997,15 @@ fn convert_gsub_chained_context(
                 })
                 .collect();
 
-            Some(SubstitutionChainContext::from(
-                ChainedSequenceContext::Format2(ChainedSequenceContextFormat2::new(
+            Some(SubstitutionChainContext::from(ChainedSequenceContext::Format2(
+                ChainedSequenceContextFormat2::new(
                     remapped_cov,
                     remapped_backtrack_cd,
                     remapped_input_cd,
                     remapped_lookahead_cd,
                     chained_class_seq_rule_sets,
-                )),
-            ))
+                ),
+            )))
         }
         ReadChainCtx::Format3(f3) => {
             let backtrack_coverages: Vec<CoverageTable> = f3
@@ -1073,14 +1031,14 @@ fn convert_gsub_chained_context(
 
             let seq_lookups = remap_seq_lookup_records(f3.seq_lookup_records(), lookup_offset);
 
-            Some(SubstitutionChainContext::from(
-                ChainedSequenceContext::Format3(ChainedSequenceContextFormat3::new(
+            Some(SubstitutionChainContext::from(ChainedSequenceContext::Format3(
+                ChainedSequenceContextFormat3::new(
                     backtrack_coverages,
                     input_coverages,
                     lookahead_coverages,
                     seq_lookups,
-                )),
-            ))
+                ),
+            )))
         }
     }
 }

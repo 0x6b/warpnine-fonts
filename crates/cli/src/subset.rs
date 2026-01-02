@@ -1,8 +1,10 @@
+use std::{
+    fs::{read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
 use hb_subset::{Blob, FontFace, SubsetInput, Tag};
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
 
 /// Variable font tables to drop during subsetting (matches Python pipeline)
 const VF_TABLES_TO_DROP: &[&[u8; 4]] = &[

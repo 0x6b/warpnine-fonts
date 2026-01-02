@@ -1,19 +1,22 @@
 //! Integration tests ported from fontTools Tests/merge/merge_test.py
 
-use read_fonts::types::GlyphId;
-use read_fonts::{FontRef, TableProvider};
 use std::collections::HashMap;
+
+use read_fonts::{types::GlyphId, FontRef, TableProvider};
 use warpnine_font_merger::{Merger, Options};
-use write_fonts::tables::cmap::Cmap;
-use write_fonts::tables::glyf::GlyfLocaBuilder;
-use write_fonts::tables::glyf::{Bbox, Glyph, SimpleGlyph};
-use write_fonts::tables::head::Head;
-use write_fonts::tables::hhea::Hhea;
-use write_fonts::tables::hmtx::{Hmtx, LongMetric};
-use write_fonts::tables::maxp::Maxp;
-use write_fonts::tables::os2::Os2;
-use write_fonts::tables::post::Post;
-use write_fonts::FontBuilder;
+use write_fonts::{
+    tables::{
+        cmap::Cmap,
+        glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph},
+        head::Head,
+        hhea::Hhea,
+        hmtx::{Hmtx, LongMetric},
+        maxp::Maxp,
+        os2::Os2,
+        post::Post,
+    },
+    FontBuilder,
+};
 
 /// Create a minimal TrueType font with specified glyphs and cmap
 fn make_test_font(
@@ -45,12 +48,7 @@ fn make_test_font_with_bounds(
     let mut glyf_builder = GlyfLocaBuilder::new();
     for _ in glyph_names {
         let simple = SimpleGlyph {
-            bbox: Bbox {
-                x_min,
-                y_min,
-                x_max,
-                y_max,
-            },
+            bbox: Bbox { x_min, y_min, x_max, y_max },
             contours: vec![],
             instructions: vec![],
         };
@@ -108,10 +106,7 @@ fn make_test_font_with_bounds(
     let hmtx = Hmtx {
         h_metrics: glyph_names
             .iter()
-            .map(|_| LongMetric {
-                advance: 500,
-                side_bearing: 0,
-            })
+            .map(|_| LongMetric { advance: 500, side_bearing: 0 })
             .collect(),
         left_side_bearings: vec![],
     };
@@ -240,11 +235,7 @@ fn test_merge_no_duplicates() {
     // Check glyph count (should have all glyphs from both fonts, with .notdef deduplicated)
     let maxp = font_ref.maxp().expect("maxp");
     // .notdef + A + B + .notdef.1 + C + D = 6 glyphs
-    assert!(
-        maxp.num_glyphs() >= 5,
-        "expected at least 5 glyphs, got {}",
-        maxp.num_glyphs()
-    );
+    assert!(maxp.num_glyphs() >= 5, "expected at least 5 glyphs, got {}", maxp.num_glyphs());
 
     // Check cmap has all codepoints
     let cmap = font_ref.cmap().expect("cmap");
@@ -308,9 +299,7 @@ fn test_merge_three_fonts() {
     let font3 = make_test_font(&[".notdef", "C"], &[(0x43, "C")], Some(4));
 
     let merger = Merger::default();
-    let merged = merger
-        .merge(&[&font1, &font2, &font3])
-        .expect("merge failed");
+    let merged = merger.merge(&[&font1, &font2, &font3]).expect("merge failed");
 
     let font_ref = FontRef::new(&merged).expect("parse merged font");
     let cmap = font_ref.cmap().expect("cmap");
@@ -384,12 +373,7 @@ fn test_merge_os2_unicode_ranges() {
         // Build minimal tables
         let mut glyf_builder = GlyfLocaBuilder::new();
         let _ = glyf_builder.add_glyph(&Glyph::Simple(SimpleGlyph {
-            bbox: Bbox {
-                x_min: 0,
-                y_min: 0,
-                x_max: 500,
-                y_max: 700,
-            },
+            bbox: Bbox { x_min: 0, y_min: 0, x_max: 500, y_max: 700 },
             contours: vec![],
             instructions: vec![],
         }));
@@ -430,10 +414,7 @@ fn test_merge_os2_unicode_ranges() {
             number_of_h_metrics: 1,
         };
         let hmtx = Hmtx {
-            h_metrics: vec![LongMetric {
-                advance: 500,
-                side_bearing: 0,
-            }],
+            h_metrics: vec![LongMetric { advance: 500, side_bearing: 0 }],
             left_side_bearings: vec![],
         };
         let maxp = Maxp {
@@ -487,12 +468,7 @@ fn test_merge_os2_unicode_ranges() {
 
         let mut glyf_builder = GlyfLocaBuilder::new();
         let _ = glyf_builder.add_glyph(&Glyph::Simple(SimpleGlyph {
-            bbox: Bbox {
-                x_min: 0,
-                y_min: 0,
-                x_max: 500,
-                y_max: 700,
-            },
+            bbox: Bbox { x_min: 0, y_min: 0, x_max: 500, y_max: 700 },
             contours: vec![],
             instructions: vec![],
         }));
@@ -533,10 +509,7 @@ fn test_merge_os2_unicode_ranges() {
             number_of_h_metrics: 1,
         };
         let hmtx = Hmtx {
-            h_metrics: vec![LongMetric {
-                advance: 500,
-                side_bearing: 0,
-            }],
+            h_metrics: vec![LongMetric { advance: 500, side_bearing: 0 }],
             left_side_bearings: vec![],
         };
         let maxp = Maxp {
@@ -586,19 +559,13 @@ fn test_merge_os2_unicode_ranges() {
     };
 
     let merger = Merger::default();
-    let merged = merger
-        .merge(&[&font1_data, &font2_data])
-        .expect("merge failed");
+    let merged = merger.merge(&[&font1_data, &font2_data]).expect("merge failed");
 
     let font_ref = FontRef::new(&merged).expect("parse merged font");
     let os2 = font_ref.os2().expect("OS/2");
 
     // Ranges should be OR'd: 0b0001 | 0b0010 = 0b0011
-    assert_eq!(
-        os2.ul_unicode_range_1(),
-        0b0011,
-        "Unicode ranges should be OR'd"
-    );
+    assert_eq!(os2.ul_unicode_range_1(), 0b0011, "Unicode ranges should be OR'd");
 }
 
 // ============================================================================
@@ -681,10 +648,7 @@ fn test_glyph_name_disambiguation() {
     // They should map to different glyphs
     let gid1 = cmap.map_codepoint(0x41u32).unwrap();
     let gid2 = cmap.map_codepoint(0x42u32).unwrap();
-    assert_ne!(
-        gid1, gid2,
-        "disambiguated glyphs should have different GIDs"
-    );
+    assert_ne!(gid1, gid2, "disambiguated glyphs should have different GIDs");
 }
 
 /// Test that .notdef is always at GID 0
@@ -736,11 +700,7 @@ fn test_cmap_non_bmp() {
 #[test]
 fn test_cmap_same_glyph_different_codepoints() {
     // space glyph mapped at both U+0020 and U+00A0
-    let font1 = make_test_font(
-        &[".notdef", "space"],
-        &[(0x20, "space"), (0xA0, "space")],
-        Some(4),
-    );
+    let font1 = make_test_font(&[".notdef", "space"], &[(0x20, "space"), (0xA0, "space")], Some(4));
     let font2 = make_test_font(&[".notdef", "A"], &[(0x41, "A")], Some(4));
 
     let merger = Merger::default();
@@ -791,26 +751,10 @@ fn test_hinting_stripped_from_non_first_fonts() {
     // Create a simple square contour so the glyph is not empty
     fn make_square_contour() -> Contour {
         let points = vec![
-            CurvePoint {
-                x: 100,
-                y: 100,
-                on_curve: true,
-            },
-            CurvePoint {
-                x: 400,
-                y: 100,
-                on_curve: true,
-            },
-            CurvePoint {
-                x: 400,
-                y: 600,
-                on_curve: true,
-            },
-            CurvePoint {
-                x: 100,
-                y: 600,
-                on_curve: true,
-            },
+            CurvePoint { x: 100, y: 100, on_curve: true },
+            CurvePoint { x: 400, y: 100, on_curve: true },
+            CurvePoint { x: 400, y: 600, on_curve: true },
+            CurvePoint { x: 100, y: 600, on_curve: true },
         ];
         points.into()
     }
@@ -829,12 +773,7 @@ fn test_hinting_stripped_from_non_first_fonts() {
 
         // .notdef with contour (so it's not empty)
         let notdef = SimpleGlyph {
-            bbox: Bbox {
-                x_min: 0,
-                y_min: 0,
-                x_max: 500,
-                y_max: 700,
-            },
+            bbox: Bbox { x_min: 0, y_min: 0, x_max: 500, y_max: 700 },
             contours: vec![contour.clone()],
             instructions: vec![],
         };
@@ -842,12 +781,7 @@ fn test_hinting_stripped_from_non_first_fonts() {
 
         // Named glyph with instructions and contour
         let glyph = SimpleGlyph {
-            bbox: Bbox {
-                x_min: 100,
-                y_min: 100,
-                x_max: 400,
-                y_max: 600,
-            },
+            bbox: Bbox { x_min: 100, y_min: 100, x_max: 400, y_max: 600 },
             contours: vec![contour],
             instructions,
         };
@@ -894,14 +828,8 @@ fn test_hinting_stripped_from_non_first_fonts() {
         };
         let hmtx = Hmtx {
             h_metrics: vec![
-                LongMetric {
-                    advance: 500,
-                    side_bearing: 0,
-                },
-                LongMetric {
-                    advance: 500,
-                    side_bearing: 0,
-                },
+                LongMetric { advance: 500, side_bearing: 0 },
+                LongMetric { advance: 500, side_bearing: 0 },
             ],
             left_side_bearings: vec![],
         };

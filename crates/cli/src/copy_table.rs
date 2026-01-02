@@ -1,8 +1,10 @@
+use std::{
+    fs::{read, write},
+    path::Path,
+};
+
 use anyhow::{Context, Result};
 use read_fonts::FontRef;
-use std::fs::read;
-use std::fs::write;
-use std::path::Path;
 use write_fonts::FontBuilder;
 
 pub fn copy_gsub(source: &Path, target: &Path) -> Result<()> {
@@ -33,10 +35,6 @@ pub fn copy_gsub(source: &Path, target: &Path) -> Result<()> {
     let output = builder.build();
     write(target, output).context("Failed to write target font")?;
 
-    println!(
-        "Copied GSUB table from {} to {}",
-        source.display(),
-        target.display()
-    );
+    println!("Copied GSUB table from {} to {}", source.display(), target.display());
     Ok(())
 }

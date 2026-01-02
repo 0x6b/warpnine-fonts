@@ -62,10 +62,7 @@ impl AxisLocation {
         for (dst, src) in tag_bytes.iter_mut().zip(tag.as_bytes().iter()) {
             *dst = *src;
         }
-        Self {
-            tag: Tag::new(&tag_bytes),
-            value,
-        }
+        Self { tag: Tag::new(&tag_bytes), value }
     }
 }
 

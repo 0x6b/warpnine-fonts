@@ -1,7 +1,8 @@
 //! Options for font merging
 
-use crate::types::TableTag;
 use read_fonts::types::Tag;
+
+use crate::types::TableTag;
 
 /// Options for font merging
 #[derive(Debug, Clone, Default)]

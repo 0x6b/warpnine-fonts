@@ -2,8 +2,7 @@
 //!
 //! Mirrors the concepts from fontTools designspaceLib.
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 /// A variation axis in the designspace.
 #[derive(Debug, Clone)]
@@ -73,10 +72,7 @@ impl Source {
     pub fn new(path: PathBuf, location: impl IntoIterator<Item = (&'static str, f32)>) -> Self {
         Self {
             path,
-            location: location
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
+            location: location.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
             family_name: None,
             style_name: None,
         }
@@ -96,10 +92,7 @@ impl Source {
 
     /// Get the value for an axis, or the axis default if not specified.
     pub fn axis_value(&self, axis: &Axis) -> f32 {
-        self.location
-            .get(&axis.tag)
-            .copied()
-            .unwrap_or(axis.default)
+        self.location.get(&axis.tag).copied().unwrap_or(axis.default)
     }
 
     /// Get the normalized location as a vector of F2Dot14-range values.
@@ -126,10 +119,7 @@ impl Instance {
     pub fn new(name: &str, location: impl IntoIterator<Item = (&'static str, f32)>) -> Self {
         Self {
             name: name.to_string(),
-            location: location
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
+            location: location.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
             postscript_name: None,
         }
     }
@@ -142,10 +132,7 @@ impl Instance {
 
     /// Get the value for an axis, or the axis default if not specified.
     pub fn axis_value(&self, axis: &Axis) -> f32 {
-        self.location
-            .get(&axis.tag)
-            .copied()
-            .unwrap_or(axis.default)
+        self.location.get(&axis.tag).copied().unwrap_or(axis.default)
     }
 }
 
@@ -163,11 +150,7 @@ pub struct DesignSpace {
 impl DesignSpace {
     /// Create a new designspace with the given axes and sources.
     pub fn new(axes: Vec<Axis>, sources: Vec<Source>) -> Self {
-        Self {
-            axes,
-            sources,
-            instances: Vec::new(),
-        }
+        Self { axes, sources, instances: Vec::new() }
     }
 
     /// Add named instances to the designspace.
@@ -217,10 +200,7 @@ impl DesignSpace {
         // Validate axis tags are 4 characters or less
         for axis in &self.axes {
             if axis.tag.len() > 4 {
-                return Err(format!(
-                    "Axis tag '{}' must be 4 characters or less",
-                    axis.tag
-                ));
+                return Err(format!("Axis tag '{}' must be 4 characters or less", axis.tag));
             }
         }
 
@@ -260,10 +240,7 @@ mod tests {
             Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
         ];
 
-        let source = Source::new(
-            PathBuf::from("test.ttf"),
-            vec![("wght", 900.0), ("ital", 1.0)],
-        );
+        let source = Source::new(PathBuf::from("test.ttf"), vec![("wght", 900.0), ("ital", 1.0)]);
         let normalized = source.normalized_location(&axes);
 
         assert_eq!(normalized, vec![1.0, 1.0]);
@@ -277,14 +254,8 @@ mod tests {
         ];
 
         let sources = vec![
-            Source::new(
-                PathBuf::from("Regular.ttf"),
-                vec![("wght", 400.0), ("ital", 0.0)],
-            ),
-            Source::new(
-                PathBuf::from("Bold.ttf"),
-                vec![("wght", 700.0), ("ital", 0.0)],
-            ),
+            Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
+            Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 700.0), ("ital", 0.0)]),
         ];
 
         let ds = DesignSpace::new(axes, sources);

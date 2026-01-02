@@ -1,11 +1,14 @@
+use std::{
+    ffi::OsString,
+    fs::{read, write},
+    io,
+    path::{Path, PathBuf},
+    process::ExitCode,
+    result::Result,
+};
+
 use clap::Parser;
 use font_feature_freezer::{FreezeOptions, FreezeResult, freeze, report};
-use std::ffi::OsString;
-use std::fs::{read, write};
-use std::io;
-use std::path::{Path, PathBuf};
-use std::process::ExitCode;
-use std::result::Result;
 
 #[derive(Debug, thiserror::Error)]
 enum CliError {
@@ -91,9 +94,7 @@ impl Cli {
     fn execute(&self) -> CliResult<()> {
         if self.report {
             if self.output.is_some() {
-                return Err(CliError::Message(
-                    "output file is not used with --report".into(),
-                ));
+                return Err(CliError::Message("output file is not used with --report".into()));
             }
             return self.run_report();
         }

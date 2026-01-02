@@ -3,8 +3,7 @@
 //! These traits centralize the conversion logic that was previously
 //! scattered across table merger functions.
 
-use read_fonts::tables::gpos as read_gpos;
-use read_fonts::tables::gpos;
+use read_fonts::tables::{gpos as read_gpos, gpos};
 use write_fonts::tables::gpos::{
     AnchorFormat1, AnchorFormat2, AnchorFormat3, AnchorTable, MarkArray, MarkRecord, ValueRecord,
 };
@@ -84,13 +83,16 @@ impl<'a> MarkArrayExt for read_gpos::MarkArray<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    #[cfg(test)]
+    use read_fonts::tables;
     #[cfg(test)]
     use read_fonts::tables::gpos;
+
+    use super::*;
 
     #[test]
     fn test_value_record_trait_exists() {
         fn assert_impl<T: ToWrite>() {}
-        assert_impl::<gpos::ValueRecord>();
+        assert_impl::<tables::gpos::ValueRecord>();
     }
 }

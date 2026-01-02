@@ -1,12 +1,10 @@
 //! hmtx table merging
 
-use crate::context::MergeContext;
-use crate::glyph_order::GlyphName;
-use crate::types::GlyphId;
-use crate::Result;
 use indexmap::IndexMap;
 use read_fonts::TableProvider;
 use write_fonts::tables::hmtx::Hmtx;
+
+use crate::{context::MergeContext, glyph_order::GlyphName, types::GlyphId, Result};
 
 #[derive(Debug, Clone)]
 pub struct GlyphMetrics {
@@ -33,30 +31,16 @@ pub fn merge_hmtx(ctx: &MergeContext) -> Result<Hmtx> {
             } else {
                 // For glyphs beyond num_h_metrics, use the last advance width
                 let last_advance = if num_h_metrics > 0 {
-                    hmtx.h_metrics()
-                        .get(num_h_metrics - 1)
-                        .unwrap()
-                        .advance
-                        .get()
+                    hmtx.h_metrics().get(num_h_metrics - 1).unwrap().advance.get()
                 } else {
                     0
                 };
                 let lsb_idx = gid - num_h_metrics;
-                let lsb = hmtx
-                    .left_side_bearings()
-                    .get(lsb_idx)
-                    .map(|b| b.get())
-                    .unwrap_or(0);
+                let lsb = hmtx.left_side_bearings().get(lsb_idx).map(|b| b.get()).unwrap_or(0);
                 (last_advance, lsb)
             };
 
-            metrics_map.insert(
-                glyph_name.clone(),
-                GlyphMetrics {
-                    advance_width: advance,
-                    lsb,
-                },
-            );
+            metrics_map.insert(glyph_name.clone(), GlyphMetrics { advance_width: advance, lsb });
         }
     }
 
@@ -65,10 +49,10 @@ pub fn merge_hmtx(ctx: &MergeContext) -> Result<Hmtx> {
     let left_side_bearings = Vec::new();
 
     for name in ctx.mega() {
-        let metrics = metrics_map.get(name).cloned().unwrap_or(GlyphMetrics {
-            advance_width: 0,
-            lsb: 0,
-        });
+        let metrics = metrics_map
+            .get(name)
+            .cloned()
+            .unwrap_or(GlyphMetrics { advance_width: 0, lsb: 0 });
 
         h_metrics.push(write_fonts::tables::hmtx::LongMetric {
             advance: metrics.advance_width,
@@ -76,8 +60,5 @@ pub fn merge_hmtx(ctx: &MergeContext) -> Result<Hmtx> {
         });
     }
 
-    Ok(Hmtx {
-        h_metrics,
-        left_side_bearings,
-    })
+    Ok(Hmtx { h_metrics, left_side_bearings })
 }

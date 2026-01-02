@@ -1,18 +1,21 @@
 //! Variable font instantiation.
 
-use crate::{
-    AxisLocation,
-    error::{Error, Result},
-};
+use std::iter::repeat_n;
+
+pub use read_fonts::tables::glyf::CurvePoint;
 use read_fonts::{
     FontRef, TableProvider,
     tables::{
+        fvar::Fvar,
         glyf::{
             Anchor as ReadAnchor, CompositeGlyph as ReadCompositeGlyph, Glyph, PointFlags,
             SimpleGlyph as ReadSimpleGlyph,
         },
         gvar::Gvar,
-        mvar::tags as mvar_tags,
+        hhea::Hhea,
+        mvar::{Mvar, tags as mvar_tags},
+        os2::Os2,
+        post::Post,
     },
     types::{F2Dot14, Fixed, GlyphId, Point, Tag},
 };
@@ -31,13 +34,10 @@ use write_fonts::{
     types::NameId,
 };
 
-use read_fonts::tables::fvar::Fvar;
-pub use read_fonts::tables::glyf::CurvePoint;
-use read_fonts::tables::hhea::Hhea;
-use read_fonts::tables::mvar::Mvar;
-use read_fonts::tables::os2::Os2;
-use read_fonts::tables::post::Post;
-use std::iter::repeat_n;
+use crate::{
+    AxisLocation,
+    error::{Error, Result},
+};
 
 fn clamp_i16(value: i32) -> i16 {
     value.clamp(i16::MIN as i32, i16::MAX as i32) as i16
@@ -263,10 +263,7 @@ fn apply_deltas_to_simple_glyph(
     let mut flags: Vec<PointFlags> = Vec::with_capacity(num_points + PHANTOM_POINTS);
 
     for point in simple.points() {
-        points.push(Point::new(
-            Fixed::from_i32(point.x as i32),
-            Fixed::from_i32(point.y as i32),
-        ));
+        points.push(Point::new(Fixed::from_i32(point.x as i32), Fixed::from_i32(point.y as i32)));
         flags.push(if point.on_curve {
             PointFlags::on_curve()
         } else {
@@ -405,12 +402,7 @@ fn apply_deltas_to_composite_glyph(
         };
 
         let t = comp.transform;
-        let transform = Transform {
-            xx: t.xx,
-            yx: t.yx,
-            xy: t.xy,
-            yy: t.yy,
-        };
+        let transform = Transform { xx: t.xx, yx: t.yx, xy: t.xy, yy: t.yy };
 
         Component::new(comp.glyph, anchor, transform, ComponentFlags::default())
     });
@@ -534,20 +526,10 @@ fn compute_composite_bbox(composite: &CompositeGlyph, bboxes: &[Option<Bbox>]) -
     }
 
     if !has_content {
-        return Some(Bbox {
-            x_min: 0,
-            y_min: 0,
-            x_max: 0,
-            y_max: 0,
-        });
+        return Some(Bbox { x_min: 0, y_min: 0, x_max: 0, y_max: 0 });
     }
 
-    Some(Bbox {
-        x_min,
-        y_min,
-        x_max,
-        y_max,
-    })
+    Some(Bbox { x_min, y_min, x_max, y_max })
 }
 
 fn iup_contour(
@@ -629,11 +611,7 @@ fn iup_single(c1: i32, c2: i32, c: i32, d1: i32, d2: i32) -> i32 {
         return if d1 == d2 { d1 } else { 0 };
     }
 
-    let (c1, c2, d1, d2) = if c1 > c2 {
-        (c2, c1, d2, d1)
-    } else {
-        (c1, c2, d1, d2)
-    };
+    let (c1, c2, d1, d2) = if c1 > c2 { (c2, c1, d2, d1) } else { (c1, c2, d1, d2) };
 
     if c <= c1 {
         d1
@@ -664,19 +642,13 @@ fn build_new_hmtx(advances: &[u16], lsbs: &[i16], num_h_metrics: usize) -> Write
         let lsb = lsbs[gid];
 
         if gid < num_h_metrics {
-            h_metrics.push(write_fonts::tables::hmtx::LongMetric {
-                advance,
-                side_bearing: lsb,
-            });
+            h_metrics.push(write_fonts::tables::hmtx::LongMetric { advance, side_bearing: lsb });
         } else {
             left_side_bearings.push(lsb);
         }
     }
 
-    WriteHmtx {
-        h_metrics,
-        left_side_bearings,
-    }
+    WriteHmtx { h_metrics, left_side_bearings }
 }
 
 /// Bounding box and metrics information calculated from glyph data.
@@ -730,9 +702,7 @@ impl FontBounds {
 
         // RSB = advance_width - LSB - glyph_width
         let glyph_width = bbox.x_max.saturating_sub(bbox.x_min);
-        let rsb = (advance as i16)
-            .saturating_sub(lsb)
-            .saturating_sub(glyph_width);
+        let rsb = (advance as i16).saturating_sub(lsb).saturating_sub(glyph_width);
         self.min_right_side_bearing = self.min_right_side_bearing.min(rsb);
 
         let extent = lsb.saturating_add(glyph_width);
@@ -881,9 +851,8 @@ fn build_new_os2(
     );
 
     if let Some(sx_height) = original.sx_height() {
-        os2.sx_height = Some(clamp_i16(
-            i32::from(sx_height) + get_mvar_delta(mvar, mvar_tags::XHGT, coords),
-        ));
+        os2.sx_height =
+            Some(clamp_i16(i32::from(sx_height) + get_mvar_delta(mvar, mvar_tags::XHGT, coords)));
     }
 
     if let Some(s_cap_height) = original.s_cap_height() {
@@ -948,8 +917,9 @@ fn build_new_stat(fvar: &Fvar, locations: &[AxisLocation]) -> Stat {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use read_fonts::{FontRef, TableProvider};
+
+    use super::*;
 
     fn get_glyph_coords(font: &FontRef, glyph_id: u32) -> Option<Vec<(i16, i16)>> {
         let glyf = font.glyf().ok()?;
@@ -1088,10 +1058,7 @@ mod tests {
                 && simple.num_points() > 0
             {
                 let x_min = simple.points().map(|p| p.x).min().unwrap_or(0);
-                assert_eq!(
-                    lsb, x_min,
-                    "glyph {gid}: LSB ({lsb}) should equal xMin ({x_min})"
-                );
+                assert_eq!(lsb, x_min, "glyph {gid}: LSB ({lsb}) should equal xMin ({x_min})");
             }
         }
     }

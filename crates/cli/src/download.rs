@@ -1,12 +1,14 @@
-use anyhow::bail;
-use anyhow::{Context, Result};
+use std::{
+    fs::{create_dir_all, write},
+    io::{Cursor, Read},
+    iter::once,
+    path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use reqwest::blocking::get;
-use std::fs::create_dir_all;
-use std::fs::write;
-use std::io::{Cursor, Read};
-use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct DownloadItem {
     url: &'static str,
@@ -96,7 +98,7 @@ pub fn download(build_dir: &Path) -> Result<()> {
     let all_items: Vec<Option<&DownloadItem>> = DOWNLOADS
         .iter()
         .map(Some)
-        .chain(std::iter::once(None)) // None represents Recursive VF
+        .chain(once(None)) // None represents Recursive VF
         .collect();
 
     all_items.par_iter().for_each(|item| {
