@@ -249,20 +249,21 @@ font.close()
                 )
 
         def run_rust():
-            for rec in rec_fonts:
-                output = tmp / f"rs-{rec.stem}-merged.ttf"
-                subprocess.run(
-                    [
-                        str(RUST_BIN),
-                        "merge",
-                        str(rec),
-                        str(noto_font),
-                        "-o",
-                        str(output),
-                    ],
-                    check=True,
-                    capture_output=True,
-                )
+            rs_out = tmp / "rust"
+            rs_out.mkdir()
+            subprocess.run(
+                [
+                    str(RUST_BIN),
+                    "merge-batch",
+                    "-f",
+                    str(noto_font),
+                    "-o",
+                    str(rs_out),
+                ]
+                + [str(f) for f in rec_fonts],
+                check=True,
+                capture_output=True,
+            )
 
         if has_fontforge:
             py_time, py_err = run_timed(run_python)

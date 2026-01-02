@@ -114,6 +114,18 @@ enum Commands {
         #[arg(short, long)]
         output: PathBuf,
     },
+    /// Merge multiple base fonts with a fallback font (parallel batch)
+    MergeBatch {
+        /// Base font files to merge
+        #[arg(required = true)]
+        base_fonts: Vec<PathBuf>,
+        /// Fallback font to merge into each base font
+        #[arg(short, long)]
+        fallback: PathBuf,
+        /// Output directory
+        #[arg(short, long, default_value = "dist")]
+        output_dir: PathBuf,
+    },
     /// Create WarpnineSans fonts from Recursive VF
     CreateSans {
         /// Input variable font
@@ -277,6 +289,13 @@ fn main() -> Result<()> {
         }
         Commands::Merge { inputs, output } => {
             merge::merge_fonts(&inputs, &output)?;
+        }
+        Commands::MergeBatch {
+            base_fonts,
+            fallback,
+            output_dir,
+        } => {
+            merge::merge_batch(&base_fonts, &fallback, &output_dir)?;
         }
         Commands::CreateSans { input, output_dir } => {
             sans::create_sans(&input, &output_dir)?;
