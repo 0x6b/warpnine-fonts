@@ -121,6 +121,117 @@ def recursive_vf():
 
 
 # ============================================================================
+# Naming Helpers
+# ============================================================================
+
+
+def get_name_entry(font: TTFont, name_id: int) -> str | None:
+    """Get a name table entry by ID (prefers platformID 3/Windows, then 1/Mac)."""
+    name_table = font["name"]
+    # Try Windows (platformID=3, encodingID=1) first, then Mac (platformID=1)
+    for platform_id, encoding_id in [(3, 1), (1, 0)]:
+        record = name_table.getName(name_id, platform_id, encoding_id, None)
+        if record:
+            return record.toUnicode()
+    return None
+
+
+def validate_font_names_exist(font_path: Path) -> list[str]:
+    """Validate that required name table entries exist. Returns list of failures."""
+    failures = []
+
+    if not font_path.exists():
+        return [f"Font not found: {font_path}"]
+
+    font = TTFont(font_path)
+
+    # Name ID 1: Family name
+    family_name = get_name_entry(font, 1)
+    if not family_name:
+        failures.append("Name ID 1 (Family): missing")
+
+    # Name ID 2: Subfamily name
+    subfamily = get_name_entry(font, 2)
+    if not subfamily:
+        failures.append("Name ID 2 (Subfamily): missing")
+
+    # Name ID 4: Full name
+    full_name = get_name_entry(font, 4)
+    if not full_name:
+        failures.append("Name ID 4 (Full name): missing")
+
+    # Name ID 6: PostScript name (no spaces, hyphen separator)
+    ps_name = get_name_entry(font, 6)
+    if not ps_name:
+        failures.append("Name ID 6 (PostScript name): missing")
+    elif " " in ps_name:
+        failures.append(
+            f"Name ID 6 (PostScript name): should not contain spaces, got '{ps_name}'"
+        )
+    elif "-" not in ps_name:
+        failures.append(
+            f"Name ID 6 (PostScript name): should contain hyphen, got '{ps_name}'"
+        )
+
+    font.close()
+    return failures
+
+
+def validate_font_naming(
+    font_path: Path, family: str, style: str, postscript_family: str
+) -> list[str]:
+    """Validate name table entries against expected naming. Returns list of failures."""
+    failures = []
+
+    if not font_path.exists():
+        return [f"Font not found: {font_path}"]
+
+    font = TTFont(font_path)
+
+    # Expected values (matching FontNaming class logic)
+    expected_full_name = f"{family} {style}"
+    expected_ps_name = f"{postscript_family}-{style.replace(' ', '')}"
+
+    # Name ID 4: Full name
+    full_name = get_name_entry(font, 4)
+    if full_name != expected_full_name:
+        failures.append(
+            f"Name ID 4 (Full name): expected '{expected_full_name}', got '{full_name}'"
+        )
+
+    # Name ID 6: PostScript name
+    ps_name = get_name_entry(font, 6)
+    if ps_name != expected_ps_name:
+        failures.append(
+            f"Name ID 6 (PostScript name): expected '{expected_ps_name}', got '{ps_name}'"
+        )
+
+    # Name ID 3: Unique ID (should contain WARPNINE)
+    unique_id = get_name_entry(font, 3)
+    if unique_id and "WARPNINE" not in unique_id:
+        failures.append(
+            f"Name ID 3 (Unique ID): expected to contain 'WARPNINE', got '{unique_id}'"
+        )
+
+    # Name ID 16: Typographic Family
+    typo_family = get_name_entry(font, 16)
+    if typo_family and typo_family != family:
+        failures.append(
+            f"Name ID 16 (Typographic Family): expected '{family}', got '{typo_family}'"
+        )
+
+    # Name ID 17: Typographic Subfamily
+    typo_subfamily = get_name_entry(font, 17)
+    if typo_subfamily and typo_subfamily != style:
+        failures.append(
+            f"Name ID 17 (Typographic Subfamily): expected '{style}', got '{typo_subfamily}'"
+        )
+
+    font.close()
+    return failures
+
+
+# ============================================================================
 # Validation Helpers
 # ============================================================================
 
@@ -729,6 +840,105 @@ class TestRustCLIOperations:
         assert "ital" in axes, "VF should have ital axis"
 
         font.close()
+
+
+# ============================================================================
+# Naming Tests
+# ============================================================================
+
+
+class TestFontNaming:
+    """Test name table entries for all font families."""
+
+    def test_mono_font_names_exist(self):
+        """Validate required name table entries exist for WarpnineMono fonts."""
+        for style in ["Regular", "Bold", "Light", "Italic", "BoldItalic"]:
+            font_path = DIST_DIR / f"WarpnineMono-{style}.ttf"
+            if not font_path.exists():
+                pytest.skip(f"Font not built: {font_path.name}")
+
+            failures = validate_font_names_exist(font_path)
+            assert not failures, f"{font_path.name}: {failures}"
+
+    def test_mono_font_naming_values(self):
+        """Validate WarpnineMono fonts have correct naming values."""
+        for style in ["Regular", "Bold", "Light", "Italic", "BoldItalic"]:
+            font_path = DIST_DIR / f"WarpnineMono-{style}.ttf"
+            if not font_path.exists():
+                pytest.skip(f"Font not built: {font_path.name}")
+
+            failures = validate_font_naming(
+                font_path, "Warpnine Mono", style, "WarpnineMono"
+            )
+            assert not failures, f"{font_path.name}: {failures}"
+
+    def test_mono_vf_names_exist(self):
+        """Validate required name table entries exist for WarpnineMono VF."""
+        font_path = DIST_DIR / "WarpnineMono-VF.ttf"
+        if not font_path.exists():
+            pytest.skip("VF not built")
+
+        failures = validate_font_names_exist(font_path)
+        assert not failures, f"{font_path.name}: {failures}"
+
+    def test_sans_font_names_exist(self):
+        """Validate required name table entries exist for WarpnineSans fonts."""
+        for style in ["Regular", "Bold", "Italic"]:
+            font_path = DIST_DIR / f"WarpnineSans-{style}.ttf"
+            if not font_path.exists():
+                pytest.skip(f"Font not built: {font_path.name}")
+
+            failures = validate_font_names_exist(font_path)
+            assert not failures, f"{font_path.name}: {failures}"
+
+    def test_sans_font_naming_values(self):
+        """Validate WarpnineSans fonts have correct naming values."""
+        for style in ["Regular", "Bold", "Italic"]:
+            font_path = DIST_DIR / f"WarpnineSans-{style}.ttf"
+            if not font_path.exists():
+                pytest.skip(f"Font not built: {font_path.name}")
+
+            failures = validate_font_naming(
+                font_path, "Warpnine Sans", style, "WarpnineSans"
+            )
+            assert not failures, f"{font_path.name}: {failures}"
+
+    def test_condensed_font_names_exist(self):
+        """Validate required name table entries exist for WarpnineSansCondensed fonts."""
+        for style in ["Regular", "Bold", "Italic"]:
+            font_path = DIST_DIR / f"WarpnineSansCondensed-{style}.ttf"
+            if not font_path.exists():
+                pytest.skip(f"Font not built: {font_path.name}")
+
+            failures = validate_font_names_exist(font_path)
+            assert not failures, f"{font_path.name}: {failures}"
+
+    def test_condensed_font_naming_values(self):
+        """Validate WarpnineSansCondensed fonts have correct naming values."""
+        for style in ["Regular", "Bold", "Italic"]:
+            font_path = DIST_DIR / f"WarpnineSansCondensed-{style}.ttf"
+            if not font_path.exists():
+                pytest.skip(f"Font not built: {font_path.name}")
+
+            failures = validate_font_naming(
+                font_path, "Warpnine Sans Condensed", style, "WarpnineSansCondensed"
+            )
+            assert not failures, f"{font_path.name}: {failures}"
+
+    def test_postscript_name_format(self):
+        """Validate PostScript name format across all fonts."""
+        for font_path in DIST_DIR.glob("Warpnine*.ttf"):
+            font = TTFont(font_path)
+            ps_name = get_name_entry(font, 6)
+            font.close()
+
+            assert ps_name, f"{font_path.name}: Missing PostScript name"
+            assert " " not in ps_name, (
+                f"{font_path.name}: PostScript name has spaces: {ps_name}"
+            )
+            assert "-" in ps_name, (
+                f"{font_path.name}: PostScript name missing hyphen: {ps_name}"
+            )
 
 
 # ============================================================================

@@ -10,6 +10,7 @@ use crate::instance::{create_instances_batch, InstanceDef};
 use crate::ligatures::remove_grave_ligature;
 use crate::merge::merge_batch;
 use crate::metadata::{parse_version_string, set_monospace, set_version};
+use crate::naming::{set_name, FontNaming};
 use crate::sans::create_sans;
 use crate::subset::subset_japanese;
 use crate::{clean, download};
@@ -162,14 +163,46 @@ fn step_merge(ctx: &PipelineContext) -> Result<()> {
     Ok(())
 }
 
+fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
+    let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
+        .into_iter()
+        .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
+        .collect();
+
+    println!("  Setting names for {} static mono fonts...", fonts.len());
+
+    let results: Vec<_> = fonts
+        .par_iter()
+        .map(|path| {
+            let style = path
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .replace("WarpnineMono-", "");
+            let naming = FontNaming {
+                family: "Warpnine Mono".to_string(),
+                style,
+                postscript_family: Some("WarpnineMono".to_string()),
+                copyright_extra: Some(
+                    "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP."
+                        .to_string(),
+                ),
+            };
+            set_name(path, &naming)
+        })
+        .collect();
+
+    check_results(&results, "set names")
+}
+
 fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
     let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
         .into_iter()
         .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
         .collect();
-    
+
     println!("  Freezing features in {} static mono fonts...", fonts.len());
-    
+
     let features: Vec<String> = MONO_FEATURES.iter().map(|s| s.to_string()).collect();
     freeze_features(&fonts, &features, true)
 }
@@ -238,6 +271,81 @@ fn step_create_condensed(ctx: &PipelineContext) -> Result<()> {
 
 fn step_create_sans(ctx: &PipelineContext) -> Result<()> {
     create_sans(&ctx.recursive_vf, &ctx.dist_dir)
+}
+
+fn step_set_names_sans(ctx: &PipelineContext) -> Result<()> {
+    // Sans fonts
+    let sans_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSans-*.ttf")?;
+    if !sans_fonts.is_empty() {
+        println!("  Setting names for {} Sans fonts...", sans_fonts.len());
+        let results: Vec<_> = sans_fonts
+            .par_iter()
+            .map(|path| {
+                let style = path
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace("WarpnineSans-", "");
+                let naming = FontNaming {
+                    family: "Warpnine Sans".to_string(),
+                    style,
+                    postscript_family: Some("WarpnineSans".to_string()),
+                    copyright_extra: Some("Warpnine Sans is based on Recursive.".to_string()),
+                };
+                set_name(path, &naming)
+            })
+            .collect();
+        check_results(&results, "set names (Sans)")?;
+    }
+
+    // Condensed fonts
+    let condensed_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSansCondensed-*.ttf")?;
+    if !condensed_fonts.is_empty() {
+        println!(
+            "  Setting names for {} Condensed fonts...",
+            condensed_fonts.len()
+        );
+        let results: Vec<_> = condensed_fonts
+            .par_iter()
+            .map(|path| {
+                let style = path
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace("WarpnineSansCondensed-", "");
+                let naming = FontNaming {
+                    family: "Warpnine Sans Condensed".to_string(),
+                    style,
+                    postscript_family: Some("WarpnineSansCondensed".to_string()),
+                    copyright_extra: Some("Warpnine Sans Condensed is based on Recursive.".to_string()),
+                };
+                set_name(path, &naming)
+            })
+            .collect();
+        check_results(&results, "set names (Condensed)")?;
+    }
+
+    Ok(())
+}
+
+fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
+    let vf = ctx.dist_dir.join("WarpnineMono-VF.ttf");
+    if !vf.exists() {
+        println!("  VF not found, skipping name setting");
+        return Ok(());
+    }
+
+    println!("  Setting names for VF...");
+    let naming = FontNaming {
+        family: "Warpnine Mono".to_string(),
+        style: "Regular".to_string(), // VF default style
+        postscript_family: Some("WarpnineMono".to_string()),
+        copyright_extra: Some(
+            "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP."
+                .to_string(),
+        ),
+    };
+    set_name(&vf, &naming)
 }
 
 fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
@@ -323,14 +431,17 @@ pub fn build_all(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> 
         ("extract-noto-weights", step_extract_noto_weights),
         ("subset-noto", step_subset_noto),
         ("merge", step_merge),
+        ("set-names-mono", step_set_names_mono),
         ("freeze-static-mono", step_freeze_static_mono),
         ("backup-frozen", step_backup_frozen),
         ("build-vf", step_build_vf),
         ("copy-gsub", step_copy_gsub),
         ("restore-frozen", step_restore_frozen),
+        ("set-names-vf", step_set_names_vf),
         ("set-monospace", step_set_monospace),
         ("create-condensed", step_create_condensed),
         ("create-sans", step_create_sans),
+        ("set-names-sans", step_set_names_sans),
         ("freeze-vf-and-sans", step_freeze_vf_and_sans),
         ("set-version", step_set_version),
     ];
@@ -372,11 +483,13 @@ pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
         ("extract-noto-weights", step_extract_noto_weights),
         ("subset-noto", step_subset_noto),
         ("merge", step_merge),
+        ("set-names-mono", step_set_names_mono),
         ("freeze-static-mono", step_freeze_static_mono),
         ("backup-frozen", step_backup_frozen),
         ("build-vf", step_build_vf),
         ("copy-gsub", step_copy_gsub),
         ("restore-frozen", step_restore_frozen),
+        ("set-names-vf", step_set_names_vf),
         ("set-monospace", step_set_monospace),
         ("set-version", step_set_version),
     ];
