@@ -421,6 +421,362 @@ class TestCreateCondensedCommand:
             font.close()
 
 
+class TestSubsetJapaneseCommand:
+    """Test the subset-japanese command."""
+
+    @pytest.fixture
+    def setup_noto_font(self, tmp_path):
+        """Set up Noto CJK font for subset test."""
+        noto = BUILD_DIR / "NotoSansMonoCJKjp-VF.ttf"
+
+        if not noto.exists():
+            pytest.skip("Noto CJK font not downloaded yet")
+
+        font_copy = tmp_path / "noto.ttf"
+        shutil.copy(noto, font_copy)
+        output = tmp_path / "noto_subset.ttf"
+        return font_copy, output
+
+    def test_subset_japanese_reduces_size(self, setup_noto_font):
+        """Test that subset-japanese reduces font size significantly."""
+        input_font, output_font = setup_noto_font
+
+        original_size = input_font.stat().st_size
+
+        result = subprocess.run(
+            [str(RUST_CLI), "subset-japanese", str(input_font), str(output_font)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert output_font.exists()
+
+        subset_size = output_font.stat().st_size
+        # Subset should be significantly smaller (~51% of original)
+        # because VF tables are dropped
+        assert subset_size < original_size * 0.6, (
+            f"Subset ({subset_size}) should be less than 60% of original ({original_size})"
+        )
+
+    def test_subset_japanese_preserves_japanese_glyphs(self, setup_noto_font):
+        """Test that subset preserves Japanese glyphs."""
+        input_font, output_font = setup_noto_font
+
+        subprocess.run(
+            [str(RUST_CLI), "subset-japanese", str(input_font), str(output_font)],
+            capture_output=True,
+            check=True,
+        )
+
+        font = TTFont(output_font)
+        cmap = font.getBestCmap()
+
+        # Check some common Japanese characters are preserved
+        # Hiragana: あ (U+3042), い (U+3044)
+        # Katakana: ア (U+30A2), イ (U+30A4)
+        # Kanji: 日 (U+65E5), 本 (U+672C)
+        japanese_chars = [0x3042, 0x3044, 0x30A2, 0x30A4, 0x65E5, 0x672C]
+        for char in japanese_chars:
+            assert char in cmap, f"Japanese character U+{char:04X} should be preserved"
+
+        font.close()
+
+
+class TestFreezeCommand:
+    """Test the freeze command."""
+
+    @pytest.fixture
+    def setup_font_with_features(self, tmp_path):
+        """Set up a font with OpenType features for freeze test."""
+        # Use Recursive VF which has ss01, ss02, etc.
+        vf = BUILD_DIR / "Recursive_VF_1.085.ttf"
+
+        if not vf.exists():
+            pytest.skip("Recursive VF not downloaded yet")
+
+        # First create an instance
+        instance = tmp_path / "instance.ttf"
+        subprocess.run(
+            [
+                str(RUST_CLI),
+                "instance",
+                str(vf),
+                str(instance),
+                "--axis",
+                "wght=400",
+                "--axis",
+                "MONO=1",
+                "--axis",
+                "CASL=0",
+                "--axis",
+                "slnt=0",
+                "--axis",
+                "CRSV=0.5",
+            ],
+            capture_output=True,
+            check=True,
+        )
+
+        return instance
+
+    def test_freeze_updates_cmap(self, setup_font_with_features):
+        """Test that freeze updates cmap with substituted glyphs."""
+        font_path = setup_font_with_features
+
+        # Get cmap before freeze - check what glyph '0' maps to
+        font_before = TTFont(font_path)
+        zero_before = font_before.getBestCmap()[ord("0")]
+        font_before.close()
+
+        # Freeze with 'zero' feature (slashed zero)
+        result = subprocess.run(
+            [str(RUST_CLI), "freeze", "--features", "zero", str(font_path)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        # Get cmap after freeze
+        font_after = TTFont(font_path)
+        zero_after = font_after.getBestCmap()[ord("0")]
+        font_after.close()
+
+        # The 'zero' feature should substitute zero -> zero.slash
+        assert zero_before == "zero", (
+            f"Before freeze, '0' should map to 'zero', got {zero_before}"
+        )
+        assert zero_after == "zero.slash", (
+            f"After freeze, '0' should map to 'zero.slash', got {zero_after}"
+        )
+
+    def test_freeze_multiple_features(self, setup_font_with_features):
+        """Test freezing multiple features."""
+        font_path = setup_font_with_features
+
+        result = subprocess.run(
+            [str(RUST_CLI), "freeze", "--features", "ss01,ss02,ss03", str(font_path)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        # Verify font is still valid
+        font = TTFont(font_path)
+        assert "GSUB" in font
+        font.close()
+
+
+class TestInstanceCommand:
+    """Test the instance command."""
+
+    @pytest.fixture
+    def setup_variable_font(self, tmp_path):
+        """Set up variable font for instance test."""
+        vf = BUILD_DIR / "Recursive_VF_1.085.ttf"
+
+        if not vf.exists():
+            pytest.skip("Recursive VF not downloaded yet")
+
+        output = tmp_path / "instance.ttf"
+        return vf, output
+
+    def test_instance_creates_static_font(self, setup_variable_font):
+        """Test that instance creates a static font from VF."""
+        input_vf, output = setup_variable_font
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "instance",
+                str(input_vf),
+                str(output),
+                "--axis",
+                "wght=700",
+                "--axis",
+                "MONO=1",
+                "--axis",
+                "CASL=0",
+                "--axis",
+                "slnt=0",
+                "--axis",
+                "CRSV=0.5",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert output.exists()
+
+        # Verify it's a static font (no fvar table)
+        font = TTFont(output)
+        assert "fvar" not in font, "Instance should not have fvar table"
+        assert "gvar" not in font, "Instance should not have gvar table"
+        font.close()
+
+    def test_instance_creates_different_weights(self, setup_variable_font):
+        """Test that different weight instances have different glyph shapes."""
+        input_vf, output = setup_variable_font
+        output_bold = output.parent / "bold.ttf"
+
+        # Create regular instance (wght=400)
+        subprocess.run(
+            [
+                str(RUST_CLI),
+                "instance",
+                str(input_vf),
+                str(output),
+                "--axis",
+                "wght=400",
+                "--axis",
+                "MONO=0",
+                "--axis",
+                "CASL=0",
+                "--axis",
+                "slnt=0",
+                "--axis",
+                "CRSV=0.5",
+            ],
+            capture_output=True,
+            check=True,
+        )
+
+        # Create bold instance (wght=700)
+        subprocess.run(
+            [
+                str(RUST_CLI),
+                "instance",
+                str(input_vf),
+                str(output_bold),
+                "--axis",
+                "wght=700",
+                "--axis",
+                "MONO=0",
+                "--axis",
+                "CASL=0",
+                "--axis",
+                "slnt=0",
+                "--axis",
+                "CRSV=0.5",
+            ],
+            capture_output=True,
+            check=True,
+        )
+
+        # Both should be valid fonts
+        regular = TTFont(output)
+        bold = TTFont(output_bold)
+
+        # Glyph outlines should differ (bold is heavier)
+        regular_glyf = regular.getTableData("glyf")
+        bold_glyf = bold.getTableData("glyf")
+        assert regular_glyf != bold_glyf, (
+            "Regular and Bold should have different glyphs"
+        )
+
+        # OS/2.usWeightClass should match the wght axis value
+        assert regular["OS/2"].usWeightClass == 400, (
+            f"Regular usWeightClass should be 400, got {regular['OS/2'].usWeightClass}"
+        )
+        assert bold["OS/2"].usWeightClass == 700, (
+            f"Bold usWeightClass should be 700, got {bold['OS/2'].usWeightClass}"
+        )
+
+        regular.close()
+        bold.close()
+
+
+class TestMergeCommand:
+    """Test the merge command."""
+
+    @pytest.fixture
+    def setup_fonts_for_merge(self, tmp_path):
+        """Set up fonts for merge test."""
+        duotone = BUILD_DIR / "RecMonoDuotone-Regular.ttf"
+        noto = BUILD_DIR / "Noto-400-subset.ttf"
+
+        if not duotone.exists():
+            pytest.skip("Duotone font not built yet")
+        if not noto.exists():
+            pytest.skip("Noto subset font not built yet")
+
+        duotone_copy = tmp_path / "duotone.ttf"
+        noto_copy = tmp_path / "noto.ttf"
+        output = tmp_path / "merged.ttf"
+
+        shutil.copy(duotone, duotone_copy)
+        shutil.copy(noto, noto_copy)
+
+        return duotone_copy, noto_copy, output
+
+    def test_merge_combines_fonts(self, setup_fonts_for_merge):
+        """Test that merge combines multiple fonts."""
+        font1, font2, output = setup_fonts_for_merge
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "merge",
+                "--output",
+                str(output),
+                str(font1),
+                str(font2),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert output.exists()
+
+        # Merged font should be valid
+        font = TTFont(output)
+        assert "cmap" in font
+        assert "glyf" in font
+        font.close()
+
+    def test_merge_includes_glyphs_from_both(self, setup_fonts_for_merge):
+        """Test that merged font includes glyphs from both sources."""
+        font1, font2, output = setup_fonts_for_merge
+
+        # Get glyph counts before merge
+        f1 = TTFont(font1)
+        f2 = TTFont(font2)
+        f1_glyphs = len(f1.getGlyphOrder())
+        f2_glyphs = len(f2.getGlyphOrder())
+        f1.close()
+        f2.close()
+
+        subprocess.run(
+            [
+                str(RUST_CLI),
+                "merge",
+                "--output",
+                str(output),
+                str(font1),
+                str(font2),
+            ],
+            capture_output=True,
+            check=True,
+        )
+
+        # Check merged font has glyphs from both
+        merged = TTFont(output)
+        merged_cmap = merged.getBestCmap()
+
+        # Check Latin characters from font1
+        assert ord("A") in merged_cmap
+        assert ord("a") in merged_cmap
+
+        # Check Japanese characters from font2
+        assert 0x3042 in merged_cmap  # あ (Hiragana A)
+
+        merged.close()
+
+
 class TestSetMonospaceCommand:
     """Test the set-monospace command."""
 

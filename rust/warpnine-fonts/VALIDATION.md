@@ -35,6 +35,12 @@ All font-instancer issues have been resolved:
 
 **Validation result**: 144/144 checks passed (2026-01-02)
 
+### ✅ All Known Issues Fixed
+
+**Fixed (2026-01-02)**:
+- `subset-japanese` now drops VF tables, matching Python output size (~51%)
+- `instance` now updates `OS/2.usWeightClass` to match wght axis value
+
 ---
 
 ## Validation Scripts

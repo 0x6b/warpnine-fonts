@@ -1,7 +1,18 @@
 use anyhow::{Context, Result};
-use hb_subset::{Blob, FontFace, SubsetInput};
+use hb_subset::{Blob, FontFace, SubsetInput, Tag};
 use std::fs;
 use std::path::Path;
+
+/// Variable font tables to drop during subsetting (matches Python pipeline)
+const VF_TABLES_TO_DROP: &[&[u8; 4]] = &[
+    b"HVAR", // Horizontal metrics variations
+    b"MVAR", // Metrics variations
+    b"STAT", // Style attributes
+    b"avar", // Axis variations
+    b"fvar", // Font variations
+    b"gvar", // Glyph variations
+    b"cvar", // CVT variations
+];
 
 /// Japanese Unicode ranges for subsetting
 pub const JAPANESE_RANGES: &[(u32, u32)] = &[
@@ -37,12 +48,22 @@ pub fn subset_japanese(input: &Path, output: &Path) -> Result<()> {
     let mut subset_input = SubsetInput::new()?;
 
     // Add all Japanese Unicode ranges
-    let mut unicode_set = subset_input.unicode_set();
-    for (start, end) in JAPANESE_RANGES {
-        for cp in *start..=*end {
-            if let Some(c) = char::from_u32(cp) {
-                unicode_set.insert(c);
+    {
+        let mut unicode_set = subset_input.unicode_set();
+        for (start, end) in JAPANESE_RANGES {
+            for cp in *start..=*end {
+                if let Some(c) = char::from_u32(cp) {
+                    unicode_set.insert(c);
+                }
             }
+        }
+    }
+
+    // Drop VF tables to reduce file size (convert VF to static font)
+    {
+        let mut drop_tables = subset_input.drop_table_tag_set();
+        for table in VF_TABLES_TO_DROP {
+            drop_tables.insert(Tag::new(*table));
         }
     }
 
