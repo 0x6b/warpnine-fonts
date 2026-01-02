@@ -25,7 +25,7 @@ use crate::{
     metadata::{parse_version_string, set_monospace, set_version},
     naming::{FontNaming, set_name},
     sans::create_sans,
-    styles::{MONO_FEATURES, MONO_STYLES, duotone_casl},
+    styles::{MONO_STYLES, duotone_casl, mono_features_owned, sans_features_owned},
     subset::subset_japanese,
 };
 
@@ -230,8 +230,7 @@ fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
 
     println!("  Freezing features in {} static mono fonts...", fonts.len());
 
-    let features: Vec<String> = MONO_FEATURES.iter().map(|s| s.to_string()).collect();
-    freeze_features(&fonts, &features, true)
+    freeze_features(&fonts, &mono_features_owned(), true)
 }
 
 fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
@@ -370,28 +369,28 @@ fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
+    let mono_features = mono_features_owned();
+    let sans_features = sans_features_owned();
+
     // Freeze VF
     let vf = ctx.dist_dir.join("WarpnineMono-VF.ttf");
     if vf.exists() {
         println!("  Freezing features in VF...");
-        let features: Vec<String> = MONO_FEATURES.iter().map(|s| s.to_string()).collect();
-        freeze_features(&[vf], &features, true)?;
+        freeze_features(&[vf], &mono_features, true)?;
     }
 
     // Freeze Sans fonts
     let sans_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSans-*.ttf")?;
     if !sans_fonts.is_empty() {
         println!("  Freezing features in {} Sans fonts...", sans_fonts.len());
-        let features: Vec<String> = MONO_FEATURES.iter().map(|s| s.to_string()).collect();
-        freeze_features(&sans_fonts, &features, true)?;
+        freeze_features(&sans_fonts, &sans_features, true)?;
     }
 
     // Freeze Condensed fonts
     let condensed_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSansCondensed-*.ttf")?;
     if !condensed_fonts.is_empty() {
         println!("  Freezing features in {} Condensed fonts...", condensed_fonts.len());
-        let features: Vec<String> = MONO_FEATURES.iter().map(|s| s.to_string()).collect();
-        freeze_features(&condensed_fonts, &features, true)?;
+        freeze_features(&condensed_fonts, &sans_features, true)?;
     }
 
     Ok(())
