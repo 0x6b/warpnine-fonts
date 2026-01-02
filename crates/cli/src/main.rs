@@ -196,6 +196,20 @@ fn parse_axis(s: &str) -> Result<(String, f32), String> {
     Ok((parts[0].to_string(), value))
 }
 
+/// Parse instance definition: NAME:TAG=VAL,TAG=VAL
+fn parse_instance_def(s: &str) -> Result<(String, Vec<(String, f32)>), String> {
+    let parts: Vec<&str> = s.splitn(2, ':').collect();
+    if parts.len() != 2 {
+        return Err(format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{}'", s));
+    }
+    let name = parts[0].to_string();
+    let axes: Result<Vec<(String, f32)>, String> = parts[1]
+        .split(',')
+        .map(|axis| parse_axis(axis))
+        .collect();
+    Ok((name, axes?))
+}
+
 fn main() -> Result<()> {
     env_logger::init();
     let cli = Cli::parse();
@@ -298,6 +312,17 @@ fn main() -> Result<()> {
             output,
         } => {
             instance::create_instance(&input, &output, &axes)?;
+        }
+        Commands::InstanceBatch {
+            input,
+            output_dir,
+            instances,
+        } => {
+            let defs: Vec<instance::InstanceDef> = instances
+                .into_iter()
+                .map(|(name, axes)| instance::InstanceDef { name, axes })
+                .collect();
+            instance::create_instances_batch(&input, &output_dir, &defs)?;
         }
         Commands::Merge { inputs, output } => {
             merge::merge_fonts(&inputs, &output)?;

@@ -112,20 +112,27 @@ def benchmark_extract_duotone() -> BenchmarkResult:
                     capture_output=True,
                 )
 
-        # Rust: use warpnine-fonts instance
+        # Rust: use warpnine-fonts instance-batch
         def run_rust():
+            rs_out = tmp / "rust"
+            rs_out.mkdir()
+            instance_args = []
             for style, axes in DUOTONE_INSTANCES:
-                output = tmp / f"rs-{style}.ttf"
-                axis_args = []
-                for k, v in axes.items():
-                    axis_args.extend(["-a", f"{k}={v}"])
-                subprocess.run(
-                    [str(RUST_BIN), "instance"]
-                    + axis_args
-                    + [str(RECURSIVE_VF), str(output)],
-                    check=True,
-                    capture_output=True,
-                )
+                axis_str = ",".join(f"{k}={v}" for k, v in axes.items())
+                instance_args.extend(["-i", f"{style}:{axis_str}"])
+            subprocess.run(
+                [
+                    str(RUST_BIN),
+                    "instance-batch",
+                    "--input",
+                    str(RECURSIVE_VF),
+                    "--output-dir",
+                    str(rs_out),
+                ]
+                + instance_args,
+                check=True,
+                capture_output=True,
+            )
 
         py_time, py_err = run_timed(run_python)
         rs_time, rs_err = run_timed(run_rust)
