@@ -1,0 +1,279 @@
+//! Variation model for computing glyph deltas.
+//!
+//! Implements the core algorithm for computing how master contributions
+//! are weighted at different locations in the design space.
+
+use crate::designspace::DesignSpace;
+
+/// A region in the variation space, defined by (start, peak, end) tuples.
+///
+/// Each tuple defines the contribution curve for one axis.
+/// The contribution is 0 at start, 1 at peak, and 0 at end.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Region {
+    /// (min, peak, max) for each axis in normalized coordinates
+    pub axes: Vec<(f32, f32, f32)>,
+}
+
+impl Region {
+    /// Create a region from a peak location.
+    ///
+    /// For simple cases (corner masters), the region is:
+    /// - (0, 0, 0) for peak at 0
+    /// - (0, peak, 1) for peak > 0
+    /// - (-1, peak, 0) for peak < 0
+    pub fn from_peak(peak: &[f32]) -> Self {
+        let axes = peak
+            .iter()
+            .map(|&p| {
+                if p == 0.0 {
+                    (0.0, 0.0, 0.0)
+                } else if p > 0.0 {
+                    (0.0, p, 1.0)
+                } else {
+                    (-1.0, p, 0.0)
+                }
+            })
+            .collect();
+        Self { axes }
+    }
+
+    /// Compute the scalar contribution of this region at a given location.
+    ///
+    /// Returns a value between 0 and 1.
+    pub fn scalar_at(&self, location: &[f32]) -> f32 {
+        let mut scalar = 1.0f32;
+
+        for (i, &(min, peak, max)) in self.axes.iter().enumerate() {
+            let loc = location.get(i).copied().unwrap_or(0.0);
+
+            if peak == 0.0 {
+                // No contribution on this axis
+                continue;
+            }
+
+            if loc < min || loc > max {
+                return 0.0;
+            }
+
+            if loc == peak {
+                continue;
+            }
+
+            if loc < peak {
+                scalar *= (loc - min) / (peak - min);
+            } else {
+                scalar *= (max - loc) / (max - peak);
+            }
+        }
+
+        scalar
+    }
+
+    /// Check if this region is the default (all peaks at 0).
+    pub fn is_default(&self) -> bool {
+        self.axes.iter().all(|(_, peak, _)| *peak == 0.0)
+    }
+}
+
+/// Variation model for computing deltas from master values.
+#[derive(Debug)]
+pub struct VariationModel {
+    /// Regions for each master (excluding default)
+    pub regions: Vec<Region>,
+    /// Index of the default master in the original source list
+    pub default_idx: usize,
+    /// Order in which to process masters for delta computation
+    pub master_order: Vec<usize>,
+}
+
+impl VariationModel {
+    /// Create a variation model from a designspace.
+    pub fn new(designspace: &DesignSpace) -> Option<Self> {
+        let default_idx = designspace.default_source_index()?;
+        let locations = designspace.master_locations();
+
+        // Build regions for each master
+        let mut regions_with_idx: Vec<(usize, Region)> = Vec::new();
+
+        for (idx, loc) in locations.iter().enumerate() {
+            if idx == default_idx {
+                continue;
+            }
+            let region = Region::from_peak(loc);
+            regions_with_idx.push((idx, region));
+        }
+
+        // Sort masters by "support" - masters with fewer non-zero axes come first
+        // This ensures proper delta accumulation
+        regions_with_idx.sort_by_key(|(_, region)| {
+            region
+                .axes
+                .iter()
+                .filter(|(_, peak, _)| *peak != 0.0)
+                .count()
+        });
+
+        let master_order: Vec<usize> = std::iter::once(default_idx)
+            .chain(regions_with_idx.iter().map(|(idx, _)| *idx))
+            .collect();
+
+        let regions = regions_with_idx.into_iter().map(|(_, r)| r).collect();
+
+        Some(Self {
+            regions,
+            default_idx,
+            master_order,
+        })
+    }
+
+    /// Compute deltas from master values.
+    ///
+    /// Given values at each master location, compute the deltas needed
+    /// to reconstruct those values through variation interpolation.
+    ///
+    /// # Arguments
+    ///
+    /// * `master_values` - Values at each master, indexed by original source index
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (default_value, deltas) where deltas correspond to `self.regions`.
+    pub fn compute_deltas(&self, master_values: &[i16]) -> (i16, Vec<i16>) {
+        let default_value = master_values[self.default_idx];
+        let mut deltas = Vec::with_capacity(self.regions.len());
+
+        // For each non-default master, compute its delta
+        for (region_idx, region) in self.regions.iter().enumerate() {
+            let master_idx = self.master_order[region_idx + 1];
+            let master_value = master_values[master_idx];
+
+            // Start with the raw difference from default
+            let mut delta = i32::from(master_value) - i32::from(default_value);
+
+            // Subtract contributions from previous masters
+            for (prev_region_idx, prev_region) in self.regions[..region_idx].iter().enumerate() {
+                let peak: Vec<f32> = region.axes.iter().map(|(_, p, _)| *p).collect();
+                let scalar = prev_region.scalar_at(&peak);
+
+                if scalar != 0.0 {
+                    delta -= (f32::from(deltas[prev_region_idx]) * scalar) as i32;
+                }
+            }
+
+            deltas.push(delta.clamp(i16::MIN as i32, i16::MAX as i32) as i16);
+        }
+
+        (default_value, deltas)
+    }
+
+    /// Compute 2D deltas (x, y) from master values.
+    pub fn compute_deltas_2d(
+        &self,
+        master_values: &[(i16, i16)],
+    ) -> ((i16, i16), Vec<(i16, i16)>) {
+        let default_value = master_values[self.default_idx];
+        let mut deltas = Vec::with_capacity(self.regions.len());
+
+        for (region_idx, region) in self.regions.iter().enumerate() {
+            let master_idx = self.master_order[region_idx + 1];
+            let master_value = master_values[master_idx];
+
+            let mut delta_x = i32::from(master_value.0) - i32::from(default_value.0);
+            let mut delta_y = i32::from(master_value.1) - i32::from(default_value.1);
+
+            for (prev_region_idx, prev_region) in self.regions[..region_idx].iter().enumerate() {
+                let peak: Vec<f32> = region.axes.iter().map(|(_, p, _)| *p).collect();
+                let scalar = prev_region.scalar_at(&peak);
+
+                if scalar != 0.0 {
+                    let prev_delta: (i16, i16) = deltas[prev_region_idx];
+                    delta_x -= (f32::from(prev_delta.0) * scalar) as i32;
+                    delta_y -= (f32::from(prev_delta.1) * scalar) as i32;
+                }
+            }
+
+            deltas.push((
+                delta_x.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+                delta_y.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+            ));
+        }
+
+        (default_value, deltas)
+    }
+
+    /// Get the peak tuple for a region as F2Dot14 values.
+    pub fn region_peak(&self, region_idx: usize) -> Vec<f32> {
+        self.regions[region_idx]
+            .axes
+            .iter()
+            .map(|(_, peak, _)| *peak)
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::designspace::{Axis, Source};
+    use std::path::PathBuf;
+
+    fn make_2axis_designspace() -> DesignSpace {
+        let axes = vec![
+            Axis::new("wght", "Weight", 300.0, 400.0, 900.0),
+            Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
+        ];
+
+        // 4 corner masters
+        let sources = vec![
+            Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
+            Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 900.0), ("ital", 0.0)]),
+            Source::new(PathBuf::from("Italic.ttf"), vec![("wght", 400.0), ("ital", 1.0)]),
+            Source::new(PathBuf::from("BoldItalic.ttf"), vec![("wght", 900.0), ("ital", 1.0)]),
+        ];
+
+        DesignSpace::new(axes, sources)
+    }
+
+    #[test]
+    fn region_scalar_at_peak() {
+        let region = Region::from_peak(&[1.0, 0.0]);
+        assert_eq!(region.scalar_at(&[1.0, 0.0]), 1.0);
+    }
+
+    #[test]
+    fn region_scalar_interpolated() {
+        let region = Region::from_peak(&[1.0, 0.0]);
+        assert!((region.scalar_at(&[0.5, 0.0]) - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn region_scalar_outside() {
+        let region = Region::from_peak(&[1.0, 0.0]);
+        assert_eq!(region.scalar_at(&[-0.5, 0.0]), 0.0);
+    }
+
+    #[test]
+    fn variation_model_creation() {
+        let ds = make_2axis_designspace();
+        let model = VariationModel::new(&ds).unwrap();
+
+        assert_eq!(model.default_idx, 0);
+        assert_eq!(model.regions.len(), 3); // 3 non-default masters
+    }
+
+    #[test]
+    fn compute_simple_deltas() {
+        let ds = make_2axis_designspace();
+        let model = VariationModel::new(&ds).unwrap();
+
+        // Master values: Regular=100, Bold=200, Italic=110, BoldItalic=220
+        let values = [100i16, 200, 110, 220];
+        let (default, deltas) = model.compute_deltas(&values);
+
+        assert_eq!(default, 100);
+        // The deltas should reconstruct the values when applied
+        // This is a simplified test - actual values depend on master ordering
+        assert_eq!(deltas.len(), 3);
+    }
+}

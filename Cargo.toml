@@ -5,6 +5,7 @@ members = [
     "crates/feature-freezer",
     "crates/instancer",
     "crates/merger",
+    "crates/vf-builder",
 ]
 
 [workspace.package]
@@ -45,3 +46,4 @@ font-test-data = "0.6"
 warpnine-font-feature-freezer = { path = "crates/feature-freezer", default-features = false }
 warpnine-font-instancer = { path = "crates/instancer", default-features = false }
 warpnine-font-merger = { path = "crates/merger" }
+warpnine-font-vf-builder = { path = "crates/vf-builder" }

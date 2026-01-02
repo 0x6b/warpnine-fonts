@@ -2119,6 +2119,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "warpnine-font-vf-builder"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "font-test-data",
+ "font-types",
+ "log",
+ "rayon",
+ "read-fonts",
+ "thiserror 2.0.17",
+ "write-fonts",
+]
+
+[[package]]
 name = "warpnine-fonts-cli"
 version = "0.1.0"
 dependencies = [
