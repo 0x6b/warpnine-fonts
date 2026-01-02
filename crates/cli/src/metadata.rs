@@ -1,8 +1,10 @@
 use anyhow::{Result, anyhow};
 use chrono::{Datelike, NaiveDate};
 use read_fonts::{FontRef, TableProvider};
-use std::fs;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
+use write_fonts::types::Fixed;
 use write_fonts::{
     FontBuilder,
     from_obj::ToOwnedTable,
@@ -24,7 +26,7 @@ const NAME_ID_UNIQUE_ID: u16 = 3;
 
 /// Set monospace flags in a font file.
 pub fn set_monospace(path: &Path) -> Result<()> {
-    let data = fs::read(path)?;
+    let data = read(path)?;
     let font = FontRef::new(&data)?;
 
     let mut builder = FontBuilder::new();
@@ -54,7 +56,7 @@ pub fn set_monospace(path: &Path) -> Result<()> {
     }
 
     let new_font_data = builder.build();
-    fs::write(path, new_font_data)?;
+    write(path, new_font_data)?;
 
     println!("Updated monospace metadata: {}", path.display());
     Ok(())
@@ -69,12 +71,11 @@ pub fn parse_version_string(value: Option<&str>) -> Result<(NaiveDate, String)> 
         }
         Some(v) => {
             // Try YYYY-MM-DD.N format first
-            if let Some((date_part, build_num)) = v.rsplit_once('.') {
-                if build_num.parse::<u32>().is_ok() {
-                    if let Ok(parsed) = NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
-                        return Ok((parsed, v.to_string()));
-                    }
-                }
+            if let Some((date_part, build_num)) = v.rsplit_once('.')
+                && build_num.parse::<u32>().is_ok()
+                && let Ok(parsed) = NaiveDate::parse_from_str(date_part, "%Y-%m-%d")
+            {
+                return Ok((parsed, v.to_string()));
             }
 
             // Try plain YYYY-MM-DD format
@@ -83,8 +84,7 @@ pub fn parse_version_string(value: Option<&str>) -> Result<(NaiveDate, String)> 
             }
 
             Err(anyhow!(
-                "Invalid version '{}'. Expected YYYY-MM-DD or YYYY-MM-DD.N.",
-                v
+                "Invalid version '{v}'. Expected YYYY-MM-DD or YYYY-MM-DD.N."
             ))
         }
     }
@@ -92,10 +92,10 @@ pub fn parse_version_string(value: Option<&str>) -> Result<(NaiveDate, String)> 
 
 /// Set version date in a font file.
 pub fn set_version(path: &Path, target_date: NaiveDate, version_tag: &str) -> Result<()> {
-    let data = fs::read(path)?;
+    let data = read(path)?;
     let font = FontRef::new(&data)?;
 
-    let version_string = format!("Version {}", version_tag);
+    let version_string = format!("Version {version_tag}");
     let revision_value = compute_font_revision(target_date);
 
     let mut builder = FontBuilder::new();
@@ -169,22 +169,19 @@ pub fn set_version(path: &Path, target_date: NaiveDate, version_tag: &str) -> Re
         builder.add_table(&new_name)?;
 
         println!(
-            "{}: version -> {}, revision -> {}, updated {} records",
-            path.file_name().unwrap_or_default().to_string_lossy(),
-            version_string,
-            revision_value,
-            updated
+            "{}: version -> {version_string}, revision -> {revision_value}, updated {updated} records",
+            path.file_name().unwrap_or_default().to_string_lossy()
         );
     }
 
     let new_font_data = builder.build();
-    fs::write(path, new_font_data)?;
+    write(path, new_font_data)?;
 
     Ok(())
 }
 
 /// Compute font revision as YYYY.MMDD
-fn compute_font_revision(date: NaiveDate) -> write_fonts::types::Fixed {
+fn compute_font_revision(date: NaiveDate) -> Fixed {
     let year = date.year() as f64;
     let month_day = date.format("%m%d").to_string().parse::<f64>().unwrap() / 10000.0;
     write_fonts::types::Fixed::from_f64(year + month_day)

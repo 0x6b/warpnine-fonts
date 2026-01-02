@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use hb_subset::{Blob, FontFace, SubsetInput, Tag};
-use std::fs;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
 
 /// Variable font tables to drop during subsetting (matches Python pipeline)
@@ -43,7 +44,7 @@ pub const JAPANESE_RANGES: &[(u32, u32)] = &[
 
 /// Subset a font to Japanese Unicode ranges using HarfBuzz
 pub fn subset_japanese(input: &Path, output: &Path) -> Result<()> {
-    let data = fs::read(input).with_context(|| format!("Failed to read {}", input.display()))?;
+    let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
 
     let mut subset_input = SubsetInput::new()?;
 
@@ -71,18 +72,15 @@ pub fn subset_japanese(input: &Path, output: &Path) -> Result<()> {
     let subset_font = subset_input.subset_font(&font)?;
     let blob = &*subset_font.underlying_blob();
 
-    fs::write(output, blob.to_vec())
-        .with_context(|| format!("Failed to write {}", output.display()))?;
+    write(output, blob).with_context(|| format!("Failed to write {}", output.display()))?;
 
     let input_size = data.len() as f64 / 1024.0 / 1024.0;
     let output_size = blob.len() as f64 / 1024.0 / 1024.0;
 
     println!(
-        "Subset {} -> {} ({:.2} MB -> {:.2} MB, {:.1}% reduction)",
+        "Subset {} -> {} ({input_size:.2} MB -> {output_size:.2} MB, {:.1}% reduction)",
         input.file_name().unwrap_or_default().to_string_lossy(),
         output.file_name().unwrap_or_default().to_string_lossy(),
-        input_size,
-        output_size,
         (1.0 - output_size / input_size) * 100.0
     );
 

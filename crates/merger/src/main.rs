@@ -1,7 +1,7 @@
 use clap::Parser;
-use warpnine_font_merger::{Merger, Options, Result};
 use std::fs::{read, write};
 use std::path::PathBuf;
+use warpnine_font_merger::{Merger, Options, Result};
 
 #[derive(Parser)]
 #[command(name = "font-merger")]

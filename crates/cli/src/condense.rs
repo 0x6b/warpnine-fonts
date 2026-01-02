@@ -3,7 +3,6 @@ use font_instancer::{AxisLocation, instantiate};
 use read_fonts::tables::glyf::CurvePoint;
 use read_fonts::types::GlyphId;
 use read_fonts::{FontRef, TableProvider};
-use std::fs;
 use std::path::Path;
 use write_fonts::{
     FontBuilder,
@@ -22,6 +21,10 @@ use write_fonts::{
 };
 
 use crate::sans::SANS_INSTANCES;
+use read_fonts::tables;
+use std::fs::create_dir_all;
+use std::fs::read;
+use std::fs::write;
 
 const WIDTH_CLASS_CONDENSED: u16 = 3;
 
@@ -45,9 +48,9 @@ fn update_condensed_name_table(font_data: &[u8], family: &str, style: &str) -> R
         };
 
         let new_string = match name_id {
-            1 => format!("{} {}", family, style),
-            4 => format!("{} {}", family, style),
-            6 => format!("{}-{}", postscript_family, style),
+            1 => format!("{family} {style}"),
+            4 => format!("{family} {style}"),
+            6 => format!("{postscript_family}-{style}"),
             16 => family.to_string(),
             17 => style.to_string(),
             _ => current_string,
@@ -110,10 +113,7 @@ fn scale_simple_glyph(glyph: &read_fonts::tables::glyf::SimpleGlyph, scale_x: f3
     }
 }
 
-fn scale_composite_glyph(
-    glyph: &read_fonts::tables::glyf::CompositeGlyph,
-    scale_x: f32,
-) -> CompositeGlyph {
+fn scale_composite_glyph(glyph: &tables::glyf::CompositeGlyph, scale_x: f32) -> CompositeGlyph {
     let mut components = Vec::new();
 
     for c in glyph.components() {
@@ -282,8 +282,8 @@ fn apply_horizontal_scale(font_data: &[u8], scale_x: f32, weight_class: u16) -> 
 }
 
 pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<()> {
-    let data = fs::read(input).context("Failed to read input font")?;
-    fs::create_dir_all(output_dir)?;
+    let data = read(input).context("Failed to read input font")?;
+    create_dir_all(output_dir)?;
 
     let mut success = 0;
 
@@ -311,14 +311,13 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         let final_data =
             update_condensed_name_table(&scaled_data, "Warpnine Sans Condensed", instance.style)?;
 
-        fs::write(&output, final_data)?;
+        write(&output, final_data)?;
         println!("  Created: {}", output.display());
         success += 1;
     }
 
     println!(
-        "Created {} condensed fonts in {}/",
-        success,
+        "Created {success} condensed fonts in {}/",
         output_dir.display()
     );
     Ok(())

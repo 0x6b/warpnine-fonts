@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
 use font_instancer::{AxisLocation, instantiate};
 use read_fonts::{FontRef, TableProvider};
-use std::fs;
+use std::fs::create_dir_all;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
 use write_fonts::{
     FontBuilder,
@@ -58,7 +60,12 @@ pub const SANS_INSTANCES: &[SansInstance] = &[
     SansInstance::new("BlackItalic", 900.0, true),
 ];
 
-fn update_sans_metadata(font_data: &[u8], family: &str, style: &str, weight: u16) -> Result<Vec<u8>> {
+fn update_sans_metadata(
+    font_data: &[u8],
+    family: &str,
+    style: &str,
+    weight: u16,
+) -> Result<Vec<u8>> {
     let font = FontRef::new(font_data)?;
     let name = font.name()?;
 
@@ -78,9 +85,9 @@ fn update_sans_metadata(font_data: &[u8], family: &str, style: &str, weight: u16
         };
 
         let new_string = match name_id {
-            1 => format!("{} {}", family, style),
-            4 => format!("{} {}", family, style),
-            6 => format!("{}-{}", postscript_family, style),
+            1 => format!("{family} {style}"),
+            4 => format!("{family} {style}"),
+            6 => format!("{postscript_family}-{style}"),
             16 => family.to_string(),
             17 => style.to_string(),
             _ => current_string,
@@ -110,7 +117,12 @@ fn update_sans_metadata(font_data: &[u8], family: &str, style: &str, weight: u16
 
     // Patch OS/2 usWeightClass (offset 4, 2 bytes)
     let os2_tag = read_fonts::types::Tag::new(b"OS/2");
-    if let Some(os2_record) = font.table_directory.table_records().iter().find(|r| r.tag() == os2_tag) {
+    if let Some(os2_record) = font
+        .table_directory
+        .table_records()
+        .iter()
+        .find(|r| r.tag() == os2_tag)
+    {
         let os2_offset = os2_record.offset() as usize;
         let weight_offset = os2_offset + 4; // usWeightClass is at offset 4 in OS/2
         if weight_offset + 2 <= output.len() {
@@ -123,8 +135,8 @@ fn update_sans_metadata(font_data: &[u8], family: &str, style: &str, weight: u16
 }
 
 pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
-    let data = fs::read(input).context("Failed to read input font")?;
-    fs::create_dir_all(output_dir)?;
+    let data = read(input).context("Failed to read input font")?;
+    create_dir_all(output_dir)?;
 
     let mut success = 0;
 
@@ -143,17 +155,18 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", instance.style))?;
 
-        let final_data = update_sans_metadata(&static_data, "Warpnine Sans", instance.style, instance.wght as u16)?;
+        let final_data = update_sans_metadata(
+            &static_data,
+            "Warpnine Sans",
+            instance.style,
+            instance.wght as u16,
+        )?;
 
-        fs::write(&output, final_data)?;
+        write(&output, final_data)?;
         println!("  Created: {}", output.display());
         success += 1;
     }
 
-    println!(
-        "Created {} sans fonts in {}/",
-        success,
-        output_dir.display()
-    );
+    println!("Created {success} sans fonts in {}/", output_dir.display());
     Ok(())
 }

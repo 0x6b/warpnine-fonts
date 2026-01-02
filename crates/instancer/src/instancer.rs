@@ -31,7 +31,12 @@ use write_fonts::{
     types::NameId,
 };
 
+use read_fonts::tables::fvar::Fvar;
 pub use read_fonts::tables::glyf::CurvePoint;
+use read_fonts::tables::hhea::Hhea;
+use read_fonts::tables::mvar::Mvar;
+use read_fonts::tables::os2::Os2;
+use read_fonts::tables::post::Post;
 use std::iter::repeat_n;
 
 fn clamp_i16(value: i32) -> i16 {
@@ -725,7 +730,9 @@ impl FontBounds {
 
         // RSB = advance_width - LSB - glyph_width
         let glyph_width = bbox.x_max.saturating_sub(bbox.x_min);
-        let rsb = (advance as i16).saturating_sub(lsb).saturating_sub(glyph_width);
+        let rsb = (advance as i16)
+            .saturating_sub(lsb)
+            .saturating_sub(glyph_width);
         self.min_right_side_bearing = self.min_right_side_bearing.min(rsb);
 
         let extent = lsb.saturating_add(glyph_width);
@@ -757,20 +764,16 @@ impl FontBounds {
     }
 }
 
-fn get_mvar_delta(
-    mvar: Option<&read_fonts::tables::mvar::Mvar>,
-    tag: Tag,
-    coords: &[F2Dot14],
-) -> i32 {
+fn get_mvar_delta(mvar: Option<&Mvar>, tag: Tag, coords: &[F2Dot14]) -> i32 {
     mvar.and_then(|m| m.metric_delta(tag, coords).ok())
         .map(|f| f.to_i32())
         .unwrap_or(0)
 }
 
 fn build_new_hhea(
-    original: &read_fonts::tables::hhea::Hhea,
+    original: &Hhea,
     bounds: &FontBounds,
-    mvar: Option<&read_fonts::tables::mvar::Mvar>,
+    mvar: Option<&Mvar>,
     coords: &[F2Dot14],
 ) -> WriteHhea {
     let ascender_delta = get_mvar_delta(mvar, mvar_tags::HASC, coords);
@@ -802,21 +805,21 @@ fn wdth_to_width_class(wdth: f32) -> u16 {
     // 4=Semi-condensed (87.5%), 5=Medium/Normal (100%), 6=Semi-expanded (112.5%),
     // 7=Expanded (125%), 8=Extra-expanded (150%), 9=Ultra-expanded (200%)
     match wdth {
-        w if w <= 56.25 => 1,   // Ultra-condensed
-        w if w <= 68.75 => 2,   // Extra-condensed
-        w if w <= 81.25 => 3,   // Condensed
-        w if w <= 93.75 => 4,   // Semi-condensed
-        w if w <= 106.25 => 5,  // Medium (Normal)
-        w if w <= 118.75 => 6,  // Semi-expanded
-        w if w <= 137.5 => 7,   // Expanded
-        w if w <= 175.0 => 8,   // Extra-expanded
-        _ => 9,                 // Ultra-expanded
+        w if w <= 56.25 => 1,  // Ultra-condensed
+        w if w <= 68.75 => 2,  // Extra-condensed
+        w if w <= 81.25 => 3,  // Condensed
+        w if w <= 93.75 => 4,  // Semi-condensed
+        w if w <= 106.25 => 5, // Medium (Normal)
+        w if w <= 118.75 => 6, // Semi-expanded
+        w if w <= 137.5 => 7,  // Expanded
+        w if w <= 175.0 => 8,  // Extra-expanded
+        _ => 9,                // Ultra-expanded
     }
 }
 
 fn build_new_os2(
-    original: &read_fonts::tables::os2::Os2,
-    mvar: Option<&read_fonts::tables::mvar::Mvar>,
+    original: &Os2,
+    mvar: Option<&Mvar>,
     coords: &[F2Dot14],
     locations: &[AxisLocation],
 ) -> WriteOs2 {
@@ -878,8 +881,9 @@ fn build_new_os2(
     );
 
     if let Some(sx_height) = original.sx_height() {
-        os2.sx_height =
-            Some(clamp_i16(i32::from(sx_height) + get_mvar_delta(mvar, mvar_tags::XHGT, coords)));
+        os2.sx_height = Some(clamp_i16(
+            i32::from(sx_height) + get_mvar_delta(mvar, mvar_tags::XHGT, coords),
+        ));
     }
 
     if let Some(s_cap_height) = original.s_cap_height() {
@@ -891,29 +895,23 @@ fn build_new_os2(
     os2
 }
 
-fn build_new_post(
-    original: &read_fonts::tables::post::Post,
-    mvar: Option<&read_fonts::tables::mvar::Mvar>,
-    coords: &[F2Dot14],
-) -> WritePost {
+fn build_new_post(original: &Post, mvar: Option<&Mvar>, coords: &[F2Dot14]) -> WritePost {
     let mut post: WritePost = original.to_owned_table();
 
     let underline_position_delta = get_mvar_delta(mvar, mvar_tags::UNDO, coords);
     let underline_thickness_delta = get_mvar_delta(mvar, mvar_tags::UNDS, coords);
 
-    post.underline_position = clamp_i16(
-        i32::from(original.underline_position().to_i16()) + underline_position_delta,
-    )
-    .into();
-    post.underline_thickness = clamp_i16(
-        i32::from(original.underline_thickness().to_i16()) + underline_thickness_delta,
-    )
-    .into();
+    post.underline_position =
+        clamp_i16(i32::from(original.underline_position().to_i16()) + underline_position_delta)
+            .into();
+    post.underline_thickness =
+        clamp_i16(i32::from(original.underline_thickness().to_i16()) + underline_thickness_delta)
+            .into();
 
     post
 }
 
-fn build_new_stat(fvar: &read_fonts::tables::fvar::Fvar, locations: &[AxisLocation]) -> Stat {
+fn build_new_stat(fvar: &Fvar, locations: &[AxisLocation]) -> Stat {
     let Ok(axis_arrays) = fvar.axis_instance_arrays() else {
         return Stat::new(vec![], vec![], NameId::new(2));
     };

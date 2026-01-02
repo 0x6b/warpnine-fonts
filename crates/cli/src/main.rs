@@ -1,7 +1,24 @@
 use anyhow::{Context, Result};
+use calt::fix_calt_registration;
 use clap::{Parser, Subcommand};
+use condense::create_condensed;
+use copy_table::copy_gsub;
+use env_logger::init;
+use freeze::freeze_features;
+use instance::InstanceDef;
+use instance::create_instance;
+use instance::create_instances_batch;
+use ligatures::remove_grave_ligature;
+use merge::merge_batch;
+use merge::merge_fonts;
+use metadata::parse_version_string;
+use metadata::set_monospace;
+use metadata::set_version;
+use naming::set_name;
 use rayon::prelude::*;
+use sans::create_sans;
 use std::path::PathBuf;
+use subset::subset_japanese;
 
 mod calt;
 mod clean;
@@ -188,7 +205,7 @@ enum Commands {
 fn parse_axis(s: &str) -> Result<(String, f32), String> {
     let parts: Vec<&str> = s.split('=').collect();
     if parts.len() != 2 {
-        return Err(format!("Invalid axis format '{}', expected TAG=VALUE", s));
+        return Err(format!("Invalid axis format '{s}', expected TAG=VALUE"));
     }
     let value: f32 = parts[1]
         .parse()
@@ -200,18 +217,15 @@ fn parse_axis(s: &str) -> Result<(String, f32), String> {
 fn parse_instance_def(s: &str) -> Result<(String, Vec<(String, f32)>), String> {
     let parts: Vec<&str> = s.splitn(2, ':').collect();
     if parts.len() != 2 {
-        return Err(format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{}'", s));
+        return Err(format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{s}'"));
     }
     let name = parts[0].to_string();
-    let axes: Result<Vec<(String, f32)>, String> = parts[1]
-        .split(',')
-        .map(|axis| parse_axis(axis))
-        .collect();
+    let axes: Result<Vec<(String, f32)>, String> = parts[1].split(',').map(parse_axis).collect();
     Ok((name, axes?))
 }
 
 fn main() -> Result<()> {
-    env_logger::init();
+    init();
     let cli = Cli::parse();
 
     match cli.command {
@@ -225,14 +239,14 @@ fn main() -> Result<()> {
             download::download(&build_dir)?;
         }
         Commands::CopyGsub { from, to } => {
-            copy_table::copy_gsub(&from, &to)?;
+            copy_gsub(&from, &to)?;
         }
         Commands::RemoveLigatures { files } => {
             let results: Vec<_> = files
                 .par_iter()
                 .map(|path| {
                     println!("Processing {}", path.display());
-                    ligatures::remove_grave_ligature(path)
+                    remove_grave_ligature(path)
                         .with_context(|| format!("Failed to process {}", path.display()))
                 })
                 .collect();
@@ -254,7 +268,7 @@ fn main() -> Result<()> {
             let results: Vec<_> = files
                 .par_iter()
                 .map(|path| {
-                    metadata::set_monospace(path)
+                    set_monospace(path)
                         .with_context(|| format!("Failed to process {}", path.display()))
                 })
                 .collect();
@@ -273,12 +287,12 @@ fn main() -> Result<()> {
             println!("Set monospace: {success} succeeded, {failed} failed");
         }
         Commands::SetVersion { version, files } => {
-            let (date, version_tag) = metadata::parse_version_string(version.as_deref())?;
+            let (date, version_tag) = parse_version_string(version.as_deref())?;
 
             let results: Vec<_> = files
                 .par_iter()
                 .map(|path| {
-                    metadata::set_version(path, date, &version_tag)
+                    set_version(path, date, &version_tag)
                         .with_context(|| format!("Failed to process {}", path.display()))
                 })
                 .collect();
@@ -297,52 +311,52 @@ fn main() -> Result<()> {
             println!("Set version {version_tag}: {success} succeeded, {failed} failed");
         }
         Commands::SubsetJapanese { input, output } => {
-            subset::subset_japanese(&input, &output)?;
+            subset_japanese(&input, &output)?;
         }
         Commands::Freeze {
             features,
             auto_rvrn,
             files,
         } => {
-            freeze::freeze_features(&files, &features, auto_rvrn)?;
+            freeze_features(&files, &features, auto_rvrn)?;
         }
         Commands::Instance {
             axes,
             input,
             output,
         } => {
-            instance::create_instance(&input, &output, &axes)?;
+            create_instance(&input, &output, &axes)?;
         }
         Commands::InstanceBatch {
             input,
             output_dir,
             instances,
         } => {
-            let defs: Vec<instance::InstanceDef> = instances
+            let defs: Vec<InstanceDef> = instances
                 .into_iter()
                 .map(|(name, axes)| instance::InstanceDef { name, axes })
                 .collect();
-            instance::create_instances_batch(&input, &output_dir, &defs)?;
+            create_instances_batch(&input, &output_dir, &defs)?;
         }
         Commands::Merge { inputs, output } => {
-            merge::merge_fonts(&inputs, &output)?;
+            merge_fonts(&inputs, &output)?;
         }
         Commands::MergeBatch {
             base_fonts,
             fallback,
             output_dir,
         } => {
-            merge::merge_batch(&base_fonts, &fallback, &output_dir)?;
+            merge_batch(&base_fonts, &fallback, &output_dir)?;
         }
         Commands::CreateSans { input, output_dir } => {
-            sans::create_sans(&input, &output_dir)?;
+            create_sans(&input, &output_dir)?;
         }
         Commands::CreateCondensed {
             input,
             output_dir,
             scale,
         } => {
-            condense::create_condensed(&input, &output_dir, scale)?;
+            create_condensed(&input, &output_dir, scale)?;
         }
         Commands::SetName {
             family,
@@ -361,7 +375,7 @@ fn main() -> Result<()> {
             let results: Vec<_> = files
                 .par_iter()
                 .map(|path| {
-                    naming::set_name(path, &font_naming)
+                    set_name(path, &font_naming)
                         .with_context(|| format!("Failed to process {}", path.display()))
                 })
                 .collect();
@@ -383,7 +397,7 @@ fn main() -> Result<()> {
             let results: Vec<_> = files
                 .par_iter()
                 .map(|path| {
-                    calt::fix_calt_registration(path)
+                    fix_calt_registration(path)
                         .with_context(|| format!("Failed to process {}", path.display()))
                 })
                 .collect();

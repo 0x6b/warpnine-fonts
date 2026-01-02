@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use font_feature_freezer::freeze_features_with_stats;
 use rayon::prelude::*;
-use std::fs;
+use std::fs::read;
+use std::fs::write;
 use std::path::PathBuf;
 
 pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) -> Result<()> {
@@ -50,13 +51,13 @@ pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) 
 }
 
 fn freeze_single(path: &PathBuf, features: &[String]) -> Result<usize> {
-    let data = fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
+    let data = read(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
     let (frozen_data, stats) =
         freeze_features_with_stats(&data, features.iter().map(|s| s.as_str()))
             .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
 
-    fs::write(path, frozen_data).with_context(|| format!("Failed to write {}", path.display()))?;
+    write(path, frozen_data).with_context(|| format!("Failed to write {}", path.display()))?;
 
     println!(
         "{}: {} substitutions applied",

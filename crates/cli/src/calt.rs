@@ -2,12 +2,13 @@ use anyhow::{Context, Result};
 use read_fonts::tables::gsub::{FeatureList, ScriptList};
 use read_fonts::tables::layout::LangSys;
 use read_fonts::{FontRef, TableProvider};
-use std::fs;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
 use write_fonts::FontBuilder;
 
 pub fn fix_calt_registration(path: &Path) -> Result<()> {
-    let data = fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
+    let data = read(path).with_context(|| format!("Failed to read {}", path.display()))?;
     let font = FontRef::new(&data)?;
 
     let gsub = match font.gsub() {
@@ -38,7 +39,9 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let gsub_data = font.table_data(read_fonts::types::Tag::new(b"GSUB")).unwrap();
+    let gsub_data = font
+        .table_data(read_fonts::types::Tag::new(b"GSUB"))
+        .unwrap();
     let mut gsub_bytes = gsub_data.as_bytes().to_vec();
 
     let modifications =
@@ -65,7 +68,7 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
     }
 
     let new_font_data = builder.build();
-    fs::write(path, new_font_data)?;
+    write(path, new_font_data)?;
 
     println!(
         "{}: registered calt/rclt to {} scripts",
@@ -147,18 +150,18 @@ fn check_lang_sys(
     calt_indices: &[u16],
     rclt_indices: &[u16],
 ) -> Option<LangSysModification> {
-    let current_indices: Vec<u16> = lang_sys
-        .feature_indices()
-        .iter()
-        .map(|i| i.get() as u16)
-        .collect();
+    let current_indices: Vec<u16> = lang_sys.feature_indices().iter().map(|i| i.get()).collect();
 
     let mut new_indices = current_indices.clone();
     let mut modified = false;
 
     for &calt_idx in calt_indices {
         if !new_indices.contains(&calt_idx) {
-            let insert_pos = if new_indices.len() > 1 { 1 } else { new_indices.len() };
+            let insert_pos = if new_indices.len() > 1 {
+                1
+            } else {
+                new_indices.len()
+            };
             new_indices.insert(insert_pos, calt_idx);
             modified = true;
         }

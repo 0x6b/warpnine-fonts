@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
-use font_instancer::{instantiate, AxisLocation};
+use font_instancer::{AxisLocation, instantiate};
 use rayon::prelude::*;
-use std::fs;
+use std::fs::create_dir_all;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
 
 pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> Result<()> {
-    let data = fs::read(input).with_context(|| format!("Failed to read {}", input.display()))?;
+    let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
 
     let locations: Vec<AxisLocation> = axes
         .iter()
@@ -14,7 +16,7 @@ pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> R
 
     let axis_desc: Vec<String> = axes
         .iter()
-        .map(|(tag, val)| format!("{}={}", tag, val))
+        .map(|(tag, val)| format!("{tag}={val}"))
         .collect();
     println!("Creating instance with axes: {}", axis_desc.join(", "));
 
@@ -22,21 +24,18 @@ pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> R
         .with_context(|| format!("Failed to instantiate {}", input.display()))?;
 
     if let Some(parent) = output.parent() {
-        fs::create_dir_all(parent)?;
+        create_dir_all(parent)?;
     }
 
-    fs::write(output, &static_data)
-        .with_context(|| format!("Failed to write {}", output.display()))?;
+    write(output, &static_data).with_context(|| format!("Failed to write {}", output.display()))?;
 
     let input_size = data.len() as f64 / 1024.0 / 1024.0;
     let output_size = static_data.len() as f64 / 1024.0 / 1024.0;
 
     println!(
-        "Instance created: {} ({:.2} MB) -> {} ({:.2} MB)",
+        "Instance created: {} ({input_size:.2} MB) -> {} ({output_size:.2} MB)",
         input.display(),
-        input_size,
-        output.display(),
-        output_size
+        output.display()
     );
 
     Ok(())
@@ -53,31 +52,33 @@ pub fn create_instances_batch(
     output_dir: &Path,
     instances: &[InstanceDef],
 ) -> Result<()> {
-    println!("Creating {} instances from {}", instances.len(), input.display());
+    println!(
+        "Creating {} instances from {}",
+        instances.len(),
+        input.display()
+    );
 
-    let data = fs::read(input).with_context(|| format!("Failed to read {}", input.display()))?;
+    let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
 
-    fs::create_dir_all(output_dir)?;
+    create_dir_all(output_dir)?;
 
-    instances
-        .par_iter()
-        .try_for_each(|inst| -> Result<()> {
-            let locations: Vec<AxisLocation> = inst
-                .axes
-                .iter()
-                .map(|(tag, value)| AxisLocation::new(tag, *value))
-                .collect();
+    instances.par_iter().try_for_each(|inst| -> Result<()> {
+        let locations: Vec<AxisLocation> = inst
+            .axes
+            .iter()
+            .map(|(tag, value)| AxisLocation::new(tag, *value))
+            .collect();
 
-            let static_data = instantiate(&data, &locations)
-                .with_context(|| format!("Failed to instantiate {}", inst.name))?;
+        let static_data = instantiate(&data, &locations)
+            .with_context(|| format!("Failed to instantiate {}", inst.name))?;
 
-            let output = output_dir.join(format!("{}.ttf", inst.name));
-            fs::write(&output, &static_data)
-                .with_context(|| format!("Failed to write {}", output.display()))?;
+        let output = output_dir.join(format!("{}.ttf", inst.name));
+        write(&output, &static_data)
+            .with_context(|| format!("Failed to write {}", output.display()))?;
 
-            println!("  Created: {}", output.display());
-            Ok(())
-        })?;
+        println!("  Created: {}", output.display());
+        Ok(())
+    })?;
 
     println!("Created {} instances", instances.len());
     Ok(())

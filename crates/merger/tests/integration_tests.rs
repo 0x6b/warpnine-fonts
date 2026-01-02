@@ -1,9 +1,9 @@
 //! Integration tests ported from fontTools Tests/merge/merge_test.py
 
-use warpnine_font_merger::{Merger, Options};
 use read_fonts::types::GlyphId;
 use read_fonts::{FontRef, TableProvider};
 use std::collections::HashMap;
+use warpnine_font_merger::{Merger, Options};
 use write_fonts::tables::cmap::Cmap;
 use write_fonts::tables::glyf::GlyfLocaBuilder;
 use write_fonts::tables::glyf::{Bbox, Glyph, SimpleGlyph};

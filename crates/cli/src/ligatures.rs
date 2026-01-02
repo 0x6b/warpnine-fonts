@@ -1,18 +1,20 @@
 use anyhow::{Context, Result};
 use read_fonts::tables::gsub::{ChainedSequenceContext, SubstitutionSubtables};
+use read_fonts::tables::layout::ChainedSequenceRuleMarker;
 use read_fonts::types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16};
 use read_fonts::{FontRef, TableProvider, TableRef};
-use std::fs;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
 
 fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<u16> {
     let post = font.post().ok()?;
     let num_glyphs = font.maxp().ok()?.num_glyphs();
     for gid in 0..num_glyphs {
-        if let Some(glyph_name) = post.glyph_name(ReadGlyphId16::new(gid)) {
-            if glyph_name == name {
-                return Some(gid);
-            }
+        if let Some(glyph_name) = post.glyph_name(ReadGlyphId16::new(gid))
+            && glyph_name == name
+        {
+            return Some(gid);
         }
     }
     None
@@ -26,7 +28,7 @@ fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<u16> {
 ///
 /// We clear the SubstLookupRecord by setting seq_lookup_count to 0.
 pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
-    let data = fs::read(path).context("Failed to read font")?;
+    let data = read(path).context("Failed to read font")?;
     let font = FontRef::new(&data).context("Failed to parse font")?;
 
     let gsub = match font.gsub() {
@@ -101,11 +103,10 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
 
             // Check each rule
             for rule_result in rule_set.chained_seq_rules().iter() {
-                let rule: TableRef<'_, read_fonts::tables::layout::ChainedSequenceRuleMarker> =
-                    match rule_result {
-                        Ok(r) => r,
-                        Err(_) => continue,
-                    };
+                let rule: TableRef<'_, ChainedSequenceRuleMarker> = match rule_result {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
 
                 // Check if this is a grave+grave+grave pattern
                 let input_seq = rule.input_sequence();
@@ -128,8 +129,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
                 }
 
                 println!(
-                    "  Found three-backtick pattern in Lookup {} (rule has {} lookup records)",
-                    lookup_idx, lookup_count
+                    "  Found three-backtick pattern in Lookup {lookup_idx} (rule has {lookup_count} lookup records)"
                 );
             }
         }
@@ -194,8 +194,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         if seq_lookup_count > 0 && seq_lookup_count < 10 {
             // Sanity check
             println!(
-                "  Patching seq_lookup_count at GSUB offset 0x{:x} (was {})",
-                seq_lookup_count_offset, seq_lookup_count
+                "  Patching seq_lookup_count at GSUB offset 0x{seq_lookup_count_offset:x} (was {seq_lookup_count})"
             );
 
             // Patch in the file
@@ -265,8 +264,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
 
         if seq_lookup_count > 0 && seq_lookup_count < 10 {
             println!(
-                "  Patching seq_lookup_count at GSUB offset 0x{:x} (was {}, backtrack pattern)",
-                seq_lookup_count_offset, seq_lookup_count
+                "  Patching seq_lookup_count at GSUB offset 0x{seq_lookup_count_offset:x} (was {seq_lookup_count}, backtrack pattern)"
             );
 
             let file_offset = gsub_offset + seq_lookup_count_offset;
@@ -278,8 +276,8 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         }
     }
 
-    fs::write(path, &modified_data).context("Failed to write modified font")?;
-    println!("  Saved modified font ({} patches applied)", modifications);
+    write(path, &modified_data).context("Failed to write modified font")?;
+    println!("  Saved modified font ({modifications} patches applied)");
 
     Ok(true)
 }

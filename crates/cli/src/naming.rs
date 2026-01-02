@@ -1,6 +1,7 @@
 use anyhow::Result;
 use read_fonts::{FontRef, TableProvider};
-use std::fs;
+use std::fs::read;
+use std::fs::write;
 use std::path::Path;
 use write_fonts::{
     FontBuilder,
@@ -26,27 +27,26 @@ impl FontNaming {
     pub fn postscript_name(&self) -> String {
         let base = self
             .postscript_family
-            .as_ref()
-            .map(|s| s.clone())
+            .clone()
             .unwrap_or_else(|| self.family.replace(' ', ""));
-        format!("{}-{}", base, self.style.replace(' ', ""))
+        format!("{base}-{}", self.style.replace(' ', ""))
     }
 
     pub fn unique_id(&self) -> String {
         let ps_name = self.postscript_name().replace('-', "");
-        format!("1.0;WARPNINE;{}", ps_name)
+        format!("1.0;WARPNINE;{ps_name}")
     }
 
     pub fn copyright(&self) -> String {
         match &self.copyright_extra {
-            Some(extra) => format!("{}{}", COPYRIGHT_TEMPLATE, extra),
+            Some(extra) => format!("{COPYRIGHT_TEMPLATE}{extra}"),
             None => COPYRIGHT_TEMPLATE.to_string(),
         }
     }
 }
 
 pub fn set_name(path: &Path, naming: &FontNaming) -> Result<()> {
-    let data = fs::read(path)?;
+    let data = read(path)?;
     let font = FontRef::new(&data)?;
 
     let mut builder = FontBuilder::new();
@@ -97,7 +97,7 @@ pub fn set_name(path: &Path, naming: &FontNaming) -> Result<()> {
     }
 
     let new_font_data = builder.build();
-    fs::write(path, new_font_data)?;
+    write(path, new_font_data)?;
 
     println!(
         "{}: set name to '{}' ({})",
