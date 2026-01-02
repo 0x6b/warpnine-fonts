@@ -158,7 +158,9 @@ uv run ruff format --check warpnine_fonts/
 
 ## License
 
-SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
+The build tools and source code are licensed under the [MIT License](./LICENSE).
+
+The fonts are licensed under the SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
 
 - Recursive Mono: [SIL Open Font License](https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt)
 - Noto Sans Mono CJK JP: [SIL Open Font License](https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE)
