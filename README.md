@@ -35,27 +35,19 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 
 ## Requirements
 
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/)
-- [FontForge](https://fontforge.org/)
-
-## Setup
-
-```console
-$ brew install fontforge
-$ curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+- Rust 1.85+ (2024 edition)
 
 ## Build
 
 ```console
-$ uv run warpnine build all
-$ uv run warpnine build all --date 2025-01-15  # with explicit version date
+$ cargo build --release
+$ ./target/release/warpnine-fonts build
+$ ./target/release/warpnine-fonts build --version 2025-01-15  # with explicit version date
 ```
 
 That will generate the following fonts:
 
-- Variable font: `dist/WarpnineMono-VF.ttf` (74 MB)
+- Variable font: `dist/WarpnineMono-VF.ttf` (31 MB)
 - Static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
   - Each with upright and italic variants
@@ -69,15 +61,15 @@ That will generate the following fonts:
 ### Other Commands
 
 ```console
-$ uv run warpnine validate all      # run all validations
-$ uv run warpnine build clean       # remove build artifacts
-$ uv run warpnine build --help      # list all build subcommands
+$ ./target/release/warpnine-fonts build-mono   # build only WarpnineMono
+$ ./target/release/warpnine-fonts clean        # remove build artifacts
+$ ./target/release/warpnine-fonts --help       # list all commands
 ```
 
 Preview fonts locally:
 
 ```console
-$ uv run python -m http.server 8000
+$ python -m http.server 8000
 # Open http://localhost:8000/preview.html
 ```
 
@@ -135,25 +127,12 @@ The variable font retains additional OpenType features from Recursive:
 - Stylistic Sets: `ss09`, `ss20`
 - Other: `zero`, `frac`, `locl`, `calt`, and more
 
-## Development
+## Testing
 
-This project uses [Ruff](https://github.com/astral-sh/ruff) for code formatting and linting.
+Validation tests use Python with fonttools:
 
-```bash
-# Install dev dependencies
-uv sync --dev
-
-# Check code
-uv run ruff check warpnine_fonts/
-
-# Auto-fix issues
-uv run ruff check --fix warpnine_fonts/
-
-# Format code
-uv run ruff format warpnine_fonts/
-
-# Check formatting (without modifying files)
-uv run ruff format --check warpnine_fonts/
+```console
+$ uv run pytest tests/ -v
 ```
 
 ## License
