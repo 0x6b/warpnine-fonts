@@ -940,6 +940,71 @@ class TestInstanceCommand:
         regular.close()
         bold.close()
 
+    def test_instance_axis_extremes(self, setup_variable_font):
+        """Test instancing at axis extremes matches Python output."""
+        input_vf, output = setup_variable_font
+
+        extreme_instances = [
+            ("wght_min", {"wght": 300, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+            ("wght_max", {"wght": 1000, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+            ("mono_max", {"wght": 400, "MONO": 1, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+            ("casl_max", {"wght": 400, "MONO": 0, "CASL": 1, "slnt": 0, "CRSV": 0.5}),
+            ("slnt_min", {"wght": 400, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 0.5}),
+            ("crsv_max", {"wght": 400, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 1}),
+        ]
+
+        for name, axes in extreme_instances:
+            rust_out = output.parent / f"rust_{name}.ttf"
+            python_out = output.parent / f"python_{name}.ttf"
+
+            axis_args = []
+            for k, v in axes.items():
+                axis_args.extend(["--axis", f"{k}={v}"])
+
+            result = subprocess.run(
+                [str(RUST_CLI), "instance", str(input_vf), str(rust_out)] + axis_args,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, f"Rust instance {name} failed: {result.stderr}"
+
+            subprocess.run(
+                [
+                    "uv",
+                    "run",
+                    "python",
+                    "-c",
+                    f"""
+from fontTools.varLib.instancer import instantiateVariableFont
+from fontTools.ttLib import TTFont
+vf = TTFont("{input_vf}")
+instance = instantiateVariableFont(vf, {axes})
+instance.save("{python_out}")
+""",
+                ],
+                capture_output=True,
+                check=True,
+                cwd=PROJECT_ROOT,
+            )
+
+            rust_font = TTFont(rust_out)
+            python_font = TTFont(python_out)
+
+            assert rust_font["OS/2"].usWeightClass == python_font["OS/2"].usWeightClass, (
+                f"{name}: usWeightClass mismatch"
+            )
+
+            assert set(rust_font.keys()) == set(python_font.keys()), (
+                f"{name}: table tags mismatch"
+            )
+
+            rs_width, _ = rust_font["hmtx"].metrics["H"]
+            py_width, _ = python_font["hmtx"].metrics["H"]
+            assert rs_width == py_width, f"{name}: H advance width mismatch"
+
+            rust_font.close()
+            python_font.close()
+
 
 class TestMergeCommand:
     """Test the merge command."""
