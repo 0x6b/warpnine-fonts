@@ -21,7 +21,7 @@ from pathlib import Path
 from fontTools.ttLib import TTFont
 
 PROJECT_ROOT = Path(__file__).parent.parent
-RUST_CLI = PROJECT_ROOT / "rust/warpnine-fonts/target/release/warpnine-fonts"
+RUST_CLI = PROJECT_ROOT / "target/release/warpnine-fonts"
 BUILD_DIR = PROJECT_ROOT / "build"
 DIST_DIR = PROJECT_ROOT / "dist"
 
@@ -489,7 +489,7 @@ def main():
             print(
                 "  - hhea extents (minLeftSideBearing, minRightSideBearing, xMaxExtent)"
             )
-            print("\nSee: rust/warpnine-fonts/VALIDATION.md for details")
+            print("\nSee: docs/VALIDATION.md for details")
             sys.exit(1)
 
 

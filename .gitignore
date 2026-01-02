@@ -8,5 +8,6 @@ recursive/
 __pycache__/
 *.py[cod]
 *$py.class
-rust/warpnine-fonts/target/
-rust/warpnine-fonts/target
+# Rust
+target/
+Cargo.lock

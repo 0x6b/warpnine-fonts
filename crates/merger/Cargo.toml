@@ -1,0 +1,19 @@
+[package]
+name = "warpnine-font-merger"
+version = "0.1.0"
+edition = "2021"  # Keep 2021 as original - can upgrade later
+license.workspace = true
+description = "A Rust port of fontTools merge.Merger for merging multiple fonts into one"
+repository = "https://github.com/0x6b/warpnine-fonts"
+
+[dependencies]
+read-fonts.workspace = true
+write-fonts.workspace = true
+font-types = { workspace = true }
+thiserror.workspace = true
+indexmap.workspace = true
+log.workspace = true
+clap.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true

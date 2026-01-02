@@ -1,0 +1,28 @@
+[package]
+name = "warpnine-font-feature-freezer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Permanently apply OpenType GSUB features by remapping the cmap table"
+repository = "https://github.com/0x6b/warpnine-fonts"
+keywords = ["font", "opentype", "gsub", "cmap"]
+categories = ["command-line-utilities", "text-processing"]
+
+[lib]
+name = "font_feature_freezer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "font-feature-freezer"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[dependencies]
+read-fonts.workspace = true
+write-fonts.workspace = true
+thiserror.workspace = true
+clap = { workspace = true, optional = true }
+
+[features]
+default = ["cli"]
+cli = ["dep:clap"]

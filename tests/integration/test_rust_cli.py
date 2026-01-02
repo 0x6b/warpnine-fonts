@@ -21,9 +21,7 @@ from fontTools.ttLib import TTFont
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-RUST_CLI = (
-    PROJECT_ROOT / "rust" / "warpnine-fonts" / "target" / "release" / "warpnine-fonts"
-)
+RUST_CLI = PROJECT_ROOT / "target" / "release" / "warpnine-fonts"
 BUILD_DIR = PROJECT_ROOT / "build"
 DIST_DIR = PROJECT_ROOT / "dist"
 

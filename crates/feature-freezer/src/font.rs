@@ -1,0 +1,406 @@
+//! Font parsing, freezing, and serialization.
+
+use crate::{Result, error::Error, gsub::GlyphSubstitutions, types::*};
+use read_fonts::tables::gsub::Gsub;
+use read_fonts::{
+    FontRef, TableProvider,
+    types::{GlyphId16, NameId},
+};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt::Formatter;
+use std::iter::once;
+use std::result;
+use write_fonts::BuilderError;
+use write_fonts::FontBuilder;
+use write_fonts::tables::cmap::{
+    Cmap, CmapSubtable, EncodingRecord, PlatformId, SequentialMapGroup,
+};
+
+/// A parsed font ready for feature freezing.
+pub struct Font<'a> {
+    data: &'a [u8],
+    inner: FontRef<'a>,
+}
+
+impl std::fmt::Debug for Font<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Font")
+            .field("data_len", &self.data.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for Font<'a> {
+    type Error = Error;
+
+    fn try_from(data: &'a [u8]) -> Result<Self> {
+        Self::new(data)
+    }
+}
+
+impl AsRef<[u8]> for Font<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.data
+    }
+}
+
+impl<'a> Font<'a> {
+    pub fn new(data: &'a [u8]) -> Result<Self> {
+        Ok(Self {
+            data,
+            inner: FontRef::new(data)?,
+        })
+    }
+
+    pub fn report(&self) -> Result<FontReport> {
+        let gsub = self.inner.gsub().map_err(|_| Error::NoGsub)?;
+        let script_list = gsub.script_list()?;
+
+        let scripts_langs = script_list
+            .script_records()
+            .iter()
+            .flat_map(|sr| {
+                let tag = sr.script_tag();
+                let langs = sr
+                    .script(script_list.offset_data())
+                    .into_iter()
+                    .flat_map(|s| s.lang_sys_records())
+                    .map(move |lr| format!("-s '{tag}' -l '{}'", lr.lang_sys_tag()));
+                once(format!("-s '{tag}'")).chain(langs)
+            })
+            .collect();
+
+        let features = gsub
+            .feature_list()?
+            .feature_records()
+            .iter()
+            .map(|r| r.feature_tag().to_string())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+
+        Ok(FontReport {
+            scripts_langs,
+            features,
+        })
+    }
+
+    pub fn freeze(&self, options: &FreezeOptions) -> Result<FreezeResult> {
+        let gsub = self.inner.gsub().map_err(|_| Error::NoGsub)?;
+
+        let lookup_indices = FeatureResolver {
+            gsub: &gsub,
+            options,
+        }
+        .resolve()?;
+        if lookup_indices.is_empty() {
+            return Err(Error::NoMatchingFeatures(options.features.clone()));
+        }
+
+        let mut subs = GlyphSubstitutions::new();
+        subs.process_lookups(&gsub, &lookup_indices)?;
+        if subs.is_empty() {
+            return Err(Error::NoSubstitutions(options.features.clone()));
+        }
+
+        // Only compute glyph info if we need warnings/names (expensive for large fonts)
+        let (warnings, remapped_names) = if options.suffix.is_enabled() || options.warnings {
+            GlyphInfo::from_font(&self.inner).analyze(&subs)
+        } else {
+            Default::default()
+        };
+
+        let mut data = FontEditor(self.inner.clone()).with_remapped_cmap(&subs)?;
+
+        if options.wants_name_edits() {
+            data = FontEditor::from_data(&data)?.with_modified_names(options)?;
+        }
+        if options.zapnames {
+            data = FontEditor::from_data(&data)?.with_post_v3()?;
+        }
+
+        Ok(FreezeResult {
+            data,
+            stats: FreezeStats {
+                features_requested: options.features.len(),
+                lookups_processed: lookup_indices.len(),
+                substitutions_applied: subs.len(),
+            },
+            warnings,
+            remapped_names,
+        })
+    }
+
+    pub fn data(&self) -> &[u8] {
+        self.data
+    }
+}
+
+struct FeatureResolver<'a> {
+    gsub: &'a Gsub<'a>,
+    options: &'a FreezeOptions,
+}
+
+impl FeatureResolver<'_> {
+    fn resolve(&self) -> Result<BTreeSet<u16>> {
+        let feature_indices = self.collect_feature_indices()?;
+        let feature_tags = self.options.feature_tags();
+        let feature_list = self.gsub.feature_list()?;
+
+        Ok(feature_list
+            .feature_records()
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                feature_indices
+                    .as_ref()
+                    .is_none_or(|fi| fi.contains(&(*i as u16)))
+            })
+            .filter(|(_, r)| feature_tags.contains(&r.feature_tag()))
+            .flat_map(|(_, r)| {
+                r.feature(feature_list.offset_data())
+                    .into_iter()
+                    .flat_map(|f| f.lookup_list_indices().iter().map(|i| i.get()))
+            })
+            .collect())
+    }
+
+    fn collect_feature_indices(&self) -> Result<Option<HashSet<u16>>> {
+        if !self.options.filter.is_active() {
+            return Ok(None);
+        }
+
+        let script_list = self.gsub.script_list()?;
+        let mut indices = HashSet::new();
+
+        for sr in script_list.script_records() {
+            if !self
+                .options
+                .filter
+                .matches_script(&sr.script_tag().to_string())
+            {
+                continue;
+            }
+            let Ok(script) = sr.script(script_list.offset_data()) else {
+                continue;
+            };
+
+            if self.options.filter.lang.is_some() {
+                for lr in script.lang_sys_records() {
+                    if self
+                        .options
+                        .filter
+                        .matches_lang(&lr.lang_sys_tag().to_string())
+                        && let Ok(ls) = lr.lang_sys(script.offset_data())
+                    {
+                        indices.extend(ls.feature_indices().iter().map(|i| i.get()));
+                    }
+                }
+            } else if let Some(Ok(ls)) = script.default_lang_sys() {
+                indices.extend(ls.feature_indices().iter().map(|i| i.get()));
+            }
+        }
+        Ok(Some(indices))
+    }
+}
+
+struct GlyphInfo {
+    names: HashMap<u16, String>,
+    has_unicode: HashSet<u16>,
+}
+
+impl GlyphInfo {
+    fn from_font(font: &FontRef) -> Self {
+        let names = font
+            .post()
+            .ok()
+            .zip(font.maxp().ok())
+            .map(|(post, maxp)| {
+                (0..maxp.num_glyphs())
+                    .filter_map(|gid| {
+                        post.glyph_name(GlyphId16::new(gid))
+                            .map(|n| (gid, n.to_string()))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let has_unicode = font
+            .cmap()
+            .ok()
+            .map(|cmap| {
+                cmap.encoding_records()
+                    .iter()
+                    .filter_map(|r| r.subtable(cmap.offset_data()).ok())
+                    .flat_map(|st| st.iter().map(|(_, gid)| gid.to_u32() as u16))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Self { names, has_unicode }
+    }
+
+    fn analyze(&self, subs: &GlyphSubstitutions) -> (Vec<String>, Vec<String>) {
+        let (mut warnings, mut names) = (Vec::new(), Vec::new());
+        for (&from, &to) in subs.iter().filter(|(f, t)| f != t) {
+            let (from_uni, to_uni) = (
+                self.has_unicode.contains(&from),
+                self.has_unicode.contains(&to),
+            );
+            if !from_uni && !to_uni {
+                let (fn_, tn) = (
+                    self.names.get(&from).map_or("?", String::as_str),
+                    self.names.get(&to).map_or("?", String::as_str),
+                );
+                warnings.push(format!("Cannot remap '{fn_}' -> '{tn}' because neither has a Unicode value assigned in any of the cmap tables."));
+            } else {
+                names.push(
+                    self.names
+                        .get(&to)
+                        .cloned()
+                        .unwrap_or_else(|| format!("gid{to}")),
+                );
+            }
+        }
+        (warnings, names)
+    }
+}
+
+pub struct FontEditor<'a>(FontRef<'a>);
+
+impl<'a> FontEditor<'a> {
+    pub fn from_data(data: &'a [u8]) -> Result<Self> {
+        Ok(Self(FontRef::new(data)?))
+    }
+
+    pub fn with_remapped_cmap(&self, subs: &GlyphSubstitutions) -> Result<Vec<u8>> {
+        let cmap = self.0.cmap().map_err(|_| Error::NoCmap)?;
+
+        let records: Vec<_> = cmap
+            .encoding_records()
+            .iter()
+            .filter_map(|r| r.subtable(cmap.offset_data()).ok().map(|st| (r, st)))
+            .map(|(record, subtable)| {
+                let mut mappings: Vec<_> = subtable
+                    .iter()
+                    .map(|(cp, gid)| (cp, subs.remap(gid.to_u32() as u16)))
+                    .collect();
+                mappings.sort_by_key(|&(cp, _)| cp);
+
+                EncodingRecord::new(
+                    PlatformId::new(record.platform_id() as u16),
+                    record.encoding_id(),
+                    CmapSubtable::format_12(0, build_groups(&mappings)),
+                )
+            })
+            .collect();
+
+        self.rebuild(|b| b.add_table(&Cmap::new(records)).map(|_| ()))
+    }
+
+    pub fn with_modified_names(&self, options: &FreezeOptions) -> Result<Vec<u8>> {
+        let name = self.0.name()?;
+        let records = name.name_record();
+        let string_data = name.string_data();
+        let family_old = records
+            .iter()
+            .find_map(|r| match r.name_id() {
+                id if id == NameId::TYPOGRAPHIC_FAMILY_NAME || id == NameId::FAMILY_NAME => {
+                    r.string(string_data).ok().map(|s| s.to_string())
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| "UnknownFamily".to_string());
+
+        let mut family = family_old.clone();
+        if let Some(ref replacements) = options.replacenames {
+            for (from, to) in replacements.split(',').filter_map(|s| s.split_once('/')) {
+                family = family.replace(from, to);
+            }
+        }
+        let family_new = format!("{family}{}", options.suffix_string());
+        let (family_old_ns, family_new_ns) =
+            (family_old.replace(' ', ""), family_new.replace(' ', ""));
+        let features_csv = options.features.join(",");
+
+        let records: Vec<_> = records
+            .iter()
+            .map(|r| {
+                let orig = r
+                    .string(string_data)
+                    .map(|s| s.to_string())
+                    .unwrap_or_default();
+                let new_string = match r.name_id().to_u16() {
+                    1 | 4 | 16 | 18 | 21 => orig.replace(&family_old, &family_new),
+                    3 => format!("{orig};featfreeze:{features_csv}"),
+                    5 if options.info => format!("{orig}; featfreeze: {features_csv}"),
+                    6 | 20 => orig.replace(&family_old_ns, &family_new_ns),
+                    _ => orig,
+                };
+                write_fonts::tables::name::NameRecord::new(
+                    r.platform_id(),
+                    r.encoding_id(),
+                    r.language_id(),
+                    NameId::new(r.name_id().to_u16()),
+                    new_string.into(),
+                )
+            })
+            .collect();
+
+        self.rebuild(|b| {
+            b.add_table(&write_fonts::tables::name::Name::new(records))
+                .map(|_| ())
+        })
+    }
+
+    pub fn with_post_v3(&self) -> Result<Vec<u8>> {
+        let post = self.0.post()?;
+        let mut new_post = write_fonts::tables::post::Post::new(
+            post.italic_angle(),
+            post.underline_position(),
+            post.underline_thickness(),
+            post.is_fixed_pitch(),
+            0,
+            0,
+            0,
+            0,
+        );
+        new_post.version = write_fonts::types::Version16Dot16::VERSION_3_0;
+        self.rebuild(|b| b.add_table(&new_post).map(|_| ()))
+    }
+
+    fn rebuild(
+        &self,
+        add: impl FnOnce(&mut FontBuilder) -> result::Result<(), BuilderError>,
+    ) -> Result<Vec<u8>> {
+        let mut builder = FontBuilder::new();
+        for rec in self.0.table_directory.table_records() {
+            if let Some(data) = self.0.table_data(rec.tag()) {
+                builder.add_raw(rec.tag(), data);
+            }
+        }
+        add(&mut builder)?;
+        Ok(builder.build())
+    }
+}
+
+fn build_groups(mappings: &[(u32, u16)]) -> Vec<SequentialMapGroup> {
+    let mut groups: Vec<SequentialMapGroup> = Vec::with_capacity(mappings.len());
+    for &(cp, gid) in mappings {
+        if let Some(last) = groups.last_mut() {
+            let expected_cp = last.end_char_code + 1;
+            let expected_gid =
+                last.start_glyph_id + (last.end_char_code + 1 - last.start_char_code);
+            if cp == expected_cp && gid as u32 == expected_gid {
+                last.end_char_code = cp;
+                continue;
+            }
+        }
+        groups.push(SequentialMapGroup {
+            start_char_code: cp,
+            end_char_code: cp,
+            start_glyph_id: gid as u32,
+        });
+    }
+    groups
+}

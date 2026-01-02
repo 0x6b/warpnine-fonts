@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use font_merger::Merger;
+use warpnine_font_merger::Merger;
 use std::fs;
 use std::path::Path;
 

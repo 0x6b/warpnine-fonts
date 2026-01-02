@@ -1,0 +1,29 @@
+[package]
+name = "warpnine-fonts-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Fast font metadata operations for Warpnine fonts"
+repository = "https://github.com/0x6b/warpnine-fonts"
+
+[dependencies]
+clap.workspace = true
+read-fonts.workspace = true
+write-fonts.workspace = true
+hb-subset = { version = "0.3", features = ["bundled"] }
+anyhow.workspace = true
+chrono.workspace = true
+rayon.workspace = true
+log.workspace = true
+env_logger.workspace = true
+reqwest = { version = "0.12", features = ["blocking"] }
+zip = "2"
+
+# Workspace crates
+warpnine-font-feature-freezer.workspace = true
+warpnine-font-instancer.workspace = true
+warpnine-font-merger.workspace = true
+
+[[bin]]
+name = "warpnine-fonts"
+path = "src/main.rs"

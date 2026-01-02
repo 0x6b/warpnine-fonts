@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/cli",
+    "crates/feature-freezer",
+    "crates/instancer",
+    "crates/merger",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+read-fonts = "0.36"
+write-fonts = "0.44"
+skrifa = "0.39"
+font-types = "0.10"
+clap = { version = "4", features = ["derive"] }
+thiserror = "2"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+rayon = "1.10"
+chrono = "0.4"
+indexmap = "2"
+kurbo = "0.12"
+
+# Workspace crates
+warpnine-font-feature-freezer = { path = "crates/feature-freezer", default-features = false }
+warpnine-font-instancer = { path = "crates/instancer", default-features = false }
+warpnine-font-merger = { path = "crates/merger" }
