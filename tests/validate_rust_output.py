@@ -253,10 +253,11 @@ def validate_core_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
 
 
 def validate_hmtx(rust_font: TTFont, python_font: TTFont) -> dict:
-    """Validate per-glyph horizontal metrics (advance widths).
+    """Validate per-glyph horizontal metrics (advance widths and LSBs).
 
-    Note: LSB values may differ due to glyph coordinate interpolation differences,
-    but advance widths should always match.
+    Known issue: font-instancer does not recalculate LSB after coordinate
+    interpolation. LSB should equal glyph xMin, but Rust preserves the
+    original VF's LSB values. This is tracked as a font-instancer bug.
     """
     results = {"pass": [], "fail": []}
 
@@ -276,13 +277,14 @@ def validate_hmtx(rust_font: TTFont, python_font: TTFont) -> dict:
         return results
 
     width_mismatched = []
+    lsb_mismatched = []
     for glyph in rs_glyphs:
-        rs_width, _ = rs_hmtx[glyph]
-        py_width, _ = py_hmtx[glyph]
+        rs_width, rs_lsb = rs_hmtx[glyph]
+        py_width, py_lsb = py_hmtx[glyph]
         if rs_width != py_width:
-            width_mismatched.append(
-                f"{glyph}: Rust={rs_width} Python={py_width}"
-            )
+            width_mismatched.append(f"{glyph}: Rust={rs_width} Python={py_width}")
+        if rs_lsb != py_lsb:
+            lsb_mismatched.append(glyph)
 
     if width_mismatched:
         results["fail"].append(
@@ -290,6 +292,13 @@ def validate_hmtx(rust_font: TTFont, python_font: TTFont) -> dict:
         )
     else:
         results["pass"].append(f"hmtx widths ({len(rs_glyphs)} glyphs)")
+
+    if lsb_mismatched:
+        results["fail"].append(
+            f"hmtx LSB differs for {len(lsb_mismatched)} glyphs (font-instancer bug: LSB not recalculated)"
+        )
+    else:
+        results["pass"].append(f"hmtx LSBs ({len(rs_glyphs)} glyphs)")
 
     return results
 
