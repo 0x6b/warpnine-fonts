@@ -120,6 +120,49 @@ def validate_bounding_box(
     return results
 
 
+def validate_gdef(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate GDEF table (glyph classes, mark attach classes)."""
+    results = {"pass": [], "fail": []}
+
+    if "GDEF" not in rust_font or "GDEF" not in python_font:
+        if "GDEF" not in rust_font and "GDEF" not in python_font:
+            results["pass"].append("GDEF (both missing)")
+        else:
+            results["fail"].append("GDEF presence differs")
+        return results
+
+    rs_gdef = rust_font["GDEF"].table
+    py_gdef = python_font["GDEF"].table
+
+    if rs_gdef.GlyphClassDef and py_gdef.GlyphClassDef:
+        rs_classes = dict(rs_gdef.GlyphClassDef.classDefs)
+        py_classes = dict(py_gdef.GlyphClassDef.classDefs)
+        if rs_classes == py_classes:
+            results["pass"].append(f"GDEF GlyphClassDef ({len(rs_classes)} glyphs)")
+        else:
+            diff = len(set(rs_classes.items()) ^ set(py_classes.items()))
+            results["fail"].append(f"GDEF GlyphClassDef differs ({diff} differences)")
+    elif rs_gdef.GlyphClassDef or py_gdef.GlyphClassDef:
+        results["fail"].append("GDEF GlyphClassDef presence differs")
+    else:
+        results["pass"].append("GDEF GlyphClassDef (both none)")
+
+    if rs_gdef.MarkAttachClassDef and py_gdef.MarkAttachClassDef:
+        rs_marks = dict(rs_gdef.MarkAttachClassDef.classDefs)
+        py_marks = dict(py_gdef.MarkAttachClassDef.classDefs)
+        if rs_marks == py_marks:
+            results["pass"].append(f"GDEF MarkAttachClassDef ({len(rs_marks)} glyphs)")
+        else:
+            diff = len(set(rs_marks.items()) ^ set(py_marks.items()))
+            results["fail"].append(f"GDEF MarkAttachClassDef differs ({diff} differences)")
+    elif rs_gdef.MarkAttachClassDef or py_gdef.MarkAttachClassDef:
+        results["fail"].append("GDEF MarkAttachClassDef presence differs")
+    else:
+        results["pass"].append("GDEF MarkAttachClassDef (both none)")
+
+    return results
+
+
 def validate_table_tags(rust_font: TTFont, python_font: TTFont) -> dict:
     """Validate that both fonts have the same set of table tags."""
     results = {"pass": [], "fail": []}
@@ -339,6 +382,11 @@ def validate_font_pair(rust_path: Path, python_path: Path) -> tuple[int, int, li
     bbox = validate_bounding_box(rust_font, python_font)
     all_pass.extend(bbox["pass"])
     all_fail.extend(bbox["fail"])
+
+    # GDEF table
+    gdef = validate_gdef(rust_font, python_font)
+    all_pass.extend(gdef["pass"])
+    all_fail.extend(gdef["fail"])
 
     rust_font.close()
     python_font.close()
