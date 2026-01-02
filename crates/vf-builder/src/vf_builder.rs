@@ -20,6 +20,7 @@ use write_fonts::tables::gvar::{
     GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent, iup::iup_delta_optimize,
 };
 use write_fonts::tables::head::Head;
+use write_fonts::tables::name::{Name, NameRecord};
 
 /// Tables that should NOT be copied (variation-specific or rebuilt).
 const SKIP_TABLES: &[Tag] = &[
@@ -30,7 +31,11 @@ const SKIP_TABLES: &[Tag] = &[
     Tag::new(b"gvar"),
     Tag::new(b"STAT"),
     Tag::new(b"DSIG"),
+    Tag::new(b"name"),
 ];
+
+/// Starting name ID for instance names (256+ are user-defined)
+const INSTANCE_NAME_ID_START: u16 = 256;
 
 /// Build a variable font from a designspace.
 ///
@@ -108,6 +113,9 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     // Build head table
     let head = build_head(default_font, loca_format)?;
 
+    // Build name table with instance names
+    let name = build_name(default_font, designspace)?;
+
     // Assemble the font
     let mut builder = FontBuilder::new();
 
@@ -116,6 +124,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     builder.add_table(&new_glyf)?;
     builder.add_table(&new_loca)?;
     builder.add_table(&head)?;
+    builder.add_table(&name)?;
 
     // Copy tables from default master
     let skip_set: HashSet<Tag> = SKIP_TABLES.iter().copied().collect();
@@ -188,7 +197,7 @@ fn build_fvar(designspace: &DesignSpace) -> Result<Fvar> {
                 .collect();
 
             InstanceRecord {
-                subfamily_name_id: NameId::new(258 + idx as u16),
+                subfamily_name_id: NameId::new(INSTANCE_NAME_ID_START + idx as u16),
                 flags: 0,
                 coordinates,
                 post_script_name_id: None,
@@ -199,6 +208,72 @@ fn build_fvar(designspace: &DesignSpace) -> Result<Fvar> {
     Ok(Fvar {
         axis_instance_arrays: AxisInstanceArrays { axes, instances }.into(),
     })
+}
+
+/// Build name table, copying from default and adding instance names.
+fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name> {
+    let name_table = default_font.name().map_err(|_| Error::MissingTable {
+        path: designspace.sources[0].path.clone(),
+        table: "name".to_string(),
+    })?;
+
+    let mut new_records: Vec<NameRecord> = Vec::new();
+
+    // Copy existing name records (skip any that conflict with instance name IDs)
+    for record in name_table.name_record() {
+        let name_id = record.name_id().to_u16();
+
+        // Skip name IDs that will be used for instances
+        if name_id >= INSTANCE_NAME_ID_START
+            && name_id < INSTANCE_NAME_ID_START + designspace.instances.len() as u16
+        {
+            continue;
+        }
+
+        let string = match record.string(name_table.string_data()) {
+            Ok(s) => s.chars().collect::<String>(),
+            Err(_) => continue,
+        };
+
+        new_records.push(NameRecord::new(
+            record.platform_id(),
+            record.encoding_id(),
+            record.language_id(),
+            read_fonts::types::NameId::new(name_id),
+            string.into(),
+        ));
+    }
+
+    // Add instance names for both platforms (Windows and Mac)
+    for (idx, instance) in designspace.instances.iter().enumerate() {
+        let name_id = INSTANCE_NAME_ID_START + idx as u16;
+
+        // Windows (platformID=3, encodingID=1, languageID=0x409)
+        new_records.push(NameRecord::new(
+            3,
+            1,
+            0x409,
+            read_fonts::types::NameId::new(name_id),
+            instance.name.clone().into(),
+        ));
+
+        // Mac (platformID=1, encodingID=0, languageID=0)
+        new_records.push(NameRecord::new(
+            1,
+            0,
+            0,
+            read_fonts::types::NameId::new(name_id),
+            instance.name.clone().into(),
+        ));
+    }
+
+    // Sort records by (platformID, encodingID, languageID, nameID)
+    new_records.sort_by(|a, b| {
+        (a.platform_id, a.encoding_id, a.language_id, a.name_id)
+            .cmp(&(b.platform_id, b.encoding_id, b.language_id, b.name_id))
+    });
+
+    Ok(Name::new(new_records))
 }
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};

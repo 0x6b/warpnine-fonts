@@ -45,7 +45,7 @@ class VariableFontSpec:
 
     glyph_count: int
     axes: dict[str, tuple[float, float, float]]  # tag -> (min, default, max)
-    named_instances: int
+    named_instances: list[str]  # expected instance names
     units_per_em: int = 1000
 
 
@@ -73,7 +73,24 @@ MONO_VF_SPEC = VariableFontSpec(
         "wght": (300.0, 400.0, 1000.0),
         "ital": (0.0, 0.0, 1.0),
     },
-    named_instances=16,
+    named_instances=[
+        "Light",
+        "Light Italic",
+        "Regular",
+        "Italic",
+        "Medium",
+        "Medium Italic",
+        "SemiBold",
+        "SemiBold Italic",
+        "Bold",
+        "Bold Italic",
+        "ExtraBold",
+        "ExtraBold Italic",
+        "Black",
+        "Black Italic",
+        "ExtraBlack",
+        "ExtraBlack Italic",
+    ],
 )
 
 # WarpnineSans: 14 static fonts from Recursive
@@ -334,16 +351,63 @@ def validate_variable_font(font_path: Path, spec: VariableFontSpec) -> list[str]
                 f"Axis {tag}: expected {expected_range}, got {actual_axes[tag]}"
             )
 
-    # Named instances
-    actual_instances = len(fvar.instances)
-    if actual_instances != spec.named_instances:
+    # Named instances count
+    actual_instance_count = len(fvar.instances)
+    expected_instance_count = len(spec.named_instances)
+    if actual_instance_count != expected_instance_count:
         failures.append(
-            f"Named instances: expected {spec.named_instances}, got {actual_instances}"
+            f"Named instances: expected {expected_instance_count}, got {actual_instance_count}"
         )
+
+    # Validate named instance names exist and match expected values
+    for i, instance in enumerate(fvar.instances):
+        name_id = instance.subfamilyNameID
+        instance_name = get_name_entry(font, name_id)
+        if not instance_name:
+            failures.append(
+                f"Named instance {i}: name ID {name_id} missing from name table"
+            )
+        elif not instance_name.strip():
+            failures.append(f"Named instance {i}: name ID {name_id} is empty")
+        elif i < len(spec.named_instances):
+            expected_name = spec.named_instances[i]
+            if instance_name != expected_name:
+                failures.append(
+                    f"Named instance {i}: expected '{expected_name}', got '{instance_name}'"
+                )
 
     # gvar table (required for glyph variations)
     if "gvar" not in font:
         failures.append("Missing gvar table")
+
+    # Validate name table entries
+    # Name ID 1: Family name
+    family_name = get_name_entry(font, 1)
+    if not family_name:
+        failures.append("Name ID 1 (Family): missing")
+
+    # Name ID 2: Subfamily name
+    subfamily = get_name_entry(font, 2)
+    if not subfamily:
+        failures.append("Name ID 2 (Subfamily): missing")
+
+    # Name ID 4: Full name
+    full_name = get_name_entry(font, 4)
+    if not full_name:
+        failures.append("Name ID 4 (Full name): missing")
+
+    # Name ID 6: PostScript name (no spaces, hyphen separator)
+    ps_name = get_name_entry(font, 6)
+    if not ps_name:
+        failures.append("Name ID 6 (PostScript name): missing")
+    elif " " in ps_name:
+        failures.append(
+            f"Name ID 6 (PostScript name): should not contain spaces, got '{ps_name}'"
+        )
+    elif "-" not in ps_name:
+        failures.append(
+            f"Name ID 6 (PostScript name): should contain hyphen, got '{ps_name}'"
+        )
 
     font.close()
     return failures
