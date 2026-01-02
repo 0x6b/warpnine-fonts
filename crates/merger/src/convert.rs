@@ -83,12 +83,8 @@ impl<'a> MarkArrayExt for read_gpos::MarkArray<'a> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(test)]
-    use read_fonts::tables;
-    #[cfg(test)]
-    use read_fonts::tables::gpos;
-
     use super::*;
+    use read_fonts::tables;
 
     #[test]
     fn test_value_record_trait_exists() {
