@@ -420,6 +420,65 @@ class TestCreateCondensedCommand:
             )
             font.close()
 
+    @pytest.mark.slow
+    def test_create_condensed_metrics_match_python(self, setup_recursive_vf):
+        """Test that create-condensed metrics match Python output."""
+        input_vf, output_dir = setup_recursive_vf
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "create-condensed",
+                "--input",
+                str(input_vf),
+                "--output-dir",
+                str(output_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        assert result.returncode == 0
+
+        regular = output_dir / "WarpnineSansCondensed-Regular.ttf"
+        bold = output_dir / "WarpnineSansCondensed-Bold.ttf"
+        italic = output_dir / "WarpnineSansCondensed-Italic.ttf"
+
+        for font_path in [regular, bold, italic]:
+            assert font_path.exists(), f"Missing font: {font_path.name}"
+
+            font = TTFont(font_path)
+
+            assert font["OS/2"].sxHeight > 0, (
+                f"{font_path.name}: sxHeight should be positive"
+            )
+            assert font["OS/2"].sCapHeight > 0, (
+                f"{font_path.name}: sCapHeight should be positive"
+            )
+
+            assert font["head"].xMin <= 0, f"{font_path.name}: xMin should be <= 0"
+            assert font["head"].xMax > 0, f"{font_path.name}: xMax should be > 0"
+            assert font["head"].yMin < 0, f"{font_path.name}: yMin should be < 0"
+            assert font["head"].yMax > 0, f"{font_path.name}: yMax should be > 0"
+
+            assert font["hhea"].ascender > 0, (
+                f"{font_path.name}: ascender should be > 0"
+            )
+            assert font["hhea"].descender < 0, (
+                f"{font_path.name}: descender should be < 0"
+            )
+
+            font.close()
+
+        reg_font = TTFont(regular)
+        bold_font = TTFont(bold)
+        assert bold_font["OS/2"].usWeightClass > reg_font["OS/2"].usWeightClass, (
+            "Bold should have higher usWeightClass than Regular"
+        )
+        reg_font.close()
+        bold_font.close()
+
 
 class TestSubsetJapaneseCommand:
     """Test the subset-japanese command."""
@@ -480,6 +539,22 @@ class TestSubsetJapaneseCommand:
         for char in japanese_chars:
             assert char in cmap, f"Japanese character U+{char:04X} should be preserved"
 
+        font.close()
+
+    def test_subset_japanese_drops_vf_tables(self, setup_noto_font):
+        """Test that subset-japanese drops variable font tables."""
+        input_font, output_font = setup_noto_font
+
+        subprocess.run(
+            [str(RUST_CLI), "subset-japanese", str(input_font), str(output_font)],
+            capture_output=True,
+            check=True,
+        )
+
+        font = TTFont(output_font)
+        vf_tables = ["fvar", "gvar", "HVAR", "MVAR", "STAT", "avar", "cvar"]
+        for table in vf_tables:
+            assert table not in font, f"{table} should be dropped from subset font"
         font.close()
 
 
@@ -566,6 +641,115 @@ class TestFreezeCommand:
         # Verify font is still valid
         font = TTFont(font_path)
         assert "GSUB" in font
+        font.close()
+
+    def test_freeze_auto_rvrn_prepends_feature(self, setup_font_with_features):
+        """Test that --auto-rvrn prepends rvrn to the feature list (Python compat)."""
+        font_path = setup_font_with_features
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "freeze",
+                "--auto-rvrn",
+                "--features",
+                "ss01",
+                str(font_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "rvrn,ss01" in result.stdout, (
+            f"Should prepend rvrn to feature list, got: {result.stdout}"
+        )
+
+    def test_freeze_without_auto_rvrn(self, setup_font_with_features):
+        """Test that rvrn is NOT auto-added without --auto-rvrn (intentional difference from Python)."""
+        font_path = setup_font_with_features
+
+        result = subprocess.run(
+            [str(RUST_CLI), "freeze", "--features", "ss01", str(font_path)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "rvrn" not in result.stdout, (
+            f"Should NOT include rvrn without --auto-rvrn: {result.stdout}"
+        )
+
+    def test_freeze_mono_features_glyph_substitutions(self, setup_font_with_features):
+        """Test that MONO feature freeze produces correct glyph substitutions."""
+        font_path = setup_font_with_features
+
+        mono_features = "ss01,ss02,ss03,ss04,ss05,ss06,ss08,ss10,ss12,pnum"
+
+        result = subprocess.run(
+            [str(RUST_CLI), "freeze", "--features", mono_features, str(font_path)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        font = TTFont(font_path)
+        cmap = font.getBestCmap()
+
+        expected_substitutions = {
+            0x0061: "a.simple",
+            0x0067: "g.simple",
+            0x0066: "f.simple",
+            0x006C: "l.simple",
+            0x0072: "r.simple",
+            0x004C: "L.sans",
+            0x005A: "Z.sans",
+            0x0040: "at.alt",
+        }
+
+        for codepoint, expected_glyph in expected_substitutions.items():
+            actual_glyph = cmap.get(codepoint)
+            assert actual_glyph == expected_glyph, (
+                f"U+{codepoint:04X} ('{chr(codepoint)}'): expected '{expected_glyph}', got '{actual_glyph}'"
+            )
+
+        font.close()
+
+    def test_freeze_sans_features_glyph_substitutions(self, setup_font_with_features):
+        """Test that SANS feature freeze produces correct glyph substitutions."""
+        font_path = setup_font_with_features
+
+        sans_features = "ss01,ss02,ss03,ss04,ss05,ss06,ss08,ss10,ss12,pnum"
+
+        result = subprocess.run(
+            [str(RUST_CLI), "freeze", "--features", sans_features, str(font_path)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        font = TTFont(font_path)
+        cmap = font.getBestCmap()
+
+        expected_substitutions = {
+            0x0061: "a.simple",
+            0x0067: "g.simple",
+            0x0066: "f.simple",
+            0x006C: "l.simple",
+            0x0072: "r.simple",
+            0x004C: "L.sans",
+            0x005A: "Z.sans",
+            0x0040: "at.alt",
+        }
+
+        for codepoint, expected_glyph in expected_substitutions.items():
+            actual_glyph = cmap.get(codepoint)
+            assert actual_glyph == expected_glyph, (
+                f"U+{codepoint:04X} ('{chr(codepoint)}'): expected '{expected_glyph}', got '{actual_glyph}'"
+            )
+
         font.close()
 
 
@@ -815,6 +999,22 @@ class TestSetMonospaceCommand:
 
         font.close()
 
+    def test_set_monospace_avg_char_width(self, setup_test_font):
+        """Test that set-monospace sets xAvgCharWidth to 600."""
+        font_path = setup_test_font
+
+        subprocess.run(
+            [str(RUST_CLI), "set-monospace", str(font_path)],
+            capture_output=True,
+            check=True,
+        )
+
+        font = TTFont(font_path)
+        assert font["OS/2"].xAvgCharWidth == 600, (
+            f"xAvgCharWidth should be 600, got {font['OS/2'].xAvgCharWidth}"
+        )
+        font.close()
+
 
 class TestSetVersionCommand:
     """Test the set-version command."""
@@ -852,6 +1052,253 @@ class TestSetVersionCommand:
         assert any("2025-01-02" in str(r) for r in version_records)
 
         font.close()
+
+    def test_set_version_head_revision(self, setup_test_font):
+        """Test that set-version updates head.fontRevision."""
+        font_path = setup_test_font
+
+        subprocess.run(
+            [str(RUST_CLI), "set-version", "--version", "2025-01-02", str(font_path)],
+            capture_output=True,
+            check=True,
+        )
+
+        font = TTFont(font_path)
+        # Format: YYYY.MMDD e.g. 2025.0102
+        assert font["head"].fontRevision == pytest.approx(2025.0102, rel=0.001), (
+            f"head.fontRevision should be 2025.0102, got {font['head'].fontRevision}"
+        )
+        font.close()
+
+    def test_set_version_unique_id(self, setup_test_font):
+        """Test that set-version updates nameID 3 (unique ID)."""
+        font_path = setup_test_font
+
+        subprocess.run(
+            [str(RUST_CLI), "set-version", "--version", "2025-01-02", str(font_path)],
+            capture_output=True,
+            check=True,
+        )
+
+        font = TTFont(font_path)
+        name3 = font["name"].getDebugName(3)
+        assert name3 is not None, "nameID 3 (unique ID) should exist"
+        assert "2025-01-02" in name3, (
+            f"nameID 3 should contain '2025-01-02', got '{name3}'"
+        )
+        font.close()
+
+
+class TestSetNameCommand:
+    """Test the set-name command."""
+
+    @pytest.fixture
+    def setup_test_font(self, tmp_path):
+        """Set up a test font for name table test."""
+        font = DIST_DIR / "WarpnineMono-Regular.ttf"
+
+        if not font.exists():
+            pytest.skip("WarpnineMono-Regular.ttf not built yet")
+
+        font_copy = tmp_path / "test.ttf"
+        shutil.copy(font, font_copy)
+        return font_copy
+
+    def test_set_name_updates_name_table(self, setup_test_font):
+        """Test that set-name updates all name table entries."""
+        font_path = setup_test_font
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "set-name",
+                "--family",
+                "Test Family",
+                "--style",
+                "Bold",
+                str(font_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        font = TTFont(font_path)
+        name_table = font["name"]
+
+        # Check nameID 1 (family)
+        name1 = name_table.getDebugName(1)
+        assert "Test Family Bold" in name1
+
+        # Check nameID 4 (full name)
+        name4 = name_table.getDebugName(4)
+        assert name4 == "Test Family Bold"
+
+        # Check nameID 6 (postscript name)
+        name6 = name_table.getDebugName(6)
+        assert name6 == "TestFamily-Bold"
+
+        # Check nameID 16 (typographic family)
+        name16 = name_table.getDebugName(16)
+        assert name16 == "Test Family"
+
+        # Check nameID 17 (typographic subfamily)
+        name17 = name_table.getDebugName(17)
+        assert name17 == "Bold"
+
+        font.close()
+
+    def test_set_name_with_postscript_family(self, setup_test_font):
+        """Test set-name with custom postscript family."""
+        font_path = setup_test_font
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "set-name",
+                "--family",
+                "My Font",
+                "--style",
+                "Regular",
+                "--postscript-family",
+                "MyCustomPSName",
+                str(font_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        font = TTFont(font_path)
+        name6 = font["name"].getDebugName(6)
+        assert name6 == "MyCustomPSName-Regular"
+        font.close()
+
+    def test_set_name_with_copyright(self, setup_test_font):
+        """Test set-name with additional copyright text."""
+        font_path = setup_test_font
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "set-name",
+                "--family",
+                "Test",
+                "--style",
+                "Regular",
+                "--copyright-extra",
+                "Additional copyright notice.",
+                str(font_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+
+        font = TTFont(font_path)
+        name0 = font["name"].getDebugName(0)
+        assert "Additional copyright notice." in name0
+        font.close()
+
+
+class TestFixCaltCommand:
+    """Test the fix-calt command."""
+
+    @pytest.fixture
+    def setup_test_font(self, tmp_path):
+        """Set up a test font for calt fix test."""
+        font = DIST_DIR / "WarpnineMono-Regular.ttf"
+
+        if not font.exists():
+            pytest.skip("WarpnineMono-Regular.ttf not built yet")
+
+        font_copy = tmp_path / "test.ttf"
+        shutil.copy(font, font_copy)
+        return font_copy
+
+    def test_fix_calt_runs_successfully(self, setup_test_font):
+        """Test that fix-calt runs without error."""
+        font_path = setup_test_font
+
+        result = subprocess.run(
+            [str(RUST_CLI), "fix-calt", str(font_path)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "Fix calt: 1 succeeded" in result.stdout
+
+    def test_fix_calt_preserves_font_validity(self, setup_test_font):
+        """Test that fix-calt preserves font validity."""
+        font_path = setup_test_font
+
+        subprocess.run(
+            [str(RUST_CLI), "fix-calt", str(font_path)],
+            capture_output=True,
+            check=True,
+        )
+
+        # Verify font is still valid
+        font = TTFont(font_path)
+        assert "GSUB" in font
+        assert "cmap" in font
+        font.close()
+
+    def test_fix_calt_registers_to_all_scripts(self, tmp_path):
+        """Test that fix-calt registers calt feature to all scripts."""
+        noto = BUILD_DIR / "Noto-400.ttf"
+
+        if not noto.exists():
+            pytest.skip("Noto-400.ttf not built yet")
+
+        font_path = tmp_path / "noto.ttf"
+        shutil.copy(noto, font_path)
+
+        subprocess.run(
+            [str(RUST_CLI), "fix-calt", str(font_path)],
+            capture_output=True,
+            check=True,
+        )
+
+        font = TTFont(font_path)
+        gsub = font["GSUB"].table
+
+        calt_indices = []
+        for i, record in enumerate(gsub.FeatureList.FeatureRecord):
+            if record.FeatureTag == "calt":
+                calt_indices.append(i)
+
+        assert calt_indices, "Font should have calt feature"
+
+        scripts_with_calt = []
+        scripts_without_calt = []
+
+        for script_record in gsub.ScriptList.ScriptRecord:
+            script = script_record.Script
+            script_tag = script_record.ScriptTag
+
+            has_calt = False
+            if script.DefaultLangSys:
+                feature_indices = list(script.DefaultLangSys.FeatureIndex)
+                if any(idx in feature_indices for idx in calt_indices):
+                    has_calt = True
+
+            if has_calt:
+                scripts_with_calt.append(script_tag)
+            else:
+                scripts_without_calt.append(script_tag)
+
+        font.close()
+
+        assert not scripts_without_calt, (
+            f"calt should be registered to all scripts. "
+            f"Missing from: {scripts_without_calt}, "
+            f"Present in: {scripts_with_calt}"
+        )
 
 
 class TestBenchmarks:

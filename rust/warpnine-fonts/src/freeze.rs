@@ -4,18 +4,26 @@ use rayon::prelude::*;
 use std::fs;
 use std::path::PathBuf;
 
-pub fn freeze_features(files: &[PathBuf], features: &[String]) -> Result<()> {
+pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) -> Result<()> {
     if features.is_empty() {
         println!("No features specified");
         return Ok(());
     }
+
+    let features: Vec<String> = if auto_rvrn && !features.iter().any(|f| f == "rvrn") {
+        let mut with_rvrn = vec!["rvrn".to_string()];
+        with_rvrn.extend(features.iter().cloned());
+        with_rvrn
+    } else {
+        features.to_vec()
+    };
 
     let feature_list = features.join(",");
     println!("Freezing features: {feature_list}");
 
     let results: Vec<_> = files
         .par_iter()
-        .map(|path| freeze_single(path, features))
+        .map(|path| freeze_single(path, &features))
         .collect();
 
     let mut success = 0;

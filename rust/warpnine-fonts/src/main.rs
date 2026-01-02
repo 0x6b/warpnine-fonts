@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use rayon::prelude::*;
 use std::path::PathBuf;
 
+mod calt;
 mod clean;
 mod condense;
 mod copy_table;
@@ -12,6 +13,7 @@ mod instance;
 mod ligatures;
 mod merge;
 mod metadata;
+mod naming;
 mod sans;
 mod subset;
 
@@ -84,6 +86,9 @@ enum Commands {
         /// Features to freeze (e.g., ss01,ss02,rvrn)
         #[arg(short, long, value_delimiter = ',')]
         features: Vec<String>,
+        /// Auto-prepend 'rvrn' feature (Python compatibility)
+        #[arg(long)]
+        auto_rvrn: bool,
         /// Font files to process
         #[arg(required = true)]
         files: Vec<PathBuf>,
@@ -129,6 +134,30 @@ enum Commands {
         /// Horizontal scale factor (default: 0.90)
         #[arg(long, default_value = "0.90")]
         scale: f32,
+    },
+    /// Set name table entries (family, style, postscript name, copyright)
+    SetName {
+        /// Font family name (e.g., "Warpnine Mono")
+        #[arg(long)]
+        family: String,
+        /// Font style (e.g., "Regular", "Bold")
+        #[arg(long)]
+        style: String,
+        /// PostScript family name (optional, defaults to family without spaces)
+        #[arg(long)]
+        postscript_family: Option<String>,
+        /// Additional copyright text to append
+        #[arg(long)]
+        copyright_extra: Option<String>,
+        /// Font files to process
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+    },
+    /// Fix calt/rclt feature registration across all scripts
+    FixCalt {
+        /// Font files to process
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
     },
 }
 
@@ -232,8 +261,12 @@ fn main() -> Result<()> {
         Commands::SubsetJapanese { input, output } => {
             subset::subset_japanese(&input, &output)?;
         }
-        Commands::Freeze { features, files } => {
-            freeze::freeze_features(&files, &features)?;
+        Commands::Freeze {
+            features,
+            auto_rvrn,
+            files,
+        } => {
+            freeze::freeze_features(&files, &features, auto_rvrn)?;
         }
         Commands::Instance {
             axes,
@@ -254,6 +287,63 @@ fn main() -> Result<()> {
             scale,
         } => {
             condense::create_condensed(&input, &output_dir, scale)?;
+        }
+        Commands::SetName {
+            family,
+            style,
+            postscript_family,
+            copyright_extra,
+            files,
+        } => {
+            let font_naming = naming::FontNaming {
+                family,
+                style,
+                postscript_family,
+                copyright_extra,
+            };
+
+            let results: Vec<_> = files
+                .par_iter()
+                .map(|path| {
+                    naming::set_name(path, &font_naming)
+                        .with_context(|| format!("Failed to process {}", path.display()))
+                })
+                .collect();
+
+            let mut success = 0;
+            let mut failed = 0;
+            for result in results {
+                match result {
+                    Ok(()) => success += 1,
+                    Err(e) => {
+                        eprintln!("{e:?}");
+                        failed += 1;
+                    }
+                }
+            }
+            println!("Set name: {success} succeeded, {failed} failed");
+        }
+        Commands::FixCalt { files } => {
+            let results: Vec<_> = files
+                .par_iter()
+                .map(|path| {
+                    calt::fix_calt_registration(path)
+                        .with_context(|| format!("Failed to process {}", path.display()))
+                })
+                .collect();
+
+            let mut success = 0;
+            let mut failed = 0;
+            for result in results {
+                match result {
+                    Ok(()) => success += 1,
+                    Err(e) => {
+                        eprintln!("{e:?}");
+                        failed += 1;
+                    }
+                }
+            }
+            println!("Fix calt: {success} succeeded, {failed} failed");
         }
     }
 
