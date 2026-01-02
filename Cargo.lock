@@ -2127,7 +2127,6 @@ dependencies = [
  "font-types",
  "kurbo",
  "log",
- "rayon",
  "read-fonts",
  "thiserror 2.0.17",
  "write-fonts",

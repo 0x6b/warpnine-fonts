@@ -152,6 +152,9 @@ pub struct VariationModel {
     pub default_idx: usize,
     /// Order in which to process masters for delta computation
     pub master_order: Vec<usize>,
+    /// Precomputed scalars: region_scalars[i][j] = scalar of region j at region i's peak
+    /// Only lower triangle is used (j < i)
+    region_scalars: Vec<Vec<f32>>,
 }
 
 impl VariationModel {
@@ -186,12 +189,27 @@ impl VariationModel {
             .chain(regions_with_idx.iter().map(|(idx, _)| *idx))
             .collect();
 
-        let regions = regions_with_idx.into_iter().map(|(_, r)| r).collect();
+        let regions: Vec<Region> = regions_with_idx.into_iter().map(|(_, r)| r).collect();
+
+        // Precompute scalars between all region pairs
+        // region_scalars[i][j] = scalar of region j at region i's peak location
+        let region_scalars: Vec<Vec<f32>> = regions
+            .iter()
+            .enumerate()
+            .map(|(i, region_i)| {
+                let peak_i: Vec<f32> = region_i.axes.iter().map(|(_, p, _)| *p).collect();
+                regions[..i]
+                    .iter()
+                    .map(|region_j| region_j.scalar_at(&peak_i))
+                    .collect()
+            })
+            .collect();
 
         Some(Self {
             regions,
             default_idx,
             master_order,
+            region_scalars,
         })
     }
 
@@ -213,18 +231,15 @@ impl VariationModel {
         let mut deltas = Vec::with_capacity(self.regions.len());
 
         // For each non-default master, compute its delta
-        for (region_idx, region) in self.regions.iter().enumerate() {
+        for region_idx in 0..self.regions.len() {
             let master_idx = self.master_order[region_idx + 1];
             let master_value = master_values[master_idx];
 
             // Start with the raw difference from default
             let mut delta = i32::from(master_value) - i32::from(default_value);
 
-            // Subtract contributions from previous masters
-            for (prev_region_idx, prev_region) in self.regions[..region_idx].iter().enumerate() {
-                let peak: Vec<f32> = region.axes.iter().map(|(_, p, _)| *p).collect();
-                let scalar = prev_region.scalar_at(&peak);
-
+            // Subtract contributions from previous masters using precomputed scalars
+            for (prev_region_idx, &scalar) in self.region_scalars[region_idx].iter().enumerate() {
                 if scalar != 0.0 {
                     delta -= (f32::from(deltas[prev_region_idx]) * scalar) as i32;
                 }
@@ -241,17 +256,15 @@ impl VariationModel {
         let default_value = master_values[self.default_idx];
         let mut deltas = Vec::with_capacity(self.regions.len());
 
-        for (region_idx, region) in self.regions.iter().enumerate() {
+        for region_idx in 0..self.regions.len() {
             let master_idx = self.master_order[region_idx + 1];
             let master_value = master_values[master_idx];
 
             let mut delta_x = i32::from(master_value.0) - i32::from(default_value.0);
             let mut delta_y = i32::from(master_value.1) - i32::from(default_value.1);
 
-            for (prev_region_idx, prev_region) in self.regions[..region_idx].iter().enumerate() {
-                let peak: Vec<f32> = region.axes.iter().map(|(_, p, _)| *p).collect();
-                let scalar = prev_region.scalar_at(&peak);
-
+            // Use precomputed scalars instead of recomputing
+            for (prev_region_idx, &scalar) in self.region_scalars[region_idx].iter().enumerate() {
                 if scalar != 0.0 {
                     let prev_delta: (i16, i16) = deltas[prev_region_idx];
                     delta_x -= (f32::from(prev_delta.0) * scalar) as i32;
@@ -266,6 +279,37 @@ impl VariationModel {
         }
 
         (default_value, deltas)
+    }
+
+    /// Compute 2D delta for a single region (more efficient for per-point calls).
+    /// 
+    /// This avoids allocating a Vec for all regions when only one is needed.
+    #[inline]
+    pub fn compute_delta_2d_for_region(
+        &self,
+        master_values: &[(i16, i16)],
+        region_idx: usize,
+        prev_deltas: &[(i16, i16)],
+    ) -> (i16, i16) {
+        let default_value = master_values[self.default_idx];
+        let master_idx = self.master_order[region_idx + 1];
+        let master_value = master_values[master_idx];
+
+        let mut delta_x = i32::from(master_value.0) - i32::from(default_value.0);
+        let mut delta_y = i32::from(master_value.1) - i32::from(default_value.1);
+
+        for (prev_region_idx, &scalar) in self.region_scalars[region_idx].iter().enumerate() {
+            if scalar != 0.0 {
+                let prev_delta = prev_deltas[prev_region_idx];
+                delta_x -= (f32::from(prev_delta.0) * scalar) as i32;
+                delta_y -= (f32::from(prev_delta.1) * scalar) as i32;
+            }
+        }
+
+        (
+            delta_x.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+            delta_y.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+        )
     }
 }
 

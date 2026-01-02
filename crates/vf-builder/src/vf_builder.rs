@@ -5,10 +5,10 @@ use crate::error::{Error, Result};
 use crate::variation_model::VariationModel;
 
 use log::info;
-use rayon::prelude::*;
 use read_fonts::types::{F2Dot14, Fixed, GlyphId, NameId, Tag};
 use read_fonts::{FontData, FontRef, TableProvider};
 use std::collections::HashSet;
+use std::time::Instant;
 use write_fonts::FontBuilder;
 use write_fonts::from_obj::FromObjRef;
 use write_fonts::tables::fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord};
@@ -94,8 +94,9 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     info!("Processing {} glyphs", num_glyphs);
 
     // Build gvar table
+    let gvar_start = Instant::now();
     let gvar = build_gvar(designspace, &masters, &model, num_glyphs)?;
-    info!("Built gvar table");
+    info!("Built gvar table in {:.2}s", gvar_start.elapsed().as_secs_f64());
 
     // Build glyf/loca tables (copy from default)
     let (new_glyf, new_loca, loca_format) = build_glyf_loca(default_font)?;
@@ -200,11 +201,13 @@ fn build_fvar(designspace: &DesignSpace) -> Result<Fvar> {
     })
 }
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 static TOTAL_POINTS: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_POINTS: AtomicUsize = AtomicUsize::new(0);
 static OPTIONAL_POINTS: AtomicUsize = AtomicUsize::new(0);
+static DELTA_COMPUTE_NS: AtomicU64 = AtomicU64::new(0);
+static IUP_OPTIMIZE_NS: AtomicU64 = AtomicU64::new(0);
 
 fn build_gvar(
     designspace: &DesignSpace,
@@ -216,6 +219,8 @@ fn build_gvar(
     TOTAL_POINTS.store(0, Ordering::Relaxed);
     REQUIRED_POINTS.store(0, Ordering::Relaxed);
     OPTIONAL_POINTS.store(0, Ordering::Relaxed);
+    DELTA_COMPUTE_NS.store(0, Ordering::Relaxed);
+    IUP_OPTIMIZE_NS.store(0, Ordering::Relaxed);
 
     // Load glyf/loca for all masters
     let master_glyfs: Vec<_> = masters
@@ -229,17 +234,24 @@ fn build_gvar(
 
     let axis_count = designspace.axes.len() as u16;
 
+    let variations_start = Instant::now();
     let all_variations: Vec<GlyphVariations> = (0..num_glyphs)
-        .into_par_iter()
         .map(|glyph_idx| {
             let gid = GlyphId::new(glyph_idx as u32);
             build_glyph_variations(gid, designspace, &master_glyfs, &master_locas, model)
         })
         .collect::<Result<Vec<_>>>()?;
+    let variations_elapsed = variations_start.elapsed().as_secs_f64();
 
     let total = TOTAL_POINTS.load(Ordering::Relaxed);
     let required = REQUIRED_POINTS.load(Ordering::Relaxed);
     let optional = OPTIONAL_POINTS.load(Ordering::Relaxed);
+    info!(
+        "Glyph variations computed in {:.2}s ({} glyphs, {:.0} glyphs/sec)",
+        variations_elapsed,
+        num_glyphs,
+        num_glyphs as f64 / variations_elapsed
+    );
     info!(
         "IUP statistics: {} total points, {} required ({:.1}%), {} optional ({:.1}%)",
         total,
@@ -248,8 +260,16 @@ fn build_gvar(
         optional,
         optional as f64 / total as f64 * 100.0
     );
+    
+    let delta_secs = DELTA_COMPUTE_NS.load(Ordering::Relaxed) as f64 / 1_000_000_000.0;
+    let iup_secs = IUP_OPTIMIZE_NS.load(Ordering::Relaxed) as f64 / 1_000_000_000.0;
+    info!("Time breakdown: delta_compute={:.2}s, iup_optimize={:.2}s", delta_secs, iup_secs);
 
-    Gvar::new(all_variations, axis_count).map_err(Error::GvarBuild)
+    let gvar_build_start = Instant::now();
+    let gvar = Gvar::new(all_variations, axis_count).map_err(Error::GvarBuild)?;
+    info!("Gvar::new() took {:.2}s", gvar_build_start.elapsed().as_secs_f64());
+    
+    Ok(gvar)
 }
 
 fn build_glyph_variations(
@@ -346,37 +366,60 @@ fn build_simple_glyph_variations(
         .map(|v| v.get() as usize)
         .collect();
 
-    // Build GlyphDeltas for each region
-    let mut glyph_deltas: Vec<GlyphDeltas> = Vec::with_capacity(model.regions.len());
-
-    for region_idx in 0..model.regions.len() {
-        // Get the full region (min, peak, max) for proper tent encoding
-        let region = &model.regions[region_idx];
-        let tents: Vec<Tent> = region
-            .axes
-            .iter()
-            .map(|&(min, peak, max)| {
-                let peak_f2d14 = F2Dot14::from_f32(peak);
-                // Use explicit intermediate (min, max) values for proper region encoding
-                let intermediate = Some((F2Dot14::from_f32(min), F2Dot14::from_f32(max)));
-                Tent::new(peak_f2d14, intermediate)
-            })
-            .collect();
-
-        // Compute raw deltas for all points
-        let mut raw_deltas: Vec<kurbo::Vec2> = Vec::with_capacity(num_points);
-
-        for point_idx in 0..num_points {
-            let point_values: Vec<(i16, i16)> = master_points
+    // Precompute tents for all regions (these are constant per glyph)
+    let all_tents: Vec<Vec<Tent>> = model
+        .regions
+        .iter()
+        .map(|region| {
+            region
+                .axes
                 .iter()
-                .map(|points| points[point_idx])
-                .collect();
+                .map(|&(min, peak, max)| {
+                    let peak_f2d14 = F2Dot14::from_f32(peak);
+                    let intermediate = Some((F2Dot14::from_f32(min), F2Dot14::from_f32(max)));
+                    Tent::new(peak_f2d14, intermediate)
+                })
+                .collect()
+        })
+        .collect();
 
-            let (_, point_deltas) = model.compute_deltas_2d(&point_values);
-            let delta = point_deltas[region_idx];
-
-            raw_deltas.push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
+    // Compute all deltas for all points across all regions
+    // all_deltas[region_idx][point_idx] = (dx, dy)
+    let delta_start = Instant::now();
+    let num_regions = model.regions.len();
+    let num_masters = master_points.len();
+    
+    // Pre-allocate point_values buffer to avoid repeated allocations
+    let mut point_values: Vec<(i16, i16)> = vec![(0, 0); num_masters];
+    
+    // all_raw_deltas[region_idx] = Vec of deltas for that region
+    let mut all_raw_deltas: Vec<Vec<kurbo::Vec2>> = (0..num_regions)
+        .map(|_| Vec::with_capacity(num_points + 4))
+        .collect();
+    
+    // For each point, compute deltas across all regions
+    for point_idx in 0..num_points {
+        // Fill point_values buffer (no allocation)
+        for (master_idx, points) in master_points.iter().enumerate() {
+            point_values[master_idx] = points[point_idx];
         }
+        
+        // Compute deltas for all regions for this point
+        let mut prev_deltas: Vec<(i16, i16)> = Vec::with_capacity(num_regions);
+        for region_idx in 0..num_regions {
+            let delta = model.compute_delta_2d_for_region(&point_values, region_idx, &prev_deltas);
+            prev_deltas.push(delta);
+            all_raw_deltas[region_idx].push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
+        }
+    }
+    DELTA_COMPUTE_NS.fetch_add(delta_start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+
+    // Build GlyphDeltas for each region
+    let mut glyph_deltas: Vec<GlyphDeltas> = Vec::with_capacity(num_regions);
+
+    for region_idx in 0..num_regions {
+        let tents = all_tents[region_idx].clone();
+        let raw_deltas = &mut all_raw_deltas[region_idx];
 
         // Add 4 phantom point deltas (set to zero for now)
         // Phantom points: LSB origin, advance width, top origin, advance height
@@ -392,12 +435,17 @@ fn build_simple_glyph_variations(
 
         // Apply IUP optimization with tolerance of 0.5 (half a unit)
         // Note: We keep all deltas including phantom points - gvar requires them
-        //
-        // WORKAROUND: write-fonts has a bug where shared point numbers with sparse
-        // deltas causes a mismatch between point count and delta count. Until this
-        // is fixed, we force all deltas to be required (no sparse optimization).
-        // See: https://github.com/googlefonts/fontations/issues/XXX
-        let deltas =
+        let iup_start = Instant::now();
+        
+        // Skip IUP for very small glyphs (overhead not worth it)
+        let deltas = if num_points <= 8 {
+            TOTAL_POINTS.fetch_add(num_points, Ordering::Relaxed);
+            REQUIRED_POINTS.fetch_add(num_points, Ordering::Relaxed);
+            raw_deltas
+                .iter()
+                .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
+                .collect()
+        } else {
             match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
                 Ok(optimized) => {
                     // Track IUP statistics (outline points only, not phantom)
@@ -423,11 +471,13 @@ fn build_simple_glyph_variations(
                     );
                     // Fall back to marking all as required (including phantom points)
                     raw_deltas
-                        .into_iter()
+                        .iter()
                         .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
                         .collect()
                 }
-            };
+            }
+        };
+        IUP_OPTIMIZE_NS.fetch_add(iup_start.elapsed().as_nanos() as u64, Ordering::Relaxed);
 
         glyph_deltas.push(GlyphDeltas::new(tents, deltas));
     }
