@@ -26,7 +26,7 @@ kurbo.workspace = true
 clap = { workspace = true, optional = true }
 
 [dev-dependencies]
-font-test-data = "0.6"
+font-test-data.workspace = true
 
 [features]
 default = ["cli"]

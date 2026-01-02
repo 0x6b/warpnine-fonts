@@ -12,19 +12,34 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
+# Font libraries
 read-fonts = "0.36"
 write-fonts = "0.44"
 skrifa = "0.39"
 font-types = "0.10"
+hb-subset = { version = "0.3", features = ["bundled"] }
+
+# CLI
 clap = { version = "4", features = ["derive"] }
+
+# Error handling
 thiserror = "2"
 anyhow = "1"
+
+# Utilities
 log = "0.4"
 env_logger = "0.11"
 rayon = "1.10"
 chrono = "0.4"
 indexmap = "2"
 kurbo = "0.12"
+
+# Network/IO
+reqwest = { version = "0.12", features = ["blocking"] }
+zip = "2"
+
+# Testing
+font-test-data = "0.6"
 
 # Workspace crates
 warpnine-font-feature-freezer = { path = "crates/feature-freezer", default-features = false }
