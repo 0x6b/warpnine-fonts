@@ -5,27 +5,14 @@ description = "Custom fonts combining Recursive and Noto Sans Mono CJK JP"
 requires-python = ">=3.10"
 dependencies = [
     "fonttools[unicode]>=4.60.1",
-    "opentype-feature-freezer>=1.32.2",
-    "requests>=2.32.5",
-    "click>=8.1.0",
+    "pytest>=8.0.0",
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.8.4",
-    "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[project.scripts]
-warpnine = "warpnine_fonts.cli.main:cli"
-
-[tool.hatch.build.targets.wheel]
-packages = ["warpnine_fonts"]
 
 [tool.ruff]
 target-version = "py310"
@@ -51,5 +38,4 @@ python_files = ["test_*.py"]
 python_functions = ["test_*"]
 markers = [
     "slow: marks tests as slow (may take >10s)",
-    "benchmark: marks tests as benchmarks for performance comparison",
 ]
