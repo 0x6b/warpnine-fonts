@@ -364,9 +364,9 @@ class TestWarpnineMonoStatic:
         features = {r.FeatureTag for r in gsub.FeatureList.FeatureRecord}
         font.close()
 
-        assert "calt" in features or "rclt" in features, (
-            f"Missing calt/rclt features. Found: {sorted(features)}"
-        )
+        # Check for key ligature-related features (Recursive doesn't have calt)
+        assert "liga" in features, f"Missing liga feature. Found: {sorted(features)}"
+        assert "dlig" in features, f"Missing dlig feature. Found: {sorted(features)}"
 
 
 class TestWarpnineMonoVF:

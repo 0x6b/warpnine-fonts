@@ -1,10 +1,12 @@
 use anyhow::bail;
 use anyhow::{Context, Result};
+use rayon::prelude::*;
 use reqwest::blocking::get;
 use std::fs::create_dir_all;
 use std::fs::write;
 use std::io::{Cursor, Read};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct DownloadItem {
     url: &'static str,
@@ -88,29 +90,34 @@ pub fn download(build_dir: &Path) -> Result<()> {
     create_dir_all(build_dir)?;
     println!("Downloading fonts to {}", build_dir.display());
 
-    let mut failures = Vec::new();
+    let failure_count = AtomicUsize::new(0);
+    let total_count = DOWNLOADS.len() + 1;
 
-    for item in DOWNLOADS {
-        if let Err(e) = download_file(item, build_dir) {
-            eprintln!("Error: {e:?}");
-            failures.push(item.description);
+    let all_items: Vec<Option<&DownloadItem>> = DOWNLOADS
+        .iter()
+        .map(Some)
+        .chain(std::iter::once(None)) // None represents Recursive VF
+        .collect();
+
+    all_items.par_iter().for_each(|item| {
+        let result = match item {
+            Some(dl) => download_file(dl, build_dir),
+            None => download_recursive_vf(build_dir),
+        };
+        if let Err(e) = result {
+            let name = item.map_or("Recursive VF", |i| i.description);
+            eprintln!("Error downloading {name}: {e:?}");
+            failure_count.fetch_add(1, Ordering::Relaxed);
         }
-    }
+    });
 
-    if let Err(e) = download_recursive_vf(build_dir) {
-        eprintln!("Error: {e:?}");
-        failures.push("Recursive VF");
-    }
-
-    let success_count = DOWNLOADS.len() + 1 - failures.len();
+    let failures = failure_count.load(Ordering::Relaxed);
+    let success_count = total_count - failures;
 
     println!("\nDownload Summary");
     println!("  Success: {success_count}");
-    if !failures.is_empty() {
-        println!("  Failed:  {}", failures.len());
-        for name in &failures {
-            println!("    - {name}");
-        }
+    if failures > 0 {
+        println!("  Failed:  {failures}");
         bail!("Some downloads failed");
     }
 
