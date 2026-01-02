@@ -31,6 +31,37 @@ use crate::{
 
 type PipelineStep = (&'static str, fn(&PipelineContext) -> Result<()>);
 
+// ============================================================================
+// Pipeline Step Definitions
+// ============================================================================
+
+const MONO_STEPS: &[PipelineStep] = &[
+    ("clean", step_clean),
+    ("download", step_download),
+    ("extract-duotone", step_extract_duotone),
+    ("remove-ligatures", step_remove_ligatures),
+    ("extract-noto-weights", step_extract_noto_weights),
+    ("subset-noto", step_subset_noto),
+    ("merge", step_merge),
+    ("set-names-mono", step_set_names_mono),
+    ("freeze-static-mono", step_freeze_static_mono),
+    ("backup-frozen", step_backup_frozen),
+    ("build-vf", step_build_vf),
+    ("copy-gsub", step_copy_gsub),
+    ("restore-frozen", step_restore_frozen),
+    ("set-names-vf", step_set_names_vf),
+    ("set-monospace", step_set_monospace),
+];
+
+const SANS_STEPS: &[PipelineStep] = &[
+    ("create-condensed", step_create_condensed),
+    ("create-sans", step_create_sans),
+    ("set-names-sans", step_set_names_sans),
+    ("freeze-vf-and-sans", step_freeze_vf_and_sans),
+];
+
+const FINAL_STEPS: &[PipelineStep] = &[("set-version", step_set_version)];
+
 /// Pipeline execution context
 pub struct PipelineContext {
     pub build_dir: PathBuf,
@@ -166,10 +197,7 @@ fn step_merge(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
-    let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
-        .into_iter()
-        .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
-        .collect();
+    let fonts = static_mono_fonts(ctx)?;
 
     println!("  Setting names for {} static mono fonts...", fonts.len());
 
@@ -198,10 +226,7 @@ fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
-    let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
-        .into_iter()
-        .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
-        .collect();
+    let fonts = static_mono_fonts(ctx)?;
 
     println!("  Freezing features in {} static mono fonts...", fonts.len());
 
@@ -213,10 +238,7 @@ fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
     let backup_dir = ctx.build_dir.join("frozen");
     create_dir_all(&backup_dir)?;
 
-    let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
-        .into_iter()
-        .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
-        .collect();
+    let fonts = static_mono_fonts(ctx)?;
 
     println!("  Backing up {} frozen static fonts...", fonts.len());
 
@@ -402,10 +424,24 @@ fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
+fn static_mono_fonts(ctx: &PipelineContext) -> Result<Vec<PathBuf>> {
+    Ok(glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
+        .into_iter()
+        .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
+        .collect())
+}
+
 fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
     let failed: Vec<_> = results.iter().filter(|r| r.is_err()).collect();
     if !failed.is_empty() {
         bail!("{operation} failed for {} files", failed.len());
+    }
+    Ok(())
+}
+
+fn run_steps(steps: &[PipelineStep], ctx: &PipelineContext, offset: usize, total: usize) -> Result<()> {
+    for (i, (name, step_fn)) in steps.iter().enumerate() {
+        run_step(name, offset + i + 1, total, ctx, step_fn)?;
     }
     Ok(())
 }
@@ -423,33 +459,11 @@ pub fn build_all(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> 
     println!("Warpnine Fonts Build Pipeline (Rust)");
     println!("═══════════════════════════════════════════════════════════════════════════════");
 
-    let steps: Vec<PipelineStep> = vec![
-        ("clean", step_clean),
-        ("download", step_download),
-        ("extract-duotone", step_extract_duotone),
-        ("remove-ligatures", step_remove_ligatures),
-        ("extract-noto-weights", step_extract_noto_weights),
-        ("subset-noto", step_subset_noto),
-        ("merge", step_merge),
-        ("set-names-mono", step_set_names_mono),
-        ("freeze-static-mono", step_freeze_static_mono),
-        ("backup-frozen", step_backup_frozen),
-        ("build-vf", step_build_vf),
-        ("copy-gsub", step_copy_gsub),
-        ("restore-frozen", step_restore_frozen),
-        ("set-names-vf", step_set_names_vf),
-        ("set-monospace", step_set_monospace),
-        ("create-condensed", step_create_condensed),
-        ("create-sans", step_create_sans),
-        ("set-names-sans", step_set_names_sans),
-        ("freeze-vf-and-sans", step_freeze_vf_and_sans),
-        ("set-version", step_set_version),
-    ];
+    let total = MONO_STEPS.len() + SANS_STEPS.len() + FINAL_STEPS.len();
 
-    let total = steps.len();
-    for (i, (name, step_fn)) in steps.iter().enumerate() {
-        run_step(name, i + 1, total, &ctx, step_fn)?;
-    }
+    run_steps(MONO_STEPS, &ctx, 0, total)?;
+    run_steps(SANS_STEPS, &ctx, MONO_STEPS.len(), total)?;
+    run_steps(FINAL_STEPS, &ctx, MONO_STEPS.len() + SANS_STEPS.len(), total)?;
 
     println!("\n═══════════════════════════════════════════════════════════════════════════════");
     println!("✨ Build complete in {:.2}s", start.elapsed().as_secs_f64());
@@ -475,29 +489,10 @@ pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
     println!("Warpnine Mono Build Pipeline (Rust)");
     println!("═══════════════════════════════════════════════════════════════════════════════");
 
-    let steps: Vec<PipelineStep> = vec![
-        ("clean", step_clean),
-        ("download", step_download),
-        ("extract-duotone", step_extract_duotone),
-        ("remove-ligatures", step_remove_ligatures),
-        ("extract-noto-weights", step_extract_noto_weights),
-        ("subset-noto", step_subset_noto),
-        ("merge", step_merge),
-        ("set-names-mono", step_set_names_mono),
-        ("freeze-static-mono", step_freeze_static_mono),
-        ("backup-frozen", step_backup_frozen),
-        ("build-vf", step_build_vf),
-        ("copy-gsub", step_copy_gsub),
-        ("restore-frozen", step_restore_frozen),
-        ("set-names-vf", step_set_names_vf),
-        ("set-monospace", step_set_monospace),
-        ("set-version", step_set_version),
-    ];
+    let total = MONO_STEPS.len() + FINAL_STEPS.len();
 
-    let total = steps.len();
-    for (i, (name, step_fn)) in steps.iter().enumerate() {
-        run_step(name, i + 1, total, &ctx, step_fn)?;
-    }
+    run_steps(MONO_STEPS, &ctx, 0, total)?;
+    run_steps(FINAL_STEPS, &ctx, MONO_STEPS.len(), total)?;
 
     println!("\n═══════════════════════════════════════════════════════════════════════════════");
     println!("✨ Mono build complete in {:.2}s", start.elapsed().as_secs_f64());

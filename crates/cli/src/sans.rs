@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use font_instancer::{AxisLocation, instantiate};
+use font_instancer::instantiate;
 use read_fonts::TableProvider;
 use write_fonts::{from_obj::ToOwnedTable, tables::os2::Os2};
 
@@ -49,13 +49,7 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
         let output = output_dir.join(format!("WarpnineSans-{}.ttf", style.name));
         println!("Creating {}", style.name);
 
-        let locations = vec![
-            AxisLocation::new("MONO", 0.0),
-            AxisLocation::new("CASL", 0.0),
-            AxisLocation::new("wght", style.wght),
-            AxisLocation::new("slnt", style.slnt()),
-            AxisLocation::new("CRSV", style.crsv()),
-        ];
+        let locations = style.axis_locations(0.0, 0.0);
 
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", style.name))?;

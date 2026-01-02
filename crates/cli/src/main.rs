@@ -239,25 +239,22 @@ enum Commands {
 }
 
 fn parse_axis(s: &str) -> Result<(String, f32), String> {
-    let parts: Vec<&str> = s.split('=').collect();
-    if parts.len() != 2 {
-        return Err(format!("Invalid axis format '{s}', expected TAG=VALUE"));
-    }
-    let value: f32 = parts[1]
+    let (tag, value_str) = s
+        .split_once('=')
+        .ok_or_else(|| format!("Invalid axis format '{s}', expected TAG=VALUE"))?;
+    let value: f32 = value_str
         .parse()
-        .map_err(|_| format!("Invalid value '{}' for axis '{}'", parts[1], parts[0]))?;
-    Ok((parts[0].to_string(), value))
+        .map_err(|_| format!("Invalid value '{value_str}' for axis '{tag}'"))?;
+    Ok((tag.to_string(), value))
 }
 
 /// Parse instance definition: NAME:TAG=VAL,TAG=VAL
 fn parse_instance_def(s: &str) -> Result<(String, Vec<(String, f32)>), String> {
-    let parts: Vec<&str> = s.splitn(2, ':').collect();
-    if parts.len() != 2 {
-        return Err(format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{s}'"));
-    }
-    let name = parts[0].to_string();
-    let axes: Result<Vec<(String, f32)>, String> = parts[1].split(',').map(parse_axis).collect();
-    Ok((name, axes?))
+    let (name, axes_str) = s
+        .split_once(':')
+        .ok_or_else(|| format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{s}'"))?;
+    let axes: Result<Vec<(String, f32)>, String> = axes_str.split(',').map(parse_axis).collect();
+    Ok((name.to_string(), axes?))
 }
 
 fn main() -> Result<()> {

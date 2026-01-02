@@ -1,5 +1,7 @@
 //! Unified style definitions for font generation.
 
+use font_instancer::AxisLocation;
+
 /// A font style definition with weight and italic flag.
 #[derive(Debug, Clone, Copy)]
 pub struct Style {
@@ -34,6 +36,16 @@ impl Style {
         } else {
             self.name.to_string()
         }
+    }
+
+    pub fn axis_locations(&self, mono: f32, casl: f32) -> Vec<AxisLocation> {
+        vec![
+            AxisLocation::new("MONO", mono),
+            AxisLocation::new("CASL", casl),
+            AxisLocation::new("wght", self.wght),
+            AxisLocation::new("slnt", self.slnt()),
+            AxisLocation::new("CRSV", self.crsv()),
+        ]
     }
 }
 
@@ -85,3 +97,17 @@ pub const MONO_FEATURES: &[&str] = &[
     "dlig", "ss01", "ss02", "ss03", "ss04", "ss05", "ss06", "ss07", "ss08", "ss10", "ss11", "ss12",
     "pnum", "liga",
 ];
+
+pub fn mono_features_owned() -> Vec<String> {
+    MONO_FEATURES.iter().map(|s| (*s).to_string()).collect()
+}
+
+/// Features to freeze in sans fonts.
+pub const SANS_FEATURES: &[&str] = &[
+    "dlig", "ss01", "ss02", "ss03", "ss04", "ss05", "ss06", "ss07", "ss08", "ss10", "ss11", "ss12",
+    "liga",
+];
+
+pub fn sans_features_owned() -> Vec<String> {
+    SANS_FEATURES.iter().map(|s| (*s).to_string()).collect()
+}

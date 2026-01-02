@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use font_instancer::{AxisLocation, instantiate};
+use font_instancer::instantiate;
 use read_fonts::{FontRef, TableProvider, tables, tables::glyf::CurvePoint, types::GlyphId};
 use write_fonts::{
     FontBuilder,
@@ -249,13 +249,7 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         let output = output_dir.join(format!("WarpnineSansCondensed-{}.ttf", style.name));
         println!("Creating {} condensed ({:.0}%)", style.name, scale * 100.0);
 
-        let locations = vec![
-            AxisLocation::new("MONO", 0.0),
-            AxisLocation::new("CASL", 0.0),
-            AxisLocation::new("wght", style.wght),
-            AxisLocation::new("slnt", style.slnt()),
-            AxisLocation::new("CRSV", style.crsv()),
-        ];
+        let locations = style.axis_locations(0.0, 0.0);
 
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", style.name))?;
