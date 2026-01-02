@@ -17,7 +17,7 @@ from pathlib import Path
 
 BUILD_DIR = Path(__file__).parent / "build"
 DIST_DIR = Path(__file__).parent / "dist"
-RUST_BIN = Path(__file__).parent / "rust/warpnine-fonts/target/release/warpnine-fonts"
+RUST_BIN = Path(__file__).parent / "target/release/warpnine-fonts"
 RECURSIVE_VF = (
     Path(__file__).parent
     / "recursive/fonts/ArrowType-Recursive-1.085/Recursive_Desktop/Recursive_VF_1.085.ttf"
@@ -400,6 +400,351 @@ def benchmark_set_version() -> BenchmarkResult:
     )
 
 
+def benchmark_create_sans() -> BenchmarkResult:
+    """Benchmark creating 14 WarpnineSans fonts from Recursive VF."""
+    if not RECURSIVE_VF.exists():
+        return BenchmarkResult(
+            "Create Sans (14 fonts)",
+            None,
+            None,
+            f"VF not found: {RECURSIVE_VF}",
+            f"VF not found: {RECURSIVE_VF}",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        py_out = tmp / "python"
+        rs_out = tmp / "rust"
+        py_out.mkdir()
+        rs_out.mkdir()
+
+        # Python: use fonttools varLib.instancer
+        def run_python():
+            from fontTools.ttLib import TTFont
+            from fontTools.varLib.instancer import instantiateVariableFont
+
+            SANS_INSTANCES = [
+                (
+                    "Regular",
+                    {"wght": 400, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                ("Bold", {"wght": 700, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+                ("Italic", {"wght": 400, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1}),
+                (
+                    "BoldItalic",
+                    {"wght": 700, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                ("Light", {"wght": 300, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+                (
+                    "LightItalic",
+                    {"wght": 300, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                ("Medium", {"wght": 500, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+                (
+                    "MediumItalic",
+                    {"wght": 500, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "SemiBold",
+                    {"wght": 600, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "SemiBoldItalic",
+                    {"wght": 600, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "ExtraBold",
+                    {"wght": 800, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "ExtraBoldItalic",
+                    {"wght": 800, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                ("Black", {"wght": 900, "MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+                (
+                    "BlackItalic",
+                    {"wght": 900, "MONO": 0, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+            ]
+            for style, axes in SANS_INSTANCES:
+                vf = TTFont(RECURSIVE_VF)
+                instance = instantiateVariableFont(vf, axes)
+                instance.save(py_out / f"WarpnineSans-{style}.ttf")
+                vf.close()
+
+        # Rust: use warpnine-fonts create-sans
+        def run_rust():
+            subprocess.run(
+                [
+                    str(RUST_BIN),
+                    "create-sans",
+                    "--input",
+                    str(RECURSIVE_VF),
+                    "--output-dir",
+                    str(rs_out),
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        "Create Sans (14 fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+def benchmark_create_condensed() -> BenchmarkResult:
+    """Benchmark creating 14 WarpnineSansCondensed fonts from Recursive VF."""
+    if not RECURSIVE_VF.exists():
+        return BenchmarkResult(
+            "Create Condensed (14 fonts)",
+            None,
+            None,
+            f"VF not found: {RECURSIVE_VF}",
+            f"VF not found: {RECURSIVE_VF}",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        py_out = tmp / "python"
+        rs_out = tmp / "rust"
+        py_out.mkdir()
+        rs_out.mkdir()
+
+        # Python: use fonttools varLib.instancer
+        def run_python():
+            from fontTools.ttLib import TTFont
+            from fontTools.varLib.instancer import instantiateVariableFont
+
+            CONDENSED_INSTANCES = [
+                (
+                    "Regular",
+                    {"wght": 400, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                ("Bold", {"wght": 700, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+                (
+                    "Italic",
+                    {"wght": 400, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "BoldItalic",
+                    {"wght": 700, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "Light",
+                    {"wght": 300, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "LightItalic",
+                    {"wght": 300, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "Medium",
+                    {"wght": 500, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "MediumItalic",
+                    {"wght": 500, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "SemiBold",
+                    {"wght": 600, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "SemiBoldItalic",
+                    {"wght": 600, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "ExtraBold",
+                    {"wght": 800, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "ExtraBoldItalic",
+                    {"wght": 800, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+                (
+                    "Black",
+                    {"wght": 900, "MONO": 0.8, "CASL": 0, "slnt": 0, "CRSV": 0.5},
+                ),
+                (
+                    "BlackItalic",
+                    {"wght": 900, "MONO": 0.8, "CASL": 0, "slnt": -15, "CRSV": 1},
+                ),
+            ]
+            for style, axes in CONDENSED_INSTANCES:
+                vf = TTFont(RECURSIVE_VF)
+                instance = instantiateVariableFont(vf, axes)
+                instance.save(py_out / f"WarpnineSansCondensed-{style}.ttf")
+                vf.close()
+
+        # Rust: use warpnine-fonts create-condensed
+        def run_rust():
+            subprocess.run(
+                [
+                    str(RUST_BIN),
+                    "create-condensed",
+                    "--input",
+                    str(RECURSIVE_VF),
+                    "--output-dir",
+                    str(rs_out),
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        "Create Condensed (14 fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+def benchmark_subset_japanese() -> BenchmarkResult:
+    """Benchmark subsetting Noto CJK to Japanese ranges."""
+    noto_fonts = sorted(BUILD_DIR.glob("NotoSans*CJK*.ttf"))
+    if not noto_fonts:
+        return BenchmarkResult(
+            "Subset Japanese",
+            None,
+            None,
+            "No Noto CJK fonts found",
+            "No Noto CJK fonts found",
+        )
+
+    # Use first 2 fonts for benchmark
+    fonts = noto_fonts[:2]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        py_fonts = []
+        for f in fonts:
+            dest = tmp / f"py-{f.name}"
+            shutil.copy(f, dest)
+            py_fonts.append(dest)
+
+        rs_fonts = []
+        for f in fonts:
+            dest = tmp / f"rs-{f.name}"
+            shutil.copy(f, dest)
+            rs_fonts.append(dest)
+
+        # Python: use fonttools subset
+        def run_python():
+            # Japanese Unicode ranges
+            unicodes = "U+0000-00FF,U+2000-206F,U+3000-30FF,U+4E00-9FFF,U+FF00-FFEF"
+            for font_path in py_fonts:
+                output = tmp / f"py-subset-{font_path.name}"
+                subprocess.run(
+                    [
+                        "uv",
+                        "run",
+                        "fonttools",
+                        "subset",
+                        str(font_path),
+                        f"--unicodes={unicodes}",
+                        f"--output-file={output}",
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+
+        # Rust: use warpnine-fonts subset-japanese
+        def run_rust():
+            for font_path in rs_fonts:
+                output = tmp / f"rs-subset-{font_path.name}"
+                subprocess.run(
+                    [str(RUST_BIN), "subset-japanese", str(font_path), str(output)],
+                    check=True,
+                    capture_output=True,
+                )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        f"Subset Japanese ({len(fonts)} fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+def benchmark_remove_ligatures() -> BenchmarkResult:
+    """Benchmark removing ligatures from fonts."""
+    fonts = sorted(BUILD_DIR.glob("RecMonoDuotone-*.ttf"))[:5]
+    if not fonts:
+        return BenchmarkResult(
+            "Remove Ligatures",
+            None,
+            None,
+            "No fonts found",
+            "No fonts found",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        py_fonts = []
+        for f in fonts:
+            dest = tmp / f"py-{f.name}"
+            shutil.copy(f, dest)
+            py_fonts.append(dest)
+
+        rs_fonts = []
+        for f in fonts:
+            dest = tmp / f"rs-{f.name}"
+            shutil.copy(f, dest)
+            rs_fonts.append(dest)
+
+        # Python: use fonttools to clear ligature lookups
+        def run_python():
+            from fontTools.ttLib import TTFont
+
+            for font_path in py_fonts:
+                font = TTFont(font_path)
+                if "GSUB" in font:
+                    gsub = font["GSUB"]
+                    for lookup in gsub.table.LookupList.Lookup:
+                        if lookup.LookupType == 4:  # Ligature
+                            for subtable in lookup.SubTable:
+                                if hasattr(subtable, "ligatures"):
+                                    subtable.ligatures = {}
+                font.save(font_path)
+                font.close()
+
+        # Rust: use warpnine-fonts remove-ligatures
+        def run_rust():
+            subprocess.run(
+                [str(RUST_BIN), "remove-ligatures"] + [str(f) for f in rs_fonts],
+                check=True,
+                capture_output=True,
+            )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        f"Remove Ligatures ({len(fonts)} fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
 def format_time(t: float | None) -> str:
     if t is None:
         return "Error"
@@ -417,13 +762,17 @@ def main():
 
     if not RUST_BIN.exists():
         print(f"\n❌ Rust binary not found: {RUST_BIN}")
-        print("   Run: cd rust/warpnine-fonts && cargo build --release")
+        print("   Run: cargo build --release")
         return
 
     benchmarks = [
         ("Extract Duotone", benchmark_extract_duotone),
+        ("Create Sans", benchmark_create_sans),
+        ("Create Condensed", benchmark_create_condensed),
         ("Freeze Static", benchmark_freeze_static),
         ("Merge Fonts", benchmark_merge),
+        ("Subset Japanese", benchmark_subset_japanese),
+        ("Remove Ligatures", benchmark_remove_ligatures),
         ("Set Monospace", benchmark_set_monospace),
         ("Set Version", benchmark_set_version),
     ]
