@@ -32,7 +32,9 @@ pub enum Error {
     },
 
     /// Point count mismatch for a glyph between masters.
-    #[error("Point count mismatch for glyph {glyph_id}: master '{path}' has {actual} points, expected {expected}")]
+    #[error(
+        "Point count mismatch for glyph {glyph_id}: master '{path}' has {actual} points, expected {expected}"
+    )]
     PointCountMismatch {
         path: PathBuf,
         glyph_id: u32,
@@ -41,7 +43,9 @@ pub enum Error {
     },
 
     /// Contour count mismatch for a glyph between masters.
-    #[error("Contour count mismatch for glyph {glyph_id}: master '{path}' has {actual} contours, expected {expected}")]
+    #[error(
+        "Contour count mismatch for glyph {glyph_id}: master '{path}' has {actual} contours, expected {expected}"
+    )]
     ContourCountMismatch {
         path: PathBuf,
         glyph_id: u32,

@@ -217,7 +217,10 @@ impl DesignSpace {
         // Validate axis tags are 4 characters or less
         for axis in &self.axes {
             if axis.tag.len() > 4 {
-                return Err(format!("Axis tag '{}' must be 4 characters or less", axis.tag));
+                return Err(format!(
+                    "Axis tag '{}' must be 4 characters or less",
+                    axis.tag
+                ));
             }
         }
 
@@ -257,7 +260,10 @@ mod tests {
             Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
         ];
 
-        let source = Source::new(PathBuf::from("test.ttf"), vec![("wght", 900.0), ("ital", 1.0)]);
+        let source = Source::new(
+            PathBuf::from("test.ttf"),
+            vec![("wght", 900.0), ("ital", 1.0)],
+        );
         let normalized = source.normalized_location(&axes);
 
         assert_eq!(normalized, vec![1.0, 1.0]);
@@ -271,8 +277,14 @@ mod tests {
         ];
 
         let sources = vec![
-            Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
-            Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 700.0), ("ital", 0.0)]),
+            Source::new(
+                PathBuf::from("Regular.ttf"),
+                vec![("wght", 400.0), ("ital", 0.0)],
+            ),
+            Source::new(
+                PathBuf::from("Bold.ttf"),
+                vec![("wght", 700.0), ("ital", 0.0)],
+            ),
         ];
 
         let ds = DesignSpace::new(axes, sources);

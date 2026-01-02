@@ -237,10 +237,7 @@ impl VariationModel {
     }
 
     /// Compute 2D deltas (x, y) from master values.
-    pub fn compute_deltas_2d(
-        &self,
-        master_values: &[(i16, i16)],
-    ) -> ((i16, i16), Vec<(i16, i16)>) {
+    pub fn compute_deltas_2d(&self, master_values: &[(i16, i16)]) -> ((i16, i16), Vec<(i16, i16)>) {
         let default_value = master_values[self.default_idx];
         let mut deltas = Vec::with_capacity(self.regions.len());
 
@@ -270,15 +267,6 @@ impl VariationModel {
 
         (default_value, deltas)
     }
-
-    /// Get the peak tuple for a region as F2Dot14 values.
-    pub fn region_peak(&self, region_idx: usize) -> Vec<f32> {
-        self.regions[region_idx]
-            .axes
-            .iter()
-            .map(|(_, peak, _)| *peak)
-            .collect()
-    }
 }
 
 #[cfg(test)]
@@ -295,10 +283,22 @@ mod tests {
 
         // 4 corner masters
         let sources = vec![
-            Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
-            Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 900.0), ("ital", 0.0)]),
-            Source::new(PathBuf::from("Italic.ttf"), vec![("wght", 400.0), ("ital", 1.0)]),
-            Source::new(PathBuf::from("BoldItalic.ttf"), vec![("wght", 900.0), ("ital", 1.0)]),
+            Source::new(
+                PathBuf::from("Regular.ttf"),
+                vec![("wght", 400.0), ("ital", 0.0)],
+            ),
+            Source::new(
+                PathBuf::from("Bold.ttf"),
+                vec![("wght", 900.0), ("ital", 0.0)],
+            ),
+            Source::new(
+                PathBuf::from("Italic.ttf"),
+                vec![("wght", 400.0), ("ital", 1.0)],
+            ),
+            Source::new(
+                PathBuf::from("BoldItalic.ttf"),
+                vec![("wght", 900.0), ("ital", 1.0)],
+            ),
         ];
 
         DesignSpace::new(axes, sources)

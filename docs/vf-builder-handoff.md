@@ -22,10 +22,9 @@ We implemented a pure Rust variable font builder (`warpnine-font-vf-builder`) to
 | Builder | Output Size | Notes |
 |---------|-------------|-------|
 | **Python (fontTools)** | **74 MB** | Full optimizations |
-| Rust (with IUP) | 127 MB | Basic IUP only |
-| Rust (no IUP) | 130 MB | All deltas required |
+| Rust (current) | **83 MB** | With tent fix, IUP forced required |
 
-**Gap: ~42% larger than fontTools**
+**Gap: ~12% larger than fontTools** (down from 42%)
 
 ### Validation Results
 
@@ -33,8 +32,8 @@ We implemented a pure Rust variable font builder (`warpnine-font-vf-builder`) to
 - ✅ VF has 16 named instances
 - ✅ VF has gvar with 51,103 glyph variations
 - ✅ Instancing at default location matches original master exactly
-- ✅ Instancing at other locations produces correct interpolation
-- ⚠️ fontTools cannot parse the gvar table (compatibility issue)
+- ✅ Instancing at other locations produces correct interpolation (±2 units)
+- ✅ fontTools can parse the gvar table
 - ✅ read-fonts/skrifa can parse and use the VF correctly
 
 ## Usage
@@ -48,74 +47,33 @@ warpnine-fonts build-vf --dist-dir dist --output dist/WarpnineMono-VF.ttf
 # - WarpnineMono-{Light,Regular,Medium,SemiBold,Bold,ExtraBold,Black,ExtraBlack}Italic.ttf
 ```
 
-## Missing Optimizations
+## Current Issues
 
-Based on analysis of fontTools source code, these optimizations are missing:
+### 1. IUP Sparse Optimization Disabled (write-fonts bug)
 
-### 1. Advanced IUP Optimization (Highest Impact)
+**Issue**: write-fonts has a bug where shared point numbers with sparse deltas causes
+a mismatch between point count and delta count in the encoded gvar data. fontTools
+cannot parse such files.
 
-**fontTools location**: `Lib/fontTools/varLib/iup.py`
+**Current workaround**: All deltas are forced to `required=true` even if IUP
+optimization identifies them as interpolatable. This wastes space but ensures
+fontTools compatibility.
 
-fontTools uses a sophisticated Dynamic Programming algorithm:
-- `_iup_contour_optimize_dp()` finds the truly minimal set of required points
-- `_iup_contour_bound_forced_set()` pre-computes points that cannot be interpolated
-- Achieves 30-60% reduction in explicit delta points
+**Impact**: ~9 MB larger gvar (83 MB vs 74 MB for fontTools)
 
-**Current Rust implementation**: Uses `write_fonts::tables::gvar::iup::iup_delta_optimize` which may be less aggressive.
+**Path to fix**: Report bug to googlefonts/fontations with reproduction case, then
+remove the workaround once fixed.
 
-**Path to improvement**:
-- Study write-fonts IUP implementation vs fontTools
-- Ensure tolerance parameter (0.5) matches fontTools default
-- Verify phantom point handling is correct
+### 2. Shared Point Numbers (Blocked by #1)
 
-### 2. Shared Point Numbers (High Impact)
+write-fonts supports shared point numbers via `compute_shared_points()`, but this
+cannot be used effectively until the sparse delta bug is fixed.
 
-**fontTools location**: `Lib/fontTools/ttLib/tables/TupleVariation.py` lines 709-781
+### 3. Shared Tuple Coordinates (Working)
 
-When multiple tuple variations affect the same set of points, fontTools:
-- Finds the most common point set
-- Encodes it once in a shared location
-- Sets `TUPLES_SHARE_POINT_NUMBERS` flag (0x8000)
-- Other variations reference the shared set
-
-**Current Rust implementation**: Each variation encodes its own point numbers.
-
-**Path to improvement**:
-```rust
-// In GlyphDeltas or GlyphVariations, analyze point sets across all variations
-// for a glyph and identify the most commonly used set
-fn compute_shared_points(variations: &[GlyphDeltas]) -> Option<PackedPointNumbers> {
-    // Count frequency of each point set
-    // Return the most common one if it appears more than once
-}
-```
-
-### 3. Shared Tuple Coordinates (Medium Impact)
-
-**fontTools location**: `Lib/fontTools/ttLib/tables/TupleVariation.py` lines 693-706
-
-Peak tuple coordinates that appear in multiple variations are stored once in a shared table.
-
-**Current Rust implementation**: `write_fonts::tables::gvar::Gvar::new()` already computes shared tuples via `compute_shared_peak_tuples()`. This should be working.
-
-**Verification needed**: Confirm shared tuples are being used effectively.
-
-### 4. Delta Run Encoding (Low-Medium Impact)
-
-**fontTools location**: `Lib/fontTools/ttLib/tables/TupleVariation.py` lines 327-526
-
-Intelligently chooses encoding format:
-- Zero runs: Single byte header, no data
-- Byte runs: Values -128 to 127 in 1 byte each
-- Word runs: Values -32768 to 32767 in 2 bytes each
-
-**Current Rust implementation**: `write_fonts` handles this internally. Should be comparable.
-
-### 5. Point Number Delta Encoding (Low Impact)
-
-Point indices are delta-encoded (store differences, not absolute values).
-
-**Current Rust implementation**: `write_fonts` handles this via `PackedPointNumbers`.
+`write_fonts::tables::gvar::Gvar::new()` computes shared tuples via
+`compute_shared_peak_tuples()`. This is working correctly (15 shared tuples for
+our 16-master VF).
 
 ## Architecture
 
@@ -163,25 +121,26 @@ For composite glyphs:
 2. Compute deltas for each component offset
 3. No IUP optimization (composite glyphs don't have contours)
 
+## Completed Fixes
+
+1. **Phantom point handling** - Fixed: phantom points are now included in gvar deltas
+2. **Tent computation** - Fixed: intermediate masters now have proper (min, peak, max) regions
+3. **fontTools compatibility** - Fixed: all glyphs parse correctly
+4. **IUP optimization** - Working (75.8% optional) but disabled for compatibility
+
 ## Next Steps (Priority Order)
 
-1. **Investigate IUP effectiveness**
-   - Compare number of required vs optional deltas
-   - Check if tolerance parameter needs adjustment
-   - Verify phantom point handling
+1. **File write-fonts bug report**
+   - Reproduce the shared point numbers + sparse deltas issue
+   - Submit to googlefonts/fontations
 
-2. **Implement shared point numbers**
-   - Analyze point sets across variations
-   - Find most common set per glyph
-   - Encode once, reference by flag
+2. **Remove IUP workaround** (after write-fonts fix)
+   - Remove `GlyphDelta::required()` forcing
+   - Should reduce gvar by ~10 MB
 
-3. **Verify shared tuples**
-   - Confirm write-fonts is computing shared tuples
-   - Check if our tuple count matches fontTools
-
-4. **Fix fontTools compatibility**
-   - Investigate why fontTools can't parse our gvar
-   - May be a write-fonts encoding quirk
+3. **Investigate remaining size gap**
+   - Current: 83 MB vs fontTools 74 MB
+   - After IUP fix: should be closer to fontTools
 
 ## Testing
 

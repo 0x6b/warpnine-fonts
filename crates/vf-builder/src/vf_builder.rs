@@ -8,12 +8,17 @@ use log::info;
 use read_fonts::types::{F2Dot14, Fixed, GlyphId, NameId, Tag};
 use read_fonts::{FontData, FontRef, TableProvider};
 use std::collections::HashSet;
+use write_fonts::FontBuilder;
 use write_fonts::from_obj::FromObjRef;
 use write_fonts::tables::fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord};
-use write_fonts::tables::glyf::{CompositeGlyph as WriteCompositeGlyph, GlyfLocaBuilder, Glyph as WriteGlyph, SimpleGlyph as WriteSimpleGlyph};
-use write_fonts::tables::gvar::{iup::iup_delta_optimize, GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent};
+use write_fonts::tables::glyf::{
+    CompositeGlyph as WriteCompositeGlyph, GlyfLocaBuilder, Glyph as WriteGlyph,
+    SimpleGlyph as WriteSimpleGlyph,
+};
+use write_fonts::tables::gvar::{
+    GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent, iup::iup_delta_optimize,
+};
 use write_fonts::tables::head::Head;
-use write_fonts::FontBuilder;
 
 /// Tables that should NOT be copied (variation-specific or rebuilt).
 const SKIP_TABLES: &[Tag] = &[
@@ -35,9 +40,7 @@ const SKIP_TABLES: &[Tag] = &[
 /// 4. Builds fvar, gvar, and other required tables
 /// 5. Copies other tables from the default master
 pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
-    designspace
-        .validate()
-        .map_err(Error::InvalidDesignspace)?;
+    designspace.validate().map_err(Error::InvalidDesignspace)?;
 
     info!(
         "Building variable font from {} masters",
@@ -212,7 +215,7 @@ fn build_gvar(
     TOTAL_POINTS.store(0, Ordering::Relaxed);
     REQUIRED_POINTS.store(0, Ordering::Relaxed);
     OPTIONAL_POINTS.store(0, Ordering::Relaxed);
-    
+
     // Load glyf/loca for all masters
     let master_glyfs: Vec<_> = masters
         .iter()
@@ -365,8 +368,10 @@ fn build_simple_glyph_variations(
         let mut raw_deltas: Vec<kurbo::Vec2> = Vec::with_capacity(num_points);
 
         for point_idx in 0..num_points {
-            let point_values: Vec<(i16, i16)> =
-                master_points.iter().map(|points| points[point_idx]).collect();
+            let point_values: Vec<(i16, i16)> = master_points
+                .iter()
+                .map(|points| points[point_idx])
+                .collect();
 
             let (_, point_deltas) = model.compute_deltas_2d(&point_values);
             let delta = point_deltas[region_idx];
@@ -393,31 +398,37 @@ fn build_simple_glyph_variations(
         // deltas causes a mismatch between point count and delta count. Until this
         // is fixed, we force all deltas to be required (no sparse optimization).
         // See: https://github.com/googlefonts/fontations/issues/XXX
-        let deltas = match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
-            Ok(optimized) => {
-                // Track IUP statistics (outline points only, not phantom)
-                let outline_deltas = &optimized[..num_points];
-                let required_count = outline_deltas.iter().filter(|d| d.required).count();
-                let optional_count = outline_deltas.iter().filter(|d| !d.required).count();
-                TOTAL_POINTS.fetch_add(num_points, Ordering::Relaxed);
-                REQUIRED_POINTS.fetch_add(required_count, Ordering::Relaxed);
-                OPTIONAL_POINTS.fetch_add(optional_count, Ordering::Relaxed);
-                
-                // Force all deltas to be required to work around write-fonts bug
-                optimized.into_iter()
-                    .map(|d| GlyphDelta::required(d.x, d.y))
-                    .collect()
-            }
-            Err(e) => {
-                // Log the error for debugging
-                log::warn!("IUP optimization failed for glyph {}: {:?}", gid.to_u32(), e);
-                // Fall back to marking all as required (including phantom points)
-                raw_deltas
-                    .into_iter()
-                    .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
-                    .collect()
-            }
-        };
+        let deltas =
+            match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
+                Ok(optimized) => {
+                    // Track IUP statistics (outline points only, not phantom)
+                    let outline_deltas = &optimized[..num_points];
+                    let required_count = outline_deltas.iter().filter(|d| d.required).count();
+                    let optional_count = outline_deltas.iter().filter(|d| !d.required).count();
+                    TOTAL_POINTS.fetch_add(num_points, Ordering::Relaxed);
+                    REQUIRED_POINTS.fetch_add(required_count, Ordering::Relaxed);
+                    OPTIONAL_POINTS.fetch_add(optional_count, Ordering::Relaxed);
+
+                    // Force all deltas to be required to work around write-fonts bug
+                    optimized
+                        .into_iter()
+                        .map(|d| GlyphDelta::required(d.x, d.y))
+                        .collect()
+                }
+                Err(e) => {
+                    // Log the error for debugging
+                    log::warn!(
+                        "IUP optimization failed for glyph {}: {:?}",
+                        gid.to_u32(),
+                        e
+                    );
+                    // Fall back to marking all as required (including phantom points)
+                    raw_deltas
+                        .into_iter()
+                        .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
+                        .collect()
+                }
+            };
 
         glyph_deltas.push(GlyphDeltas::new(tents, deltas));
     }
@@ -499,7 +510,7 @@ fn build_composite_glyph_variations(
 
             deltas.push(GlyphDelta::required(delta.0, delta.1));
         }
-        
+
         // Add 4 phantom point deltas (zero - composite metrics don't vary here)
         for _ in 0..4 {
             deltas.push(GlyphDelta::required(0, 0));
@@ -534,8 +545,7 @@ fn build_glyf_loca(
         let write_glyph: WriteGlyph = match glyph {
             None => WriteGlyph::Empty,
             Some(Glyph::Simple(simple)) => {
-                let write_simple =
-                    WriteSimpleGlyph::from_obj_ref(&simple, FontData::new(&[]));
+                let write_simple = WriteSimpleGlyph::from_obj_ref(&simple, FontData::new(&[]));
                 WriteGlyph::Simple(write_simple)
             }
             Some(Glyph::Composite(composite)) => {
