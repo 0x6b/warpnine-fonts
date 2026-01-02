@@ -16,12 +16,78 @@ pub struct Region {
 }
 
 impl Region {
-    /// Create a region from a peak location.
+    /// Create a region from a peak location with neighbor-based tent boundaries.
     ///
-    /// For simple cases (corner masters), the region is:
-    /// - (0, 0, 0) for peak at 0
-    /// - (0, peak, 1) for peak > 0
-    /// - (-1, peak, 0) for peak < 0
+    /// For each axis, the tent (min, peak, max) is computed following fontTools'
+    /// VariationModel approach:
+    /// - min: previous master's peak position (or 0 for first positive, -1 for negative)
+    /// - max: axis maximum (1.0 for positive side, 0.0 for negative side)
+    ///
+    /// This "greedy" approach where each region extends to the axis max is what
+    /// fontTools uses for delta computation.
+    pub fn from_peak_with_neighbors(peak: &[f32], all_locations: &[Vec<f32>]) -> Self {
+        let axes = peak
+            .iter()
+            .enumerate()
+            .map(|(axis_idx, &p)| {
+                if p == 0.0 {
+                    // Default location on this axis - no contribution
+                    (0.0, 0.0, 0.0)
+                } else {
+                    // Collect all unique positions on this axis, including default (0)
+                    let mut positions: Vec<f32> = all_locations
+                        .iter()
+                        .map(|loc| loc.get(axis_idx).copied().unwrap_or(0.0))
+                        .collect();
+                    positions.push(0.0); // Ensure default is included
+                    positions.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    positions.dedup();
+
+                    if p > 0.0 {
+                        // Positive side: min is previous peak, max is 1.0
+                        let pos_positions: Vec<f32> =
+                            positions.iter().filter(|&&x| x >= 0.0).copied().collect();
+                        let idx = pos_positions.iter().position(|&x| (x - p).abs() < 0.0001);
+
+                        if let Some(i) = idx {
+                            // min is the previous master's peak (0 for first positive master)
+                            let min = if i == 0 { 0.0 } else { pos_positions[i - 1] };
+                            // max is always the axis maximum
+                            let max = 1.0;
+                            (min, p, max)
+                        } else {
+                            (0.0, p, 1.0)
+                        }
+                    } else {
+                        // Negative side: min is -1.0, max is next peak toward 0
+                        let neg_positions: Vec<f32> =
+                            positions.iter().filter(|&&x| x <= 0.0).copied().collect();
+                        let idx = neg_positions.iter().position(|&x| (x - p).abs() < 0.0001);
+
+                        if let Some(i) = idx {
+                            // min is always the axis minimum
+                            let min = -1.0;
+                            // max is the next master's peak (0 for last negative master)
+                            let max = if i >= neg_positions.len() - 1 {
+                                0.0
+                            } else {
+                                neg_positions[i + 1]
+                            };
+                            (min, p, max)
+                        } else {
+                            (-1.0, p, 0.0)
+                        }
+                    }
+                }
+            })
+            .collect();
+        Self { axes }
+    }
+
+    /// Create a region from a peak location (simple case for corner masters only).
+    ///
+    /// DEPRECATED: Use from_peak_with_neighbors for proper intermediate master support.
+    #[allow(dead_code)]
     pub fn from_peak(peak: &[f32]) -> Self {
         let axes = peak
             .iter()
@@ -94,14 +160,15 @@ impl VariationModel {
         let default_idx = designspace.default_source_index()?;
         let locations = designspace.master_locations();
 
-        // Build regions for each master
+        // Build regions for each master, using neighbor-based tent computation
         let mut regions_with_idx: Vec<(usize, Region)> = Vec::new();
 
         for (idx, loc) in locations.iter().enumerate() {
             if idx == default_idx {
                 continue;
             }
-            let region = Region::from_peak(loc);
+            // Use neighbor-aware region computation for proper intermediate master support
+            let region = Region::from_peak_with_neighbors(loc, &locations);
             regions_with_idx.push((idx, region));
         }
 

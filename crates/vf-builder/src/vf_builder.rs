@@ -348,10 +348,17 @@ fn build_simple_glyph_variations(
     let mut glyph_deltas: Vec<GlyphDeltas> = Vec::with_capacity(model.regions.len());
 
     for region_idx in 0..model.regions.len() {
-        let peak = model.region_peak(region_idx);
-        let tents: Vec<Tent> = peak
+        // Get the full region (min, peak, max) for proper tent encoding
+        let region = &model.regions[region_idx];
+        let tents: Vec<Tent> = region
+            .axes
             .iter()
-            .map(|&v| Tent::new(F2Dot14::from_f32(v), None))
+            .map(|&(min, peak, max)| {
+                let peak_f2d14 = F2Dot14::from_f32(peak);
+                // Use explicit intermediate (min, max) values for proper region encoding
+                let intermediate = Some((F2Dot14::from_f32(min), F2Dot14::from_f32(max)));
+                Tent::new(peak_f2d14, intermediate)
+            })
             .collect();
 
         // Compute raw deltas for all points
@@ -380,27 +387,33 @@ fn build_simple_glyph_variations(
         }
 
         // Apply IUP optimization with tolerance of 0.5 (half a unit)
+        // Note: We keep all deltas including phantom points - gvar requires them
+        //
+        // WORKAROUND: write-fonts has a bug where shared point numbers with sparse
+        // deltas causes a mismatch between point count and delta count. Until this
+        // is fixed, we force all deltas to be required (no sparse optimization).
+        // See: https://github.com/googlefonts/fontations/issues/XXX
         let deltas = match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
             Ok(optimized) => {
-                // Remove phantom point deltas from result
-                let result: Vec<GlyphDelta> = optimized.into_iter().take(num_points).collect();
-                
-                // Track IUP statistics
-                let required_count = result.iter().filter(|d| d.required).count();
-                let optional_count = result.iter().filter(|d| !d.required).count();
+                // Track IUP statistics (outline points only, not phantom)
+                let outline_deltas = &optimized[..num_points];
+                let required_count = outline_deltas.iter().filter(|d| d.required).count();
+                let optional_count = outline_deltas.iter().filter(|d| !d.required).count();
                 TOTAL_POINTS.fetch_add(num_points, Ordering::Relaxed);
                 REQUIRED_POINTS.fetch_add(required_count, Ordering::Relaxed);
                 OPTIONAL_POINTS.fetch_add(optional_count, Ordering::Relaxed);
                 
-                result
+                // Force all deltas to be required to work around write-fonts bug
+                optimized.into_iter()
+                    .map(|d| GlyphDelta::required(d.x, d.y))
+                    .collect()
             }
             Err(e) => {
                 // Log the error for debugging
                 log::warn!("IUP optimization failed for glyph {}: {:?}", gid.to_u32(), e);
-                // Fall back to marking all as required
+                // Fall back to marking all as required (including phantom points)
                 raw_deltas
                     .into_iter()
-                    .take(num_points)
                     .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
                     .collect()
             }
@@ -461,10 +474,16 @@ fn build_composite_glyph_variations(
     let mut glyph_deltas: Vec<GlyphDeltas> = Vec::with_capacity(model.regions.len());
 
     for region_idx in 0..model.regions.len() {
-        let peak = model.region_peak(region_idx);
-        let tents: Vec<Tent> = peak
+        // Get the full region (min, peak, max) for proper tent encoding
+        let region = &model.regions[region_idx];
+        let tents: Vec<Tent> = region
+            .axes
             .iter()
-            .map(|&v| Tent::new(F2Dot14::from_f32(v), None))
+            .map(|&(min, peak, max)| {
+                let peak_f2d14 = F2Dot14::from_f32(peak);
+                let intermediate = Some((F2Dot14::from_f32(min), F2Dot14::from_f32(max)));
+                Tent::new(peak_f2d14, intermediate)
+            })
             .collect();
 
         let mut deltas: Vec<GlyphDelta> = Vec::with_capacity(num_components);
@@ -479,6 +498,11 @@ fn build_composite_glyph_variations(
             let delta = offset_deltas[region_idx];
 
             deltas.push(GlyphDelta::required(delta.0, delta.1));
+        }
+        
+        // Add 4 phantom point deltas (zero - composite metrics don't vary here)
+        for _ in 0..4 {
+            deltas.push(GlyphDelta::required(0, 0));
         }
 
         glyph_deltas.push(GlyphDeltas::new(tents, deltas));
