@@ -945,6 +945,54 @@ class TestFontNaming:
         failures = validate_font_names_exist(font_path)
         assert not failures, f"{font_path.name}: {failures}"
 
+    def test_mono_vf_stat_table(self):
+        """Validate STAT table exists and has correct structure for WarpnineMono VF."""
+        font_path = DIST_DIR / "WarpnineMono-VF.ttf"
+        if not font_path.exists():
+            pytest.skip("VF not built")
+
+        font = TTFont(font_path)
+        assert "STAT" in font, "VF should have STAT table"
+
+        stat = font["STAT"]
+
+        # Check axes
+        assert len(stat.table.DesignAxisRecord.Axis) == 2, "STAT should have 2 axes"
+        axis_tags = [a.AxisTag for a in stat.table.DesignAxisRecord.Axis]
+        assert "wght" in axis_tags, "STAT should have wght axis"
+        assert "ital" in axis_tags, "STAT should have ital axis"
+
+        # Check axis values exist
+        assert stat.table.AxisValueArray is not None, "STAT should have axis values"
+        axis_values = stat.table.AxisValueArray.AxisValue
+        assert len(axis_values) == 10, (
+            f"STAT should have 10 axis values, got {len(axis_values)}"
+        )
+
+        # Check weight values (8 weights)
+        weight_values = [av for av in axis_values if av.AxisIndex == 0]
+        assert len(weight_values) == 8, (
+            f"STAT should have 8 weight values, got {len(weight_values)}"
+        )
+
+        # Check italic values (2: upright and italic)
+        italic_values = [av for av in axis_values if av.AxisIndex == 1]
+        assert len(italic_values) == 2, (
+            f"STAT should have 2 italic values, got {len(italic_values)}"
+        )
+
+        # Check elidable defaults (Regular=400 and Upright=0 should be elidable)
+        elidable_flags = 0x0002  # ELIDABLE_AXIS_VALUE_NAME
+        regular_av = next((av for av in weight_values if av.Value == 400.0), None)
+        assert regular_av is not None, "STAT should have Regular (400) weight value"
+        assert regular_av.Flags & elidable_flags, "Regular weight should be elidable"
+
+        upright_av = next((av for av in italic_values if av.Value == 0.0), None)
+        assert upright_av is not None, "STAT should have Upright (0) italic value"
+        assert upright_av.Flags & elidable_flags, "Upright should be elidable"
+
+        font.close()
+
     def test_sans_font_names_exist(self):
         """Validate required name table entries exist for WarpnineSans fonts."""
         for style in ["Regular", "Bold", "Italic"]:

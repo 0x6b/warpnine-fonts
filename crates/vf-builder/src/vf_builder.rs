@@ -21,6 +21,7 @@ use write_fonts::tables::gvar::{
 };
 use write_fonts::tables::head::Head;
 use write_fonts::tables::name::{Name, NameRecord};
+use write_fonts::tables::stat::{AxisRecord as StatAxisRecord, AxisValue, AxisValueTableFlags, Stat};
 
 /// Tables that should NOT be copied (variation-specific or rebuilt).
 const SKIP_TABLES: &[Tag] = &[
@@ -30,6 +31,8 @@ const SKIP_TABLES: &[Tag] = &[
     Tag::new(b"fvar"),
     Tag::new(b"gvar"),
     Tag::new(b"STAT"),
+    Tag::new(b"HVAR"),
+    Tag::new(b"MVAR"),
     Tag::new(b"DSIG"),
     Tag::new(b"name"),
 ];
@@ -116,6 +119,10 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     // Build name table with instance names
     let name = build_name(default_font, designspace)?;
 
+    // Build STAT table (style attributes)
+    let stat = build_stat(designspace)?;
+    info!("Built STAT table");
+
     // Assemble the font
     let mut builder = FontBuilder::new();
 
@@ -125,6 +132,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     builder.add_table(&new_loca)?;
     builder.add_table(&head)?;
     builder.add_table(&name)?;
+    builder.add_table(&stat)?;
 
     // Copy tables from default master
     let skip_set: HashSet<Tag> = SKIP_TABLES.iter().copied().collect();
@@ -219,14 +227,22 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
 
     let mut new_records: Vec<NameRecord> = Vec::new();
 
-    // Copy existing name records (skip any that conflict with instance name IDs)
+    // Name IDs used for instances (256-271 for 16 instances)
+    let instance_name_ids: HashSet<u16> = (INSTANCE_NAME_ID_START
+        ..INSTANCE_NAME_ID_START + designspace.instances.len() as u16)
+        .collect();
+    
+    // Name IDs used for STAT table values
+    let stat_name_ids: HashSet<u16> = [280, 281, 282, 283, 284, 285, 286, 287, 290, 291]
+        .into_iter()
+        .collect();
+
+    // Copy existing name records (skip any that will be replaced)
     for record in name_table.name_record() {
         let name_id = record.name_id().to_u16();
 
-        // Skip name IDs that will be used for instances
-        if name_id >= INSTANCE_NAME_ID_START
-            && name_id < INSTANCE_NAME_ID_START + designspace.instances.len() as u16
-        {
+        // Skip name IDs that will be used for instances or STAT
+        if instance_name_ids.contains(&name_id) || stat_name_ids.contains(&name_id) {
             continue;
         }
 
@@ -264,6 +280,55 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             0,
             read_fonts::types::NameId::new(name_id),
             instance.name.clone().into(),
+        ));
+    }
+
+    // Add STAT table name entries
+    // Weight values (name IDs 280-287)
+    let stat_weight_names = [
+        (280, "Light"),
+        (281, "Regular"),
+        (282, "Medium"),
+        (283, "SemiBold"),
+        (284, "Bold"),
+        (285, "ExtraBold"),
+        (286, "Black"),
+        (287, "ExtraBlack"),
+    ];
+    
+    for (name_id, name) in stat_weight_names {
+        // Windows
+        new_records.push(NameRecord::new(
+            3, 1, 0x409,
+            read_fonts::types::NameId::new(name_id),
+            name.to_string().into(),
+        ));
+        // Mac
+        new_records.push(NameRecord::new(
+            1, 0, 0,
+            read_fonts::types::NameId::new(name_id),
+            name.to_string().into(),
+        ));
+    }
+    
+    // Italic values (name IDs 290-291)
+    let stat_italic_names = [
+        (290, "Upright"),
+        (291, "Italic"),
+    ];
+    
+    for (name_id, name) in stat_italic_names {
+        // Windows
+        new_records.push(NameRecord::new(
+            3, 1, 0x409,
+            read_fonts::types::NameId::new(name_id),
+            name.to_string().into(),
+        ));
+        // Mac
+        new_records.push(NameRecord::new(
+            1, 0, 0,
+            read_fonts::types::NameId::new(name_id),
+            name.to_string().into(),
         ));
     }
 
@@ -699,4 +764,76 @@ fn build_head(
             write_fonts::tables::loca::LocaFormat::Long => 1,
         },
     ))
+}
+
+/// Build STAT table for style attributes.
+///
+/// The STAT table is required for proper style menu grouping in applications.
+fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
+    // Build axis records - these describe the axes in the font
+    let axis_records: Vec<StatAxisRecord> = designspace
+        .axes
+        .iter()
+        .enumerate()
+        .map(|(idx, axis)| {
+            let mut tag_bytes = [b' '; 4];
+            for (i, b) in axis.tag.bytes().take(4).enumerate() {
+                tag_bytes[i] = b;
+            }
+            // Use name IDs 256+ for axis names (matching fvar)
+            StatAxisRecord::new(Tag::new(&tag_bytes), NameId::new(256 + idx as u16), idx as u16)
+        })
+        .collect();
+
+    // Build axis values for each named instance/weight
+    let mut axis_values: Vec<AxisValue> = Vec::new();
+    
+    // For weight axis: add values for each weight stop
+    // Standard weight values with name IDs starting at 280
+    let weight_values: [(f64, &str, u16); 8] = [
+        (300.0, "Light", 280),
+        (400.0, "Regular", 281),
+        (500.0, "Medium", 282),
+        (600.0, "SemiBold", 283),
+        (700.0, "Bold", 284),
+        (800.0, "ExtraBold", 285),
+        (900.0, "Black", 286),
+        (1000.0, "ExtraBlack", 287),
+    ];
+    
+    for (value, _name, name_id) in weight_values {
+        let mut flags = AxisValueTableFlags::empty();
+        // Mark Regular (400) as the elidable default
+        if (value - 400.0).abs() < 0.1 {
+            flags |= AxisValueTableFlags::ELIDABLE_AXIS_VALUE_NAME;
+        }
+        axis_values.push(AxisValue::format_1(
+            0, // wght is axis index 0
+            flags,
+            NameId::new(name_id),
+            Fixed::from_f64(value),
+        ));
+    }
+
+    // For italic axis: add values for upright and italic
+    let italic_values: [(f64, &str, u16, bool); 2] = [
+        (0.0, "Upright", 290, true),  // Upright is elidable default
+        (1.0, "Italic", 291, false),
+    ];
+    
+    for (value, _name, name_id, is_default) in italic_values {
+        let mut flags = AxisValueTableFlags::empty();
+        if is_default {
+            flags |= AxisValueTableFlags::ELIDABLE_AXIS_VALUE_NAME;
+        }
+        axis_values.push(AxisValue::format_1(
+            1, // ital is axis index 1
+            flags,
+            NameId::new(name_id),
+            Fixed::from_f64(value),
+        ));
+    }
+
+    // Use "Regular" (name ID 281) as the elided fallback name
+    Ok(Stat::new(axis_records, axis_values, NameId::new(281)))
 }
