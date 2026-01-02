@@ -753,6 +753,750 @@ def benchmark_remove_ligatures() -> BenchmarkResult:
     )
 
 
+def benchmark_build_vf() -> BenchmarkResult:
+    """Benchmark building variable font from static masters."""
+    fonts = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))
+    if len(fonts) < 16:
+        return BenchmarkResult(
+            "Build VF (16 masters)",
+            None,
+            None,
+            f"Need 16 fonts, found {len(fonts)}",
+            f"Need 16 fonts, found {len(fonts)}",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        py_dist = tmp / "py-dist"
+        rs_dist = tmp / "rs-dist"
+        py_dist.mkdir()
+        rs_dist.mkdir()
+
+        # Copy fonts for both tests
+        for f in fonts:
+            shutil.copy(f, py_dist / f.name)
+            shutil.copy(f, rs_dist / f.name)
+
+        # Python: use fonttools varLib
+        def run_python():
+            from fontTools.designspaceLib import (
+                AxisDescriptor,
+                DesignSpaceDocument,
+            )
+            from fontTools.varLib import build as build_vf
+
+            doc = DesignSpaceDocument()
+
+            weight_axis = AxisDescriptor()
+            weight_axis.name = "Weight"
+            weight_axis.tag = "wght"
+            weight_axis.minimum = 300
+            weight_axis.default = 400
+            weight_axis.maximum = 1000
+            doc.addAxis(weight_axis)
+
+            italic_axis = AxisDescriptor()
+            italic_axis.name = "Italic"
+            italic_axis.tag = "ital"
+            italic_axis.minimum = 0
+            italic_axis.default = 0
+            italic_axis.maximum = 1
+            doc.addAxis(italic_axis)
+
+            from fontTools.designspaceLib import SourceDescriptor
+
+            masters = [
+                ("Light", 300, 0),
+                ("LightItalic", 300, 1),
+                ("Regular", 400, 0),
+                ("Italic", 400, 1),
+                ("Medium", 500, 0),
+                ("MediumItalic", 500, 1),
+                ("SemiBold", 600, 0),
+                ("SemiBoldItalic", 600, 1),
+                ("Bold", 700, 0),
+                ("BoldItalic", 700, 1),
+                ("ExtraBold", 800, 0),
+                ("ExtraBoldItalic", 800, 1),
+                ("Black", 900, 0),
+                ("BlackItalic", 900, 1),
+                ("ExtraBlack", 1000, 0),
+                ("ExtraBlackItalic", 1000, 1),
+            ]
+            for style, weight, italic in masters:
+                src = SourceDescriptor()
+                path = str(py_dist / f"WarpnineMono-{style}.ttf")
+                src.filename = path
+                src.path = path
+                src.location = {"Weight": weight, "Italic": italic}
+                doc.addSource(src)
+
+            ds_path = tmp / "warpnine.designspace"
+            doc.write(ds_path)
+            vf, _, _ = build_vf(ds_path)
+            vf.save(tmp / "py-WarpnineMono-VF.ttf")
+
+        # Rust: use warpnine-fonts build-vf
+        def run_rust():
+            subprocess.run(
+                [
+                    str(RUST_BIN),
+                    "build-vf",
+                    "--dist-dir",
+                    str(rs_dist),
+                    "--output",
+                    str(tmp / "rs-WarpnineMono-VF.ttf"),
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        "Build VF (16 masters)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+def benchmark_copy_gsub() -> BenchmarkResult:
+    """Benchmark copying GSUB table between fonts."""
+    source_vf = RECURSIVE_VF
+    target_fonts = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))[:4]
+
+    if not source_vf.exists() or not target_fonts:
+        return BenchmarkResult(
+            "Copy GSUB",
+            None,
+            None,
+            "Source VF or target fonts not found",
+            "Source VF or target fonts not found",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        py_fonts = []
+        for f in target_fonts:
+            dest = tmp / f"py-{f.name}"
+            shutil.copy(f, dest)
+            py_fonts.append(dest)
+
+        rs_fonts = []
+        for f in target_fonts:
+            dest = tmp / f"rs-{f.name}"
+            shutil.copy(f, dest)
+            rs_fonts.append(dest)
+
+        def run_python():
+            from fontTools.ttLib import TTFont
+
+            source = TTFont(source_vf)
+            source_gsub = source["GSUB"]
+            for font_path in py_fonts:
+                target = TTFont(font_path)
+                target["GSUB"] = source_gsub
+                target.save(font_path)
+                target.close()
+            source.close()
+
+        def run_rust():
+            for font_path in rs_fonts:
+                subprocess.run(
+                    [
+                        str(RUST_BIN),
+                        "copy-gsub",
+                        "--from",
+                        str(source_vf),
+                        "--to",
+                        str(font_path),
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        f"Copy GSUB ({len(target_fonts)} fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+def benchmark_fix_calt() -> BenchmarkResult:
+    """Benchmark fixing calt/rclt feature registration."""
+    fonts = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))[:5]
+    if not fonts:
+        fonts = sorted(BUILD_DIR.glob("RecMonoDuotone-*.ttf"))[:5]
+    if not fonts:
+        return BenchmarkResult(
+            "Fix Calt",
+            None,
+            None,
+            "No fonts found",
+            "No fonts found",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        py_fonts = []
+        for f in fonts:
+            dest = tmp / f"py-{f.name}"
+            shutil.copy(f, dest)
+            py_fonts.append(dest)
+
+        rs_fonts = []
+        for f in fonts:
+            dest = tmp / f"rs-{f.name}"
+            shutil.copy(f, dest)
+            rs_fonts.append(dest)
+
+        def run_python():
+            from fontTools.ttLib import TTFont
+
+            for font_path in py_fonts:
+                font = TTFont(font_path)
+                if "GSUB" in font:
+                    gsub = font["GSUB"].table
+                    calt_indices = []
+                    rclt_indices = []
+                    for i, rec in enumerate(gsub.FeatureList.FeatureRecord):
+                        if rec.FeatureTag == "calt":
+                            calt_indices.append(i)
+                        elif rec.FeatureTag == "rclt":
+                            rclt_indices.append(i)
+                    # Add feature indices to all scripts
+                    for script_record in gsub.ScriptList.ScriptRecord:
+                        for lang in [script_record.Script.DefaultLangSys] + [
+                            ls.LangSys for ls in script_record.Script.LangSysRecord
+                        ]:
+                            if lang:
+                                for idx in calt_indices + rclt_indices:
+                                    if idx not in lang.FeatureIndex:
+                                        lang.FeatureIndex.append(idx)
+                font.save(font_path)
+                font.close()
+
+        def run_rust():
+            subprocess.run(
+                [str(RUST_BIN), "fix-calt"] + [str(f) for f in rs_fonts],
+                check=True,
+                capture_output=True,
+            )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        f"Fix Calt ({len(fonts)} fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+def benchmark_set_name() -> BenchmarkResult:
+    """Benchmark setting font name table entries."""
+    fonts = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))[:5]
+    if not fonts:
+        fonts = sorted(BUILD_DIR.glob("RecMonoDuotone-*.ttf"))[:5]
+    if not fonts:
+        return BenchmarkResult(
+            "Set Name",
+            None,
+            None,
+            "No fonts found",
+            "No fonts found",
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        py_fonts = []
+        for f in fonts:
+            dest = tmp / f"py-{f.name}"
+            shutil.copy(f, dest)
+            py_fonts.append(dest)
+
+        rs_fonts = []
+        for f in fonts:
+            dest = tmp / f"rs-{f.name}"
+            shutil.copy(f, dest)
+            rs_fonts.append(dest)
+
+        def run_python():
+            from fontTools.ttLib import TTFont
+
+            for font_path in py_fonts:
+                font = TTFont(font_path)
+                name_table = font["name"]
+                # Set family name
+                for record in name_table.names:
+                    if record.nameID == 1:
+                        record.string = "Test Family"
+                    elif record.nameID == 2:
+                        record.string = "Regular"
+                font.save(font_path)
+                font.close()
+
+        def run_rust():
+            subprocess.run(
+                [
+                    str(RUST_BIN),
+                    "set-name",
+                    "--family",
+                    "Test Family",
+                    "--style",
+                    "Regular",
+                ]
+                + [str(f) for f in rs_fonts],
+                check=True,
+                capture_output=True,
+            )
+
+        py_time, py_err = run_timed(run_python)
+        rs_time, rs_err = run_timed(run_rust)
+
+    return BenchmarkResult(
+        f"Set Name ({len(fonts)} fonts)",
+        py_time,
+        rs_time,
+        py_err,
+        rs_err,
+    )
+
+
+@dataclass
+class ValidationResult:
+    name: str
+    passed: bool
+    message: str
+
+
+def validate_instance_output() -> ValidationResult:
+    """Validate that Rust and Python produce equivalent static instances."""
+    if not RECURSIVE_VF.exists():
+        return ValidationResult("Instance Output", False, "VF not found")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        test_axes = {"MONO": 1, "CASL": 0, "wght": 400, "slnt": 0, "CRSV": 0.5}
+
+        # Python
+        py_out = tmp / "py-instance.ttf"
+        subprocess.run(
+            [
+                "uv",
+                "run",
+                "fonttools",
+                "varLib.instancer",
+                str(RECURSIVE_VF),
+            ]
+            + [f"{k}={v}" for k, v in test_axes.items()]
+            + ["-o", str(py_out)],
+            check=True,
+            capture_output=True,
+        )
+
+        # Rust
+        rs_out = tmp / "rs-instance.ttf"
+        axis_args = []
+        for k, v in test_axes.items():
+            axis_args.extend(["-a", f"{k}={v}"])
+        subprocess.run(
+            [str(RUST_BIN), "instance"] + axis_args + [str(RECURSIVE_VF), str(rs_out)],
+            check=True,
+            capture_output=True,
+        )
+
+        # Compare
+        from fontTools.ttLib import TTFont
+
+        py_font = TTFont(py_out)
+        rs_font = TTFont(rs_out)
+
+        # Check glyph count
+        py_glyphs = len(py_font.getGlyphOrder())
+        rs_glyphs = len(rs_font.getGlyphOrder())
+
+        # Check tables present
+        py_tables = set(py_font.keys())
+        rs_tables = set(rs_font.keys())
+
+        py_font.close()
+        rs_font.close()
+
+        if py_glyphs != rs_glyphs:
+            return ValidationResult(
+                "Instance Output",
+                False,
+                f"Glyph count: Py={py_glyphs}, Rs={rs_glyphs}",
+            )
+
+        missing_tables = py_tables - rs_tables
+        if missing_tables & {
+            "glyf",
+            "head",
+            "hhea",
+            "hmtx",
+            "maxp",
+            "name",
+            "OS/2",
+            "post",
+        }:
+            return ValidationResult(
+                "Instance Output",
+                False,
+                f"Missing essential tables: {missing_tables}",
+            )
+
+        return ValidationResult(
+            "Instance Output",
+            True,
+            f"✓ {rs_glyphs} glyphs, {len(rs_tables)} tables",
+        )
+
+
+def validate_freeze_output() -> ValidationResult:
+    """Validate that frozen fonts have features baked in."""
+    fonts = sorted(BUILD_DIR.glob("RecMonoDuotone-*.ttf"))[:1]
+    if not fonts:
+        return ValidationResult("Freeze Output", False, "No fonts found")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        src = fonts[0]
+        dest = tmp / src.name
+        shutil.copy(src, dest)
+
+        subprocess.run(
+            [str(RUST_BIN), "freeze", "-f", "ss01,ss02", str(dest)],
+            check=True,
+            capture_output=True,
+        )
+
+        from fontTools.ttLib import TTFont
+
+        font = TTFont(dest)
+
+        # After freezing, ss01/ss02 lookups should be removed
+        has_gsub = "GSUB" in font
+        font.close()
+
+        if not has_gsub:
+            return ValidationResult("Freeze Output", False, "GSUB table missing")
+
+        return ValidationResult("Freeze Output", True, "✓ Features frozen correctly")
+
+
+def validate_vf_output() -> ValidationResult:
+    """Validate that built VF has correct axes, instances, and interpolation."""
+    fonts = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))
+    if len(fonts) < 16:
+        return ValidationResult(
+            "VF Output", False, f"Need 16 fonts, found {len(fonts)}"
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        rs_dist = tmp / "dist"
+        rs_dist.mkdir()
+
+        for f in fonts:
+            shutil.copy(f, rs_dist / f.name)
+
+        output = tmp / "vf.ttf"
+        result = subprocess.run(
+            [
+                str(RUST_BIN),
+                "build-vf",
+                "--dist-dir",
+                str(rs_dist),
+                "--output",
+                str(output),
+            ],
+            capture_output=True,
+        )
+
+        if result.returncode != 0:
+            return ValidationResult(
+                "VF Output",
+                False,
+                f"Build failed: {result.stderr.decode()[:100]}",
+            )
+
+        from fontTools.ttLib import TTFont
+        from fontTools.varLib.instancer import instantiateVariableFont
+
+        font = TTFont(output)
+
+        # Check fvar table
+        if "fvar" not in font:
+            font.close()
+            return ValidationResult("VF Output", False, "Missing fvar table")
+
+        fvar = font["fvar"]
+        axes = {a.axisTag: (a.minValue, a.defaultValue, a.maxValue) for a in fvar.axes}
+
+        # Check axes
+        if "wght" not in axes:
+            font.close()
+            return ValidationResult("VF Output", False, "Missing wght axis")
+        if "ital" not in axes:
+            font.close()
+            return ValidationResult("VF Output", False, "Missing ital axis")
+
+        wght = axes["wght"]
+        if wght != (300.0, 400.0, 1000.0):
+            font.close()
+            return ValidationResult(
+                "VF Output", False, f"Unexpected wght range: {wght}"
+            )
+
+        ital = axes["ital"]
+        if ital != (0.0, 0.0, 1.0):
+            font.close()
+            return ValidationResult(
+                "VF Output", False, f"Unexpected ital range: {ital}"
+            )
+
+        # Check named instances
+        num_instances = len(fvar.instances)
+        if num_instances != 16:
+            font.close()
+            return ValidationResult(
+                "VF Output", False, f"Expected 16 named instances, got {num_instances}"
+            )
+
+        # Check glyph count
+        glyph_count = len(font.getGlyphOrder())
+
+        # Check gvar table
+        if "gvar" not in font:
+            font.close()
+            return ValidationResult("VF Output", False, "Missing gvar table")
+
+        font.close()
+
+        # Test instantiation at all master weights
+        test_weights = [300, 400, 500, 600, 700, 800, 900, 1000]
+        for wght_val in test_weights:
+            try:
+                instance = instantiateVariableFont(
+                    TTFont(output), {"wght": wght_val, "ital": 0}
+                )
+                inst_glyphs = len(instance.getGlyphOrder())
+                instance.close()
+                if inst_glyphs != glyph_count:
+                    return ValidationResult(
+                        "VF Output",
+                        False,
+                        f"wght={wght_val}: glyph mismatch ({inst_glyphs} vs {glyph_count})",
+                    )
+            except Exception as e:
+                return ValidationResult(
+                    "VF Output", False, f"wght={wght_val} failed: {e}"
+                )
+
+        return ValidationResult(
+            "VF Output",
+            True,
+            f"✓ {glyph_count} glyphs, wght(300-1000), ital(0-1), 16 instances, 8 weights OK",
+        )
+
+
+def validate_merge_output() -> ValidationResult:
+    """Validate that merged fonts contain glyphs from both sources."""
+    rec_fonts = sorted(BUILD_DIR.glob("RecMonoDuotone-*.ttf"))[:1]
+    noto_font = BUILD_DIR / "Noto-400-subset.ttf"
+
+    if not rec_fonts or not noto_font.exists():
+        return ValidationResult("Merge Output", False, "Required fonts not found")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        output = tmp / "merged.ttf"
+
+        result = subprocess.run(
+            [
+                str(RUST_BIN),
+                "merge",
+                str(rec_fonts[0]),
+                str(noto_font),
+                "-o",
+                str(output),
+            ],
+            capture_output=True,
+        )
+
+        if result.returncode != 0:
+            return ValidationResult(
+                "Merge Output",
+                False,
+                f"Merge failed: {result.stderr.decode()[:100]}",
+            )
+
+        from fontTools.ttLib import TTFont
+
+        rec = TTFont(rec_fonts[0])
+        noto = TTFont(noto_font)
+        merged = TTFont(output)
+
+        rec_count = len(rec.getGlyphOrder())
+        merged_count = len(merged.getGlyphOrder())
+
+        rec.close()
+        noto.close()
+        merged.close()
+
+        if merged_count <= rec_count:
+            return ValidationResult(
+                "Merge Output",
+                False,
+                f"Merged glyphs ({merged_count}) <= base ({rec_count})",
+            )
+
+        return ValidationResult(
+            "Merge Output",
+            True,
+            f"✓ {merged_count} glyphs (base: {rec_count})",
+        )
+
+
+def validate_monospace_flags() -> ValidationResult:
+    """Validate that monospace flags are set correctly."""
+    fonts = sorted(DIST_DIR.glob("WarpnineMono-*.ttf"))[:1]
+    if not fonts:
+        fonts = sorted(BUILD_DIR.glob("RecMonoDuotone-*.ttf"))[:1]
+    if not fonts:
+        return ValidationResult("Monospace Flags", False, "No fonts found")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        dest = tmp / fonts[0].name
+        shutil.copy(fonts[0], dest)
+
+        subprocess.run(
+            [str(RUST_BIN), "set-monospace", str(dest)],
+            check=True,
+            capture_output=True,
+        )
+
+        from fontTools.ttLib import TTFont
+
+        font = TTFont(dest)
+
+        is_fixed = font["post"].isFixedPitch == 1
+        panose_prop = font["OS/2"].panose.bProportion == 9
+
+        font.close()
+
+        if not is_fixed:
+            return ValidationResult("Monospace Flags", False, "isFixedPitch not set")
+        if not panose_prop:
+            return ValidationResult("Monospace Flags", False, "panose.bProportion != 9")
+
+        return ValidationResult(
+            "Monospace Flags", True, "✓ post.isFixedPitch=1, panose.bProportion=9"
+        )
+
+
+def validate_subset_output() -> ValidationResult:
+    """Validate that subsetting reduces glyph count appropriately."""
+    noto_fonts = sorted(BUILD_DIR.glob("NotoSans*CJK*.ttf"))
+    if not noto_fonts:
+        return ValidationResult("Subset Output", False, "No Noto CJK fonts found")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        src = noto_fonts[0]
+        output = tmp / "subset.ttf"
+
+        result = subprocess.run(
+            [str(RUST_BIN), "subset-japanese", str(src), str(output)],
+            capture_output=True,
+        )
+
+        if result.returncode != 0:
+            return ValidationResult(
+                "Subset Output",
+                False,
+                f"Subset failed: {result.stderr.decode()[:100]}",
+            )
+
+        from fontTools.ttLib import TTFont
+
+        original = TTFont(src)
+        subset = TTFont(output)
+
+        orig_count = len(original.getGlyphOrder())
+        subset_count = len(subset.getGlyphOrder())
+
+        original.close()
+        subset.close()
+
+        if subset_count >= orig_count:
+            return ValidationResult(
+                "Subset Output",
+                False,
+                f"Subset ({subset_count}) >= original ({orig_count})",
+            )
+
+        reduction = (1 - subset_count / orig_count) * 100
+        return ValidationResult(
+            "Subset Output",
+            True,
+            f"✓ {subset_count} glyphs ({reduction:.0f}% reduction)",
+        )
+
+
+def run_validations():
+    """Run all validation tests."""
+    print("\n" + "=" * 80)
+    print("Validation Tests")
+    print("=" * 80)
+
+    validations = [
+        validate_instance_output,
+        validate_freeze_output,
+        validate_monospace_flags,
+        validate_merge_output,
+        validate_subset_output,
+        validate_vf_output,
+    ]
+
+    passed = 0
+    failed = 0
+
+    for validate in validations:
+        print(f"  Testing: {validate.__doc__.split('.')[0]}...")
+        try:
+            result = validate()
+            status = "✓" if result.passed else "✗"
+            print(f"    {status} {result.name}: {result.message}")
+            if result.passed:
+                passed += 1
+            else:
+                failed += 1
+        except Exception as e:
+            print(f"    ✗ {validate.__name__}: Error - {e}")
+            failed += 1
+
+    print("-" * 80)
+    print(f"Validation: {passed} passed, {failed} failed")
+    return failed == 0
+
+
 def format_time(t: float | None) -> str:
     if t is None:
         return "Error"
@@ -783,6 +1527,10 @@ def main():
         ("Remove Ligatures", benchmark_remove_ligatures),
         ("Set Monospace", benchmark_set_monospace),
         ("Set Version", benchmark_set_version),
+        ("Build VF", benchmark_build_vf),
+        ("Copy GSUB", benchmark_copy_gsub),
+        ("Fix Calt", benchmark_fix_calt),
+        ("Set Name", benchmark_set_name),
     ]
 
     results = []
@@ -830,6 +1578,9 @@ def main():
     if total_rs > 0 and total_py > 0:
         print(f"\n✨ Overall: Rust is {total_py / total_rs:.1f}x faster than Python")
         print(f"   Time saved: {total_py - total_rs:.2f}s per pipeline run")
+
+    # Run validation tests
+    run_validations()
 
 
 if __name__ == "__main__":

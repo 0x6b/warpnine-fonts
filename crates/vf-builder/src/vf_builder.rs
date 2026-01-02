@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 use crate::variation_model::VariationModel;
 
 use log::info;
+use rayon::prelude::*;
 use read_fonts::types::{F2Dot14, Fixed, GlyphId, NameId, Tag};
 use read_fonts::{FontData, FontRef, TableProvider};
 use std::collections::HashSet;
@@ -227,16 +228,14 @@ fn build_gvar(
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     let axis_count = designspace.axes.len() as u16;
-    let mut all_variations: Vec<GlyphVariations> = Vec::with_capacity(num_glyphs as usize);
 
-    for glyph_idx in 0..num_glyphs {
-        let gid = GlyphId::new(glyph_idx as u32);
-
-        let variations =
-            build_glyph_variations(gid, designspace, &master_glyfs, &master_locas, model)?;
-
-        all_variations.push(variations);
-    }
+    let all_variations: Vec<GlyphVariations> = (0..num_glyphs)
+        .into_par_iter()
+        .map(|glyph_idx| {
+            let gid = GlyphId::new(glyph_idx as u32);
+            build_glyph_variations(gid, designspace, &master_glyfs, &master_locas, model)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let total = TOTAL_POINTS.load(Ordering::Relaxed);
     let required = REQUIRED_POINTS.load(Ordering::Relaxed);
