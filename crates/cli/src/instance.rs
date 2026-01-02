@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use font_instancer::{AxisLocation, instantiate};
+use font_instancer::{instantiate, AxisLocation};
+use rayon::prelude::*;
 use std::fs;
 use std::path::Path;
 
@@ -38,5 +39,46 @@ pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> R
         output_size
     );
 
+    Ok(())
+}
+
+/// Instance definition for batch processing
+pub struct InstanceDef {
+    pub name: String,
+    pub axes: Vec<(String, f32)>,
+}
+
+pub fn create_instances_batch(
+    input: &Path,
+    output_dir: &Path,
+    instances: &[InstanceDef],
+) -> Result<()> {
+    println!("Creating {} instances from {}", instances.len(), input.display());
+
+    let data = fs::read(input).with_context(|| format!("Failed to read {}", input.display()))?;
+
+    fs::create_dir_all(output_dir)?;
+
+    instances
+        .par_iter()
+        .try_for_each(|inst| -> Result<()> {
+            let locations: Vec<AxisLocation> = inst
+                .axes
+                .iter()
+                .map(|(tag, value)| AxisLocation::new(tag, *value))
+                .collect();
+
+            let static_data = instantiate(&data, &locations)
+                .with_context(|| format!("Failed to instantiate {}", inst.name))?;
+
+            let output = output_dir.join(format!("{}.ttf", inst.name));
+            fs::write(&output, &static_data)
+                .with_context(|| format!("Failed to write {}", output.display()))?;
+
+            println!("  Created: {}", output.display());
+            Ok(())
+        })?;
+
+    println!("Created {} instances", instances.len());
     Ok(())
 }

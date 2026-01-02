@@ -105,6 +105,18 @@ enum Commands {
         #[arg(required = true)]
         output: PathBuf,
     },
+    /// Create multiple static instances from variable font (parallel batch)
+    InstanceBatch {
+        /// Input variable font
+        #[arg(long)]
+        input: PathBuf,
+        /// Output directory
+        #[arg(long, default_value = "dist")]
+        output_dir: PathBuf,
+        /// Instance definitions: NAME:TAG=VAL,TAG=VAL (can be repeated)
+        #[arg(short, long = "instance", value_parser = parse_instance_def)]
+        instances: Vec<(String, Vec<(String, f32)>)>,
+    },
     /// Merge multiple fonts into one
     Merge {
         /// Input font files to merge
