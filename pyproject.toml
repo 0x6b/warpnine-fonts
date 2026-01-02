@@ -49,3 +49,7 @@ indent-style = "space"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (may take >10s)",
+    "benchmark: marks tests as benchmarks for performance comparison",
+]

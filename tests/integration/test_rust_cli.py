@@ -91,6 +91,371 @@ def compare_font_tables(
     return differences
 
 
+# Validation functions for comparing Rust vs Python output
+def validate_mvar_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate MVAR-interpolated metrics."""
+    results = {"pass": [], "fail": []}
+
+    checks = [
+        ("OS/2.sxHeight", rust_font["OS/2"].sxHeight, python_font["OS/2"].sxHeight),
+        (
+            "OS/2.yStrikeoutPosition",
+            rust_font["OS/2"].yStrikeoutPosition,
+            python_font["OS/2"].yStrikeoutPosition,
+        ),
+        (
+            "OS/2.yStrikeoutSize",
+            rust_font["OS/2"].yStrikeoutSize,
+            python_font["OS/2"].yStrikeoutSize,
+        ),
+        (
+            "post.underlinePosition",
+            rust_font["post"].underlinePosition,
+            python_font["post"].underlinePosition,
+        ),
+        (
+            "post.underlineThickness",
+            rust_font["post"].underlineThickness,
+            python_font["post"].underlineThickness,
+        ),
+    ]
+
+    for name, rs_val, py_val in checks:
+        if rs_val == py_val:
+            results["pass"].append(name)
+        else:
+            results["fail"].append(f"{name}: Rust={rs_val} Python={py_val}")
+
+    return results
+
+
+def validate_bounding_box(
+    rust_font: TTFont, python_font: TTFont, tolerance: int = 2
+) -> dict:
+    """Validate bounding box values."""
+    results = {"pass": [], "fail": []}
+
+    checks = [
+        ("head.xMin", rust_font["head"].xMin, python_font["head"].xMin),
+        ("head.xMax", rust_font["head"].xMax, python_font["head"].xMax),
+        ("head.yMin", rust_font["head"].yMin, python_font["head"].yMin),
+        ("head.yMax", rust_font["head"].yMax, python_font["head"].yMax),
+        (
+            "hhea.minLeftSideBearing",
+            rust_font["hhea"].minLeftSideBearing,
+            python_font["hhea"].minLeftSideBearing,
+        ),
+        (
+            "hhea.minRightSideBearing",
+            rust_font["hhea"].minRightSideBearing,
+            python_font["hhea"].minRightSideBearing,
+        ),
+        (
+            "hhea.xMaxExtent",
+            rust_font["hhea"].xMaxExtent,
+            python_font["hhea"].xMaxExtent,
+        ),
+    ]
+
+    for name, rs_val, py_val in checks:
+        diff = abs(rs_val - py_val)
+        if diff <= tolerance:
+            results["pass"].append(name)
+        else:
+            results["fail"].append(
+                f"{name}: Rust={rs_val} Python={py_val} (diff={diff})"
+            )
+
+    return results
+
+
+def validate_gdef(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate GDEF table (glyph classes, mark attach classes)."""
+    results = {"pass": [], "fail": []}
+
+    if "GDEF" not in rust_font or "GDEF" not in python_font:
+        if "GDEF" not in rust_font and "GDEF" not in python_font:
+            results["pass"].append("GDEF (both missing)")
+        else:
+            results["fail"].append("GDEF presence differs")
+        return results
+
+    rs_gdef = rust_font["GDEF"].table
+    py_gdef = python_font["GDEF"].table
+
+    if rs_gdef.GlyphClassDef and py_gdef.GlyphClassDef:
+        rs_classes = dict(rs_gdef.GlyphClassDef.classDefs)
+        py_classes = dict(py_gdef.GlyphClassDef.classDefs)
+        if rs_classes == py_classes:
+            results["pass"].append(f"GDEF GlyphClassDef ({len(rs_classes)} glyphs)")
+        else:
+            diff = len(set(rs_classes.items()) ^ set(py_classes.items()))
+            results["fail"].append(f"GDEF GlyphClassDef differs ({diff} differences)")
+    elif rs_gdef.GlyphClassDef or py_gdef.GlyphClassDef:
+        results["fail"].append("GDEF GlyphClassDef presence differs")
+    else:
+        results["pass"].append("GDEF GlyphClassDef (both none)")
+
+    if rs_gdef.MarkAttachClassDef and py_gdef.MarkAttachClassDef:
+        rs_marks = dict(rs_gdef.MarkAttachClassDef.classDefs)
+        py_marks = dict(py_gdef.MarkAttachClassDef.classDefs)
+        if rs_marks == py_marks:
+            results["pass"].append(f"GDEF MarkAttachClassDef ({len(rs_marks)} glyphs)")
+        else:
+            diff = len(set(rs_marks.items()) ^ set(py_marks.items()))
+            results["fail"].append(
+                f"GDEF MarkAttachClassDef differs ({diff} differences)"
+            )
+    elif rs_gdef.MarkAttachClassDef or py_gdef.MarkAttachClassDef:
+        results["fail"].append("GDEF MarkAttachClassDef presence differs")
+    else:
+        results["pass"].append("GDEF MarkAttachClassDef (both none)")
+
+    return results
+
+
+def validate_table_tags(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate that both fonts have the same set of table tags."""
+    results = {"pass": [], "fail": []}
+
+    rs_tables = set(rust_font.keys())
+    py_tables = set(python_font.keys())
+
+    if rs_tables == py_tables:
+        results["pass"].append(f"Table tags match ({len(rs_tables)} tables)")
+    else:
+        only_rust = rs_tables - py_tables
+        only_python = py_tables - rs_tables
+        if only_rust:
+            results["fail"].append(f"Tables only in Rust: {sorted(only_rust)}")
+        if only_python:
+            results["fail"].append(f"Tables only in Python: {sorted(only_python)}")
+
+    return results
+
+
+def validate_features(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate GSUB/GPOS features."""
+    results = {"pass": [], "fail": []}
+
+    # GSUB
+    rs_gsub = {r.FeatureTag for r in rust_font["GSUB"].table.FeatureList.FeatureRecord}
+    py_gsub = {
+        r.FeatureTag for r in python_font["GSUB"].table.FeatureList.FeatureRecord
+    }
+
+    if rs_gsub == py_gsub:
+        results["pass"].append(f"GSUB features ({len(rs_gsub)})")
+    else:
+        only_rust = rs_gsub - py_gsub
+        only_python = py_gsub - rs_gsub
+        results["fail"].append(
+            f"GSUB features differ: only_rust={only_rust}, only_python={only_python}"
+        )
+
+    # GPOS
+    rs_gpos = {r.FeatureTag for r in rust_font["GPOS"].table.FeatureList.FeatureRecord}
+    py_gpos = {
+        r.FeatureTag for r in python_font["GPOS"].table.FeatureList.FeatureRecord
+    }
+
+    if rs_gpos == py_gpos:
+        results["pass"].append(f"GPOS features ({len(rs_gpos)})")
+    else:
+        results["fail"].append("GPOS features differ")
+
+    return results
+
+
+def validate_core_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate core metrics that should always match."""
+    results = {"pass": [], "fail": []}
+
+    checks = [
+        (
+            "maxp.numGlyphs",
+            rust_font["maxp"].numGlyphs,
+            python_font["maxp"].numGlyphs,
+        ),
+        (
+            "OS/2.usWeightClass",
+            rust_font["OS/2"].usWeightClass,
+            python_font["OS/2"].usWeightClass,
+        ),
+        (
+            "OS/2.usWidthClass",
+            rust_font["OS/2"].usWidthClass,
+            python_font["OS/2"].usWidthClass,
+        ),
+        (
+            "head.unitsPerEm",
+            rust_font["head"].unitsPerEm,
+            python_font["head"].unitsPerEm,
+        ),
+    ]
+
+    for name, rs_val, py_val in checks:
+        if rs_val == py_val:
+            results["pass"].append(name)
+        else:
+            results["fail"].append(f"{name}: Rust={rs_val} Python={py_val}")
+
+    return results
+
+
+def validate_hmtx(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate per-glyph horizontal metrics (advance widths and LSBs).
+
+    LSB should equal glyph xMin. Small differences (±10) are acceptable due to
+    coordinate interpolation rounding differences between Rust and Python.
+    """
+    results = {"pass": [], "fail": []}
+
+    rs_hmtx = rust_font["hmtx"].metrics
+    py_hmtx = python_font["hmtx"].metrics
+
+    rs_glyphs = set(rs_hmtx.keys())
+    py_glyphs = set(py_hmtx.keys())
+
+    if rs_glyphs != py_glyphs:
+        only_rust = rs_glyphs - py_glyphs
+        only_python = py_glyphs - rs_glyphs
+        if only_rust:
+            results["fail"].append(f"hmtx glyphs only in Rust: {len(only_rust)}")
+        if only_python:
+            results["fail"].append(f"hmtx glyphs only in Python: {len(only_python)}")
+        return results
+
+    width_mismatched = []
+    lsb_mismatched = []
+    for glyph in rs_glyphs:
+        rs_width, rs_lsb = rs_hmtx[glyph]
+        py_width, py_lsb = py_hmtx[glyph]
+        if rs_width != py_width:
+            width_mismatched.append(f"{glyph}: Rust={rs_width} Python={py_width}")
+        # Allow ±10 tolerance for LSB due to coordinate rounding differences
+        if abs(rs_lsb - py_lsb) > 10:
+            lsb_mismatched.append(f"{glyph}: Rust={rs_lsb} Python={py_lsb}")
+
+    if width_mismatched:
+        results["fail"].append(
+            f"hmtx widths differ for {len(width_mismatched)} glyphs: "
+            f"{width_mismatched[:3]}..."
+        )
+    else:
+        results["pass"].append(f"hmtx widths ({len(rs_glyphs)} glyphs)")
+
+    if lsb_mismatched:
+        results["fail"].append(
+            f"hmtx LSB differs by >10 for {len(lsb_mismatched)} glyphs: "
+            f"{lsb_mismatched[:3]}..."
+        )
+    else:
+        results["pass"].append(f"hmtx LSBs ({len(rs_glyphs)} glyphs, ±10 tolerance)")
+
+    return results
+
+
+def validate_os2_metrics(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate OS/2 typo and win metrics."""
+    results = {"pass": [], "fail": []}
+
+    checks = [
+        (
+            "OS/2.sTypoAscender",
+            rust_font["OS/2"].sTypoAscender,
+            python_font["OS/2"].sTypoAscender,
+        ),
+        (
+            "OS/2.sTypoDescender",
+            rust_font["OS/2"].sTypoDescender,
+            python_font["OS/2"].sTypoDescender,
+        ),
+        (
+            "OS/2.sTypoLineGap",
+            rust_font["OS/2"].sTypoLineGap,
+            python_font["OS/2"].sTypoLineGap,
+        ),
+        (
+            "OS/2.usWinAscent",
+            rust_font["OS/2"].usWinAscent,
+            python_font["OS/2"].usWinAscent,
+        ),
+        (
+            "OS/2.usWinDescent",
+            rust_font["OS/2"].usWinDescent,
+            python_font["OS/2"].usWinDescent,
+        ),
+        (
+            "OS/2.fsSelection",
+            rust_font["OS/2"].fsSelection,
+            python_font["OS/2"].fsSelection,
+        ),
+    ]
+
+    for name, rs_val, py_val in checks:
+        if rs_val == py_val:
+            results["pass"].append(name)
+        else:
+            results["fail"].append(f"{name}: Rust={rs_val} Python={py_val}")
+
+    return results
+
+
+def validate_font_pair(rust_path: Path, python_path: Path) -> tuple[int, int, list]:
+    """Validate a single font pair. Returns (pass_count, fail_count, failures)."""
+    rust_font = TTFont(rust_path)
+    python_font = TTFont(python_path)
+
+    all_pass = []
+    all_fail = []
+
+    # Table tags (should always pass)
+    tables = validate_table_tags(rust_font, python_font)
+    all_pass.extend(tables["pass"])
+    all_fail.extend(tables["fail"])
+
+    # Core metrics (should always pass)
+    core = validate_core_metrics(rust_font, python_font)
+    all_pass.extend(core["pass"])
+    all_fail.extend(core["fail"])
+
+    # OS/2 typo and win metrics
+    os2 = validate_os2_metrics(rust_font, python_font)
+    all_pass.extend(os2["pass"])
+    all_fail.extend(os2["fail"])
+
+    # hmtx (per-glyph advance widths)
+    hmtx = validate_hmtx(rust_font, python_font)
+    all_pass.extend(hmtx["pass"])
+    all_fail.extend(hmtx["fail"])
+
+    # Features (should always pass)
+    features = validate_features(rust_font, python_font)
+    all_pass.extend(features["pass"])
+    all_fail.extend(features["fail"])
+
+    # MVAR metrics (may fail until font-instancer is fixed)
+    mvar = validate_mvar_metrics(rust_font, python_font)
+    all_pass.extend(mvar["pass"])
+    all_fail.extend(mvar["fail"])
+
+    # Bounding box (may fail until font-instancer is fixed)
+    bbox = validate_bounding_box(rust_font, python_font)
+    all_pass.extend(bbox["pass"])
+    all_fail.extend(bbox["fail"])
+
+    # GDEF table
+    gdef = validate_gdef(rust_font, python_font)
+    all_pass.extend(gdef["pass"])
+    all_fail.extend(gdef["fail"])
+
+    rust_font.close()
+    python_font.close()
+
+    return len(all_pass), len(all_fail), all_fail
+
+
 class TestCleanCommand:
     """Test the clean command."""
 
@@ -964,7 +1329,9 @@ class TestInstanceCommand:
                 capture_output=True,
                 text=True,
             )
-            assert result.returncode == 0, f"Rust instance {name} failed: {result.stderr}"
+            assert result.returncode == 0, (
+                f"Rust instance {name} failed: {result.stderr}"
+            )
 
             subprocess.run(
                 [
@@ -988,9 +1355,9 @@ instance.save("{python_out}")
             rust_font = TTFont(rust_out)
             python_font = TTFont(python_out)
 
-            assert rust_font["OS/2"].usWeightClass == python_font["OS/2"].usWeightClass, (
-                f"{name}: usWeightClass mismatch"
-            )
+            assert (
+                rust_font["OS/2"].usWeightClass == python_font["OS/2"].usWeightClass
+            ), f"{name}: usWeightClass mismatch"
 
             assert set(rust_font.keys()) == set(python_font.keys()), (
                 f"{name}: table tags mismatch"
@@ -1479,3 +1846,145 @@ class TestBenchmarks:
 
         print(f"\nSet-monospace benchmark (5 fonts):")
         print(f"  Rust: {rust_time:.3f}s ({rust_time / 5:.3f}s per font)")
+
+
+class TestRustOutputValidation:
+    """Validate Rust CLI output against Python reference fonts.
+
+    These tests compare fonts generated by the Rust CLI with those generated
+    by Python's fontTools to ensure identical (or near-identical) output.
+    """
+
+    @pytest.fixture
+    def setup_create_sans(self, tmp_path):
+        """Set up create-sans test with Rust output and Python reference."""
+        vf = BUILD_DIR / "Recursive_VF_1.085.ttf"
+
+        if not vf.exists():
+            pytest.skip("Recursive VF not downloaded yet")
+
+        rust_out = tmp_path / "rust"
+        rust_out.mkdir()
+
+        # Generate Rust fonts
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "create-sans",
+                "--input",
+                str(vf),
+                "--output-dir",
+                str(rust_out),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        if result.returncode != 0:
+            pytest.fail(f"Rust create-sans failed: {result.stderr}")
+
+        return rust_out
+
+    @pytest.mark.slow
+    def test_validate_sans_regular(self, setup_create_sans):
+        """Validate WarpnineSans-Regular against Python reference."""
+        rust_out = setup_create_sans
+        rust_font = rust_out / "WarpnineSans-Regular.ttf"
+        python_font = DIST_DIR / "WarpnineSans-Regular.ttf"
+
+        if not python_font.exists():
+            pytest.skip("Python reference font not built yet")
+
+        pass_count, fail_count, failures = validate_font_pair(rust_font, python_font)
+
+        if fail_count > 0:
+            pytest.fail(
+                f"Validation failed ({pass_count} pass, {fail_count} fail):\n"
+                + "\n".join(f"  - {f}" for f in failures)
+            )
+
+    @pytest.mark.slow
+    def test_validate_sans_bold(self, setup_create_sans):
+        """Validate WarpnineSans-Bold against Python reference."""
+        rust_out = setup_create_sans
+        rust_font = rust_out / "WarpnineSans-Bold.ttf"
+        python_font = DIST_DIR / "WarpnineSans-Bold.ttf"
+
+        if not python_font.exists():
+            pytest.skip("Python reference font not built yet")
+
+        pass_count, fail_count, failures = validate_font_pair(rust_font, python_font)
+
+        if fail_count > 0:
+            pytest.fail(
+                f"Validation failed ({pass_count} pass, {fail_count} fail):\n"
+                + "\n".join(f"  - {f}" for f in failures)
+            )
+
+    @pytest.mark.slow
+    def test_validate_sans_italic(self, setup_create_sans):
+        """Validate WarpnineSans-Italic against Python reference."""
+        rust_out = setup_create_sans
+        rust_font = rust_out / "WarpnineSans-Italic.ttf"
+        python_font = DIST_DIR / "WarpnineSans-Italic.ttf"
+
+        if not python_font.exists():
+            pytest.skip("Python reference font not built yet")
+
+        pass_count, fail_count, failures = validate_font_pair(rust_font, python_font)
+
+        if fail_count > 0:
+            pytest.fail(
+                f"Validation failed ({pass_count} pass, {fail_count} fail):\n"
+                + "\n".join(f"  - {f}" for f in failures)
+            )
+
+    @pytest.mark.slow
+    def test_validate_all_sans_styles(self, setup_create_sans):
+        """Validate all WarpnineSans styles against Python reference."""
+        rust_out = setup_create_sans
+
+        styles = [
+            "Light",
+            "Regular",
+            "Medium",
+            "Bold",
+            "Black",
+            "Italic",
+            "LightItalic",
+            "BoldItalic",
+        ]
+
+        total_pass = 0
+        total_fail = 0
+        all_failures = []
+
+        for style in styles:
+            rust_font = rust_out / f"WarpnineSans-{style}.ttf"
+            python_font = DIST_DIR / f"WarpnineSans-{style}.ttf"
+
+            if not rust_font.exists():
+                continue
+            if not python_font.exists():
+                continue
+
+            pass_count, fail_count, failures = validate_font_pair(
+                rust_font, python_font
+            )
+            total_pass += pass_count
+            total_fail += fail_count
+
+            for f in failures:
+                all_failures.append(f"{style}: {f}")
+
+        if total_fail > 0:
+            pytest.fail(
+                f"Validation failed ({total_pass} pass, {total_fail} fail):\n"
+                + "\n".join(f"  - {f}" for f in all_failures[:20])
+                + (
+                    f"\n  ... and {len(all_failures) - 20} more"
+                    if len(all_failures) > 20
+                    else ""
+                )
+            )
