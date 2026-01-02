@@ -352,6 +352,74 @@ class TestCreateSansCommand:
             assert "name" in font
             font.close()
 
+    @pytest.mark.slow
+    def test_create_sans_metrics(self, setup_recursive_vf):
+        """Test that create-sans produces fonts with correct metrics."""
+        input_vf, output_dir = setup_recursive_vf
+
+        result = subprocess.run(
+            [
+                str(RUST_CLI),
+                "create-sans",
+                "--input",
+                str(input_vf),
+                "--output-dir",
+                str(output_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        assert result.returncode == 0
+
+        regular = output_dir / "WarpnineSans-Regular.ttf"
+        bold = output_dir / "WarpnineSans-Bold.ttf"
+        italic = output_dir / "WarpnineSans-Italic.ttf"
+
+        for font_path in [regular, bold, italic]:
+            assert font_path.exists(), f"Missing font: {font_path.name}"
+
+            font = TTFont(font_path)
+
+            # MVAR metrics should be interpolated correctly
+            assert font["OS/2"].sxHeight > 0, (
+                f"{font_path.name}: sxHeight should be positive"
+            )
+            assert font["OS/2"].sCapHeight > 0, (
+                f"{font_path.name}: sCapHeight should be positive"
+            )
+
+            # Bounding box should be valid
+            assert font["head"].xMin <= 0, f"{font_path.name}: xMin should be <= 0"
+            assert font["head"].xMax > 0, f"{font_path.name}: xMax should be > 0"
+            assert font["head"].yMin < 0, f"{font_path.name}: yMin should be < 0"
+            assert font["head"].yMax > 0, f"{font_path.name}: yMax should be > 0"
+
+            # hhea metrics
+            assert font["hhea"].ascender > 0, (
+                f"{font_path.name}: ascender should be > 0"
+            )
+            assert font["hhea"].descender < 0, (
+                f"{font_path.name}: descender should be < 0"
+            )
+
+            # usWidthClass should be normal (5) for sans
+            assert font["OS/2"].usWidthClass == 5, (
+                f"{font_path.name}: usWidthClass should be 5 (Normal)"
+            )
+
+            font.close()
+
+        # Weight class ordering
+        reg_font = TTFont(regular)
+        bold_font = TTFont(bold)
+        assert bold_font["OS/2"].usWeightClass > reg_font["OS/2"].usWeightClass, (
+            "Bold should have higher usWeightClass than Regular"
+        )
+        reg_font.close()
+        bold_font.close()
+
 
 class TestCreateCondensedCommand:
     """Test the create-condensed command."""

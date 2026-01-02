@@ -452,22 +452,22 @@ The integration tests verify that Rust commands work correctly, but some specifi
 
 ### Current Test Coverage
 
-| Command            | What's Tested                                                          | What's Not Tested                                            |
-| ------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `clean`            | Removes directories, handles missing dirs                              | -                                                            |
-| `download`         | Creates expected files                                                 | Byte-for-byte comparison with Python                         |
-| `copy-gsub`        | GSUB bytes match source                                                | -                                                            |
-| `remove-ligatures` | Clears SubstLookupRecord, font valid                                   | -                                                            |
-| `subset-japanese`  | Size reduction (<60%), Japanese glyphs preserved, VF tables dropped    | -                                                            |
-| `freeze`           | `zero` feature, `--auto-rvrn`, MONO/SANS glyph substitutions           | -                                                            |
-| `instance`         | Static font (no fvar/gvar), weights differ, usWeightClass              | -                                                            |
-| `merge`            | Valid output, cmap has glyphs from both                                | -                                                            |
-| `create-sans`      | 14 fonts created, valid                                                | Full metrics comparison (covered by validate_rust_output.py) |
-| `create-condensed` | 14 fonts, usWidthClass=3, metrics (sxHeight, bounds, ascender/descender) | -                                                        |
-| `set-monospace`    | isFixedPitch=1, PANOSE proportion=9, xAvgCharWidth=600                 | -                                                            |
-| `set-version`      | nameID 5 contains date, head.fontRevision, nameID 3 unique ID          | -                                                            |
-| `set-name`         | Updates nameID 1,3,4,6,16,17; postscript-family; copyright             | -                                                            |
-| `fix-calt`         | Runs, preserves validity, calt registered to all scripts               | -                                                            |
+| Command            | What's Tested                                                              |
+| ------------------ | -------------------------------------------------------------------------- |
+| `clean`            | Removes directories, handles missing dirs                                  |
+| `download`         | Creates expected files                                                     |
+| `copy-gsub`        | GSUB bytes match source                                                    |
+| `remove-ligatures` | Clears SubstLookupRecord, font valid                                       |
+| `subset-japanese`  | Size reduction (<60%), Japanese glyphs preserved, VF tables dropped        |
+| `freeze`           | `zero` feature, `--auto-rvrn`, MONO/SANS glyph substitutions               |
+| `instance`         | Static font (no fvar/gvar), weights differ, usWeightClass                  |
+| `merge`            | Valid output, cmap has glyphs from both                                    |
+| `create-sans`      | 14 fonts, valid, metrics (sxHeight, bounds, ascender/descender, widthClass)|
+| `create-condensed` | 14 fonts, usWidthClass=3, metrics (sxHeight, bounds, ascender/descender)   |
+| `set-monospace`    | isFixedPitch=1, PANOSE proportion=9, xAvgCharWidth=600                     |
+| `set-version`      | nameID 5 contains date, head.fontRevision, nameID 3 unique ID              |
+| `set-name`         | Updates nameID 1,3,4,6,16,17; postscript-family; copyright                 |
+| `fix-calt`         | Runs, preserves validity, calt registered to all scripts                   |
 
 ### ✅ Implemented Tests (2026-01-02)
 
@@ -487,6 +487,7 @@ All recommended additional tests have been implemented:
 - `test_fix_calt_runs_successfully` - verifies fix-calt works
 - `test_fix_calt_preserves_font_validity` - verifies font stays valid
 - `test_fix_calt_registers_to_all_scripts` - verifies calt in all script DefaultLangSys
+- `test_create_sans_metrics` - verifies sxHeight, bounds, ascender/descender, usWidthClass
 - `test_create_condensed_metrics_match_python` - verifies sxHeight, bounds, ascender/descender
 
 ---
