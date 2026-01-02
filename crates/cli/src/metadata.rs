@@ -1,22 +1,15 @@
-use std::{
-    fs::{read, write},
-    path::Path,
-};
+use std::path::Path;
 
 use anyhow::{Result, anyhow};
 use chrono::{Datelike, NaiveDate};
-use read_fonts::{FontRef, TableProvider};
+use read_fonts::TableProvider;
 use write_fonts::{
-    FontBuilder,
     from_obj::ToOwnedTable,
-    tables::{
-        head::Head,
-        name::{Name, NameRecord},
-        os2::Os2,
-        post::Post,
-    },
+    tables::{head::Head, os2::Os2, post::Post},
     types::Fixed,
 };
+
+use crate::font_ops::{map_name_records, modify_font_in_place};
 
 // Monospace settings
 const TARGET_WIDTH: i16 = 600;
@@ -28,37 +21,22 @@ const NAME_ID_UNIQUE_ID: u16 = 3;
 
 /// Set monospace flags in a font file.
 pub fn set_monospace(path: &Path) -> Result<()> {
-    let data = read(path)?;
-    let font = FontRef::new(&data)?;
-
-    let mut builder = FontBuilder::new();
-
-    // Copy all tables first
-    for record in font.table_directory.table_records() {
-        let tag = record.tag();
-        if let Some(table_data) = font.table_data(tag) {
-            builder.add_raw(tag, table_data);
+    modify_font_in_place(path, |font, builder| {
+        if let Ok(post) = font.post() {
+            let mut new_post: Post = post.to_owned_table();
+            new_post.is_fixed_pitch = 1;
+            builder.add_table(&new_post)?;
         }
-    }
 
-    // Update post table
-    if let Ok(post) = font.post() {
-        let mut new_post: Post = post.to_owned_table();
-        new_post.is_fixed_pitch = 1;
-        builder.add_table(&new_post)?;
-    }
+        if let Ok(os2) = font.os2() {
+            let mut new_os2: Os2 = os2.to_owned_table();
+            new_os2.panose_10[3] = MONO_PROPORTION;
+            new_os2.x_avg_char_width = TARGET_WIDTH;
+            builder.add_table(&new_os2)?;
+        }
 
-    // Update OS/2 table
-    if let Ok(os2) = font.os2() {
-        let mut new_os2: Os2 = os2.to_owned_table();
-        // Set PANOSE proportion to monospaced
-        new_os2.panose_10[3] = MONO_PROPORTION;
-        new_os2.x_avg_char_width = TARGET_WIDTH;
-        builder.add_table(&new_os2)?;
-    }
-
-    let new_font_data = builder.build();
-    write(path, new_font_data)?;
+        Ok(())
+    })?;
 
     println!("Updated monospace metadata: {}", path.display());
     Ok(())
@@ -92,90 +70,50 @@ pub fn parse_version_string(value: Option<&str>) -> Result<(NaiveDate, String)> 
 
 /// Set version date in a font file.
 pub fn set_version(path: &Path, target_date: NaiveDate, version_tag: &str) -> Result<()> {
-    let data = read(path)?;
-    let font = FontRef::new(&data)?;
-
     let version_string = format!("Version {version_tag}");
     let revision_value = compute_font_revision(target_date);
+    let mut updated = 0;
 
-    let mut builder = FontBuilder::new();
-
-    // Copy all tables first
-    for record in font.table_directory.table_records() {
-        let tag = record.tag();
-        if let Some(table_data) = font.table_data(tag) {
-            builder.add_raw(tag, table_data);
+    modify_font_in_place(path, |font, builder| {
+        if let Ok(head) = font.head() {
+            let mut new_head: Head = head.to_owned_table();
+            new_head.font_revision = revision_value;
+            builder.add_table(&new_head)?;
         }
-    }
 
-    // Update head table
-    if let Ok(head) = font.head() {
-        let mut new_head: Head = head.to_owned_table();
-        new_head.font_revision = revision_value;
-        builder.add_table(&new_head)?;
-    }
-
-    // Update name table
-    if let Ok(name) = font.name() {
-        let mut new_records: Vec<NameRecord> = Vec::new();
-        let mut updated = 0;
-
-        for record in name.name_record() {
-            let name_id = record.name_id().to_u16();
-            let platform_id = record.platform_id();
-            let encoding_id = record.encoding_id();
-            let language_id = record.language_id();
-
-            let current_string = match record.string(name.string_data()) {
-                Ok(s) => s.chars().collect::<String>(),
-                Err(_) => continue,
-            };
-
-            let new_string = if name_id == NAME_ID_VERSION {
+        let new_name = map_name_records(font, |name_id, current| {
+            if name_id == NAME_ID_VERSION {
                 updated += 1;
-                version_string.clone()
+                Some(version_string.clone())
             } else if name_id == NAME_ID_UNIQUE_ID {
-                let parts: Vec<&str> = current_string
+                let parts: Vec<&str> = current
                     .split(';')
-                    .map(|s: &str| s.trim())
-                    .filter(|s: &&str| !s.is_empty())
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
                     .collect();
                 let new_parts = if !parts.is_empty() {
-                    let mut new_parts: Vec<String> = parts[..parts.len() - 1]
-                        .iter()
-                        .map(|s: &&str| s.to_string())
-                        .collect();
+                    let mut new_parts: Vec<String> =
+                        parts[..parts.len() - 1].iter().map(|s| s.to_string()).collect();
                     new_parts.push(version_tag.to_string());
                     new_parts
                 } else {
                     vec![version_tag.to_string()]
                 };
                 updated += 1;
-                new_parts.join("; ")
+                Some(new_parts.join("; "))
             } else {
-                current_string
-            };
-
-            new_records.push(NameRecord::new(
-                platform_id,
-                encoding_id,
-                language_id,
-                read_fonts::types::NameId::new(name_id),
-                new_string.into(),
-            ));
-        }
-
-        let new_name = Name::new(new_records);
+                None
+            }
+        })?;
         builder.add_table(&new_name)?;
 
-        println!(
-            "{}: version -> {version_string}, revision -> {revision_value}, updated {updated} records",
-            path.file_name().unwrap_or_default().to_string_lossy()
-        );
-    }
+        Ok(())
+    })?;
 
-    let new_font_data = builder.build();
-    write(path, new_font_data)?;
+    println!(
+        "{}: version -> {version_string}, revision -> {revision_value}, updated {updated} records",
+        path.file_name().unwrap_or_default().to_string_lossy()
+    );
 
     Ok(())
 }

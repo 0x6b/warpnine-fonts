@@ -3,7 +3,7 @@
 //! These traits centralize the conversion logic that was previously
 //! scattered across table merger functions.
 
-use read_fonts::tables::{gpos as read_gpos, gpos};
+use read_fonts::{tables, tables::gpos as read_gpos};
 use write_fonts::tables::gpos::{
     AnchorFormat1, AnchorFormat2, AnchorFormat3, AnchorTable, MarkArray, MarkRecord, ValueRecord,
 };
@@ -35,7 +35,7 @@ impl ToWrite for read_gpos::ValueRecord {
     }
 }
 
-impl<'a> ToWrite for gpos::AnchorTable<'a> {
+impl<'a> ToWrite for tables::gpos::AnchorTable<'a> {
     type Output = AnchorTable;
 
     fn to_write(&self) -> AnchorTable {

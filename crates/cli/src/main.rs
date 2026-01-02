@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use build_vf::build_warpnine_mono_vf;
 use calt::fix_calt_registration;
 use clap::{Parser, Subcommand};
@@ -13,8 +13,8 @@ use ligatures::remove_grave_ligature;
 use merge::{merge_batch, merge_fonts};
 use metadata::{parse_version_string, set_monospace, set_version};
 use naming::set_name;
+use parallel::run_parallel;
 use pipeline::{build_all, build_mono};
-use rayon::prelude::*;
 use sans::create_sans;
 use subset::subset_japanese;
 
@@ -24,14 +24,17 @@ mod clean;
 mod condense;
 mod copy_table;
 mod download;
+mod font_ops;
 mod freeze;
 mod instance;
 mod ligatures;
 mod merge;
 mod metadata;
 mod naming;
+mod parallel;
 mod pipeline;
 mod sans;
+mod styles;
 mod subset;
 
 #[derive(Parser)]
@@ -272,73 +275,19 @@ fn main() -> Result<()> {
             copy_gsub(&from, &to)?;
         }
         Commands::RemoveLigatures { files } => {
-            let results: Vec<_> = files
-                .par_iter()
-                .map(|path| {
-                    println!("Processing {}", path.display());
-                    remove_grave_ligature(path)
-                        .with_context(|| format!("Failed to process {}", path.display()))
-                })
-                .collect();
-
-            let mut success = 0;
-            let mut failed = 0;
-            for result in results {
-                match result {
-                    Ok(_) => success += 1,
-                    Err(e) => {
-                        eprintln!("{e:?}");
-                        failed += 1;
-                    }
-                }
-            }
-            println!("Remove ligatures: {success} succeeded, {failed} failed");
+            run_parallel("Remove ligatures", &files, |path| {
+                remove_grave_ligature(path)?;
+                Ok(())
+            })?;
         }
         Commands::SetMonospace { files } => {
-            let results: Vec<_> = files
-                .par_iter()
-                .map(|path| {
-                    set_monospace(path)
-                        .with_context(|| format!("Failed to process {}", path.display()))
-                })
-                .collect();
-
-            let mut success = 0;
-            let mut failed = 0;
-            for result in results {
-                match result {
-                    Ok(()) => success += 1,
-                    Err(e) => {
-                        eprintln!("{e:?}");
-                        failed += 1;
-                    }
-                }
-            }
-            println!("Set monospace: {success} succeeded, {failed} failed");
+            run_parallel("Set monospace", &files, set_monospace)?;
         }
         Commands::SetVersion { version, files } => {
             let (date, version_tag) = parse_version_string(version.as_deref())?;
-
-            let results: Vec<_> = files
-                .par_iter()
-                .map(|path| {
-                    set_version(path, date, &version_tag)
-                        .with_context(|| format!("Failed to process {}", path.display()))
-                })
-                .collect();
-
-            let mut success = 0;
-            let mut failed = 0;
-            for result in results {
-                match result {
-                    Ok(()) => success += 1,
-                    Err(e) => {
-                        eprintln!("{e:?}");
-                        failed += 1;
-                    }
-                }
-            }
-            println!("Set version {version_tag}: {success} succeeded, {failed} failed");
+            run_parallel(&format!("Set version {version_tag}"), &files, |path| {
+                set_version(path, date, &version_tag)
+            })?;
         }
         Commands::SubsetJapanese { input, output } => {
             subset_japanese(&input, &output)?;
@@ -377,49 +326,10 @@ fn main() -> Result<()> {
         } => {
             let font_naming =
                 naming::FontNaming { family, style, postscript_family, copyright_extra };
-
-            let results: Vec<_> = files
-                .par_iter()
-                .map(|path| {
-                    set_name(path, &font_naming)
-                        .with_context(|| format!("Failed to process {}", path.display()))
-                })
-                .collect();
-
-            let mut success = 0;
-            let mut failed = 0;
-            for result in results {
-                match result {
-                    Ok(()) => success += 1,
-                    Err(e) => {
-                        eprintln!("{e:?}");
-                        failed += 1;
-                    }
-                }
-            }
-            println!("Set name: {success} succeeded, {failed} failed");
+            run_parallel("Set name", &files, |path| set_name(path, &font_naming))?;
         }
         Commands::FixCalt { files } => {
-            let results: Vec<_> = files
-                .par_iter()
-                .map(|path| {
-                    fix_calt_registration(path)
-                        .with_context(|| format!("Failed to process {}", path.display()))
-                })
-                .collect();
-
-            let mut success = 0;
-            let mut failed = 0;
-            for result in results {
-                match result {
-                    Ok(()) => success += 1,
-                    Err(e) => {
-                        eprintln!("{e:?}");
-                        failed += 1;
-                    }
-                }
-            }
-            println!("Fix calt: {success} succeeded, {failed} failed");
+            run_parallel("Fix calt", &files, fix_calt_registration)?;
         }
         Commands::BuildVf { dist_dir, output } => {
             build_warpnine_mono_vf(&dist_dir, &output)?;

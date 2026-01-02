@@ -17,64 +17,31 @@ use write_fonts::{
         head::Head,
         hhea::Hhea,
         hmtx::{Hmtx, LongMetric},
-        name::{Name, NameRecord},
         os2::Os2,
     },
 };
 
-use crate::sans::SANS_INSTANCES;
+use crate::{
+    font_ops::{map_name_records, rewrite_font},
+    styles::SANS_STYLES,
+};
 
 const WIDTH_CLASS_CONDENSED: u16 = 3;
 
 fn update_condensed_name_table(font_data: &[u8], family: &str, style: &str) -> Result<Vec<u8>> {
-    let font = FontRef::new(font_data)?;
-    let name = font.name()?;
-
     let postscript_family = family.replace(' ', "");
 
-    let mut new_records: Vec<NameRecord> = Vec::new();
-
-    for record in name.name_record() {
-        let name_id = record.name_id().to_u16();
-        let platform_id = record.platform_id();
-        let encoding_id = record.encoding_id();
-        let language_id = record.language_id();
-
-        let current_string = match record.string(name.string_data()) {
-            Ok(s) => s.chars().collect::<String>(),
-            Err(_) => continue,
-        };
-
-        let new_string = match name_id {
-            1 => format!("{family} {style}"),
-            4 => format!("{family} {style}"),
-            6 => format!("{postscript_family}-{style}"),
-            16 => family.to_string(),
-            17 => style.to_string(),
-            _ => current_string,
-        };
-
-        new_records.push(NameRecord::new(
-            platform_id,
-            encoding_id,
-            language_id,
-            read_fonts::types::NameId::new(name_id),
-            new_string.into(),
-        ));
-    }
-
-    let new_name = Name::new(new_records);
-
-    let mut builder = FontBuilder::new();
-    for record in font.table_directory.table_records() {
-        let tag = record.tag();
-        if let Some(table_data) = font.table_data(tag) {
-            builder.add_raw(tag, table_data);
-        }
-    }
-    builder.add_table(&new_name)?;
-
-    Ok(builder.build())
+    rewrite_font(font_data, |font, builder| {
+        let new_name = map_name_records(font, |name_id, _current| match name_id {
+            1 | 4 => Some(format!("{family} {style}")),
+            6 => Some(format!("{postscript_family}-{style}")),
+            16 => Some(family.to_string()),
+            17 => Some(style.to_string()),
+            _ => None,
+        })?;
+        builder.add_table(&new_name)?;
+        Ok(())
+    })
 }
 
 fn scale_simple_glyph(glyph: &read_fonts::tables::glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
@@ -278,25 +245,25 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
 
     let mut success = 0;
 
-    for instance in SANS_INSTANCES {
-        let output = output_dir.join(format!("WarpnineSansCondensed-{}.ttf", instance.style));
-        println!("Creating {} condensed ({:.0}%)", instance.style, scale * 100.0);
+    for style in SANS_STYLES {
+        let output = output_dir.join(format!("WarpnineSansCondensed-{}.ttf", style.name));
+        println!("Creating {} condensed ({:.0}%)", style.name, scale * 100.0);
 
         let locations = vec![
-            AxisLocation::new("MONO", instance.mono()),
-            AxisLocation::new("CASL", instance.casl()),
-            AxisLocation::new("wght", instance.wght),
-            AxisLocation::new("slnt", instance.slnt()),
-            AxisLocation::new("CRSV", instance.crsv()),
+            AxisLocation::new("MONO", 0.0),
+            AxisLocation::new("CASL", 0.0),
+            AxisLocation::new("wght", style.wght),
+            AxisLocation::new("slnt", style.slnt()),
+            AxisLocation::new("CRSV", style.crsv()),
         ];
 
         let static_data = instantiate(&data, &locations)
-            .with_context(|| format!("Failed to instantiate {}", instance.style))?;
+            .with_context(|| format!("Failed to instantiate {}", style.name))?;
 
-        let scaled_data = apply_horizontal_scale(&static_data, scale, instance.wght as u16)?;
+        let scaled_data = apply_horizontal_scale(&static_data, scale, style.wght as u16)?;
 
         let final_data =
-            update_condensed_name_table(&scaled_data, "Warpnine Sans Condensed", instance.style)?;
+            update_condensed_name_table(&scaled_data, "Warpnine Sans Condensed", style.name)?;
 
         write(&output, final_data)?;
         println!("  Created: {}", output.display());

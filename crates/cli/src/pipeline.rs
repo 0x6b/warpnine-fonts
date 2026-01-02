@@ -25,55 +25,9 @@ use crate::{
     metadata::{parse_version_string, set_monospace, set_version},
     naming::{FontNaming, set_name},
     sans::create_sans,
+    styles::{MONO_FEATURES, MONO_STYLES, duotone_casl},
     subset::subset_japanese,
 };
-
-/// Duotone instance definitions (16 styles: 8 weights × 2 italics)
-const DUOTONE_INSTANCES: &[(&str, &[(&str, f32)])] = &[
-    ("Light", &[("MONO", 1.0), ("CASL", 0.0), ("wght", 300.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "LightItalic",
-        &[("MONO", 1.0), ("CASL", 0.0), ("wght", 300.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-    ("Regular", &[("MONO", 1.0), ("CASL", 0.0), ("wght", 400.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    ("Italic", &[("MONO", 1.0), ("CASL", 0.0), ("wght", 400.0), ("slnt", -15.0), ("CRSV", 1.0)]),
-    ("Medium", &[("MONO", 1.0), ("CASL", 1.0), ("wght", 500.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "MediumItalic",
-        &[("MONO", 1.0), ("CASL", 1.0), ("wght", 500.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-    ("SemiBold", &[("MONO", 1.0), ("CASL", 1.0), ("wght", 600.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "SemiBoldItalic",
-        &[("MONO", 1.0), ("CASL", 1.0), ("wght", 600.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-    ("Bold", &[("MONO", 1.0), ("CASL", 1.0), ("wght", 700.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "BoldItalic",
-        &[("MONO", 1.0), ("CASL", 1.0), ("wght", 700.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-    ("ExtraBold", &[("MONO", 1.0), ("CASL", 1.0), ("wght", 800.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "ExtraBoldItalic",
-        &[("MONO", 1.0), ("CASL", 1.0), ("wght", 800.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-    ("Black", &[("MONO", 1.0), ("CASL", 1.0), ("wght", 900.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "BlackItalic",
-        &[("MONO", 1.0), ("CASL", 1.0), ("wght", 900.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-    ("ExtraBlack", &[("MONO", 1.0), ("CASL", 1.0), ("wght", 1000.0), ("slnt", 0.0), ("CRSV", 0.5)]),
-    (
-        "ExtraBlackItalic",
-        &[("MONO", 1.0), ("CASL", 1.0), ("wght", 1000.0), ("slnt", -15.0), ("CRSV", 1.0)],
-    ),
-];
-
-/// Features to freeze in static mono fonts
-const MONO_FEATURES: &[&str] = &[
-    "dlig", "ss01", "ss02", "ss03", "ss04", "ss05", "ss06", "ss07", "ss08", "ss10", "ss11", "ss12",
-    "pnum", "liga",
-];
 
 /// Pipeline execution context
 pub struct PipelineContext {
@@ -128,11 +82,17 @@ fn step_download(ctx: &PipelineContext) -> Result<()> {
 fn step_extract_duotone(ctx: &PipelineContext) -> Result<()> {
     println!("  Extracting 16 Duotone instances from Recursive VF...");
 
-    let instances: Vec<InstanceDef> = DUOTONE_INSTANCES
+    let instances: Vec<InstanceDef> = MONO_STYLES
         .iter()
-        .map(|(name, axes)| InstanceDef {
-            name: format!("RecMonoDuotone-{name}"),
-            axes: axes.iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+        .map(|style| InstanceDef {
+            name: format!("RecMonoDuotone-{}", style.name),
+            axes: vec![
+                ("MONO".to_string(), 1.0),
+                ("CASL".to_string(), duotone_casl(style.wght)),
+                ("wght".to_string(), style.wght),
+                ("slnt".to_string(), style.slnt()),
+                ("CRSV".to_string(), style.crsv()),
+            ],
         })
         .collect();
 

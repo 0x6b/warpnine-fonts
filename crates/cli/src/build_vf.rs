@@ -5,6 +5,8 @@ use std::{fs::write, path::Path};
 use anyhow::{Context, Result, bail};
 use warpnine_font_vf_builder::{Axis, DesignSpace, Instance, Source, build_variable_font};
 
+use crate::styles::MONO_STYLES;
+
 /// WarpnineMono designspace configuration.
 ///
 /// This matches the Python configuration in warpnine_fonts/config/instances.py
@@ -15,102 +17,23 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
         Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
     ];
 
-    // 16 static masters: 8 weights × 2 styles
-    let sources = vec![
-        // Light
-        Source::new(dist_dir.join("WarpnineMono-Light.ttf"), vec![("wght", 300.0), ("ital", 0.0)])
-            .with_style_name("Light"),
-        Source::new(
-            dist_dir.join("WarpnineMono-LightItalic.ttf"),
-            vec![("wght", 300.0), ("ital", 1.0)],
-        )
-        .with_style_name("Light Italic"),
-        // Regular (default)
-        Source::new(
-            dist_dir.join("WarpnineMono-Regular.ttf"),
-            vec![("wght", 400.0), ("ital", 0.0)],
-        )
-        .with_style_name("Regular"),
-        Source::new(dist_dir.join("WarpnineMono-Italic.ttf"), vec![("wght", 400.0), ("ital", 1.0)])
-            .with_style_name("Italic"),
-        // Medium
-        Source::new(dist_dir.join("WarpnineMono-Medium.ttf"), vec![("wght", 500.0), ("ital", 0.0)])
-            .with_style_name("Medium"),
-        Source::new(
-            dist_dir.join("WarpnineMono-MediumItalic.ttf"),
-            vec![("wght", 500.0), ("ital", 1.0)],
-        )
-        .with_style_name("Medium Italic"),
-        // SemiBold
-        Source::new(
-            dist_dir.join("WarpnineMono-SemiBold.ttf"),
-            vec![("wght", 600.0), ("ital", 0.0)],
-        )
-        .with_style_name("SemiBold"),
-        Source::new(
-            dist_dir.join("WarpnineMono-SemiBoldItalic.ttf"),
-            vec![("wght", 600.0), ("ital", 1.0)],
-        )
-        .with_style_name("SemiBold Italic"),
-        // Bold
-        Source::new(dist_dir.join("WarpnineMono-Bold.ttf"), vec![("wght", 700.0), ("ital", 0.0)])
-            .with_style_name("Bold"),
-        Source::new(
-            dist_dir.join("WarpnineMono-BoldItalic.ttf"),
-            vec![("wght", 700.0), ("ital", 1.0)],
-        )
-        .with_style_name("Bold Italic"),
-        // ExtraBold
-        Source::new(
-            dist_dir.join("WarpnineMono-ExtraBold.ttf"),
-            vec![("wght", 800.0), ("ital", 0.0)],
-        )
-        .with_style_name("ExtraBold"),
-        Source::new(
-            dist_dir.join("WarpnineMono-ExtraBoldItalic.ttf"),
-            vec![("wght", 800.0), ("ital", 1.0)],
-        )
-        .with_style_name("ExtraBold Italic"),
-        // Black
-        Source::new(dist_dir.join("WarpnineMono-Black.ttf"), vec![("wght", 900.0), ("ital", 0.0)])
-            .with_style_name("Black"),
-        Source::new(
-            dist_dir.join("WarpnineMono-BlackItalic.ttf"),
-            vec![("wght", 900.0), ("ital", 1.0)],
-        )
-        .with_style_name("Black Italic"),
-        // ExtraBlack
-        Source::new(
-            dist_dir.join("WarpnineMono-ExtraBlack.ttf"),
-            vec![("wght", 1000.0), ("ital", 0.0)],
-        )
-        .with_style_name("ExtraBlack"),
-        Source::new(
-            dist_dir.join("WarpnineMono-ExtraBlackItalic.ttf"),
-            vec![("wght", 1000.0), ("ital", 1.0)],
-        )
-        .with_style_name("ExtraBlack Italic"),
-    ];
+    let sources: Vec<Source> = MONO_STYLES
+        .iter()
+        .map(|style| {
+            Source::new(
+                dist_dir.join(format!("WarpnineMono-{}.ttf", style.name)),
+                vec![("wght", style.wght), ("ital", style.ital())],
+            )
+            .with_style_name(&style.display_name())
+        })
+        .collect();
 
-    // Named instances matching the static fonts
-    let instances = vec![
-        Instance::new("Light", vec![("wght", 300.0), ("ital", 0.0)]),
-        Instance::new("Light Italic", vec![("wght", 300.0), ("ital", 1.0)]),
-        Instance::new("Regular", vec![("wght", 400.0), ("ital", 0.0)]),
-        Instance::new("Italic", vec![("wght", 400.0), ("ital", 1.0)]),
-        Instance::new("Medium", vec![("wght", 500.0), ("ital", 0.0)]),
-        Instance::new("Medium Italic", vec![("wght", 500.0), ("ital", 1.0)]),
-        Instance::new("SemiBold", vec![("wght", 600.0), ("ital", 0.0)]),
-        Instance::new("SemiBold Italic", vec![("wght", 600.0), ("ital", 1.0)]),
-        Instance::new("Bold", vec![("wght", 700.0), ("ital", 0.0)]),
-        Instance::new("Bold Italic", vec![("wght", 700.0), ("ital", 1.0)]),
-        Instance::new("ExtraBold", vec![("wght", 800.0), ("ital", 0.0)]),
-        Instance::new("ExtraBold Italic", vec![("wght", 800.0), ("ital", 1.0)]),
-        Instance::new("Black", vec![("wght", 900.0), ("ital", 0.0)]),
-        Instance::new("Black Italic", vec![("wght", 900.0), ("ital", 1.0)]),
-        Instance::new("ExtraBlack", vec![("wght", 1000.0), ("ital", 0.0)]),
-        Instance::new("ExtraBlack Italic", vec![("wght", 1000.0), ("ital", 1.0)]),
-    ];
+    let instances: Vec<Instance> = MONO_STYLES
+        .iter()
+        .map(|style| {
+            Instance::new(&style.display_name(), vec![("wght", style.wght), ("ital", style.ital())])
+        })
+        .collect();
 
     DesignSpace::new(axes, sources).with_instances(instances)
 }
