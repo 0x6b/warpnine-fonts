@@ -42,11 +42,50 @@ pub const JAPANESE_RANGES: &[(u32, u32)] = &[
     (0x2F800, 0x2FA1F), // CJK Compatibility Ideographs Supplement
 ];
 
+/// Layout features to retain (matches pyftsubset --layout-features=*)
+/// These are all features present in Noto Sans Mono CJK
+const LAYOUT_FEATURES: &[&[u8; 4]] = &[
+    // GSUB features
+    b"aalt", // Access All Alternates
+    b"ccmp", // Glyph Composition/Decomposition
+    b"dlig", // Discretionary Ligatures (important!)
+    b"fwid", // Full Widths
+    b"hwid", // Half Widths
+    b"jp78", // JIS78 Forms
+    b"jp83", // JIS83 Forms
+    b"jp90", // JIS90 Forms
+    b"liga", // Standard Ligatures
+    b"locl", // Localized Forms
+    b"nlck", // NLC Kanji Forms
+    b"pwid", // Proportional Widths
+    b"vert", // Vertical Writing
+    b"vjmo", // Vertical Jamo
+    b"vrt2", // Vertical Alternates and Rotation
+    // GPOS features
+    b"halt", // Alternate Half Widths
+    b"vhal", // Alternate Vertical Half Metrics
+    b"kern", // Kerning
+    b"mark", // Mark Positioning
+    b"mkmk", // Mark to Mark Positioning
+];
+
 /// Subset a font to Japanese Unicode ranges using HarfBuzz
 pub fn subset_japanese(input: &Path, output: &Path) -> Result<()> {
     let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
 
     let mut subset_input = SubsetInput::new()?;
+
+    // Retain glyph names (matches pyftsubset --glyph-names)
+    subset_input.flags().retain_glyph_names();
+
+    // Retain all layout features (matches pyftsubset --layout-features=*)
+    // This ensures glyphs used by dlig, liga, etc. are kept
+    {
+        let mut feature_set = subset_input.layout_feature_tag_set();
+        for tag in LAYOUT_FEATURES {
+            feature_set.insert(Tag::new(*tag));
+        }
+    }
 
     // Add all Japanese Unicode ranges
     {

@@ -2140,6 +2140,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "glob",
  "hb-subset",
  "log",
  "rayon",

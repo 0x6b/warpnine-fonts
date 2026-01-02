@@ -18,6 +18,7 @@ log.workspace = true
 env_logger.workspace = true
 reqwest.workspace = true
 zip.workspace = true
+glob.workspace = true
 
 # Workspace crates
 warpnine-font-feature-freezer.workspace = true

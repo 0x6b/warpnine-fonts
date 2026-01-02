@@ -32,6 +32,7 @@ mod ligatures;
 mod merge;
 mod metadata;
 mod naming;
+mod pipeline;
 mod sans;
 mod subset;
 
@@ -209,6 +210,30 @@ enum Commands {
         /// Output variable font path
         #[arg(long, default_value = "dist/WarpnineMono-VF.ttf")]
         output: PathBuf,
+    },
+    /// Run full build pipeline (all fonts: Mono, Sans, Condensed)
+    Build {
+        /// Build directory
+        #[arg(long, default_value = "build")]
+        build_dir: PathBuf,
+        /// Distribution directory
+        #[arg(long, default_value = "dist")]
+        dist_dir: PathBuf,
+        /// Version string (YYYY-MM-DD or YYYY-MM-DD.N)
+        #[arg(short, long)]
+        version: Option<String>,
+    },
+    /// Run mono-only build pipeline (WarpnineMono static + VF)
+    BuildMono {
+        /// Build directory
+        #[arg(long, default_value = "build")]
+        build_dir: PathBuf,
+        /// Distribution directory
+        #[arg(long, default_value = "dist")]
+        dist_dir: PathBuf,
+        /// Version string (YYYY-MM-DD or YYYY-MM-DD.N)
+        #[arg(short, long)]
+        version: Option<String>,
     },
 }
 
@@ -427,6 +452,20 @@ fn main() -> Result<()> {
         }
         Commands::BuildVf { dist_dir, output } => {
             build_vf::build_warpnine_mono_vf(&dist_dir, &output)?;
+        }
+        Commands::Build {
+            build_dir,
+            dist_dir,
+            version,
+        } => {
+            pipeline::build_all(&build_dir, &dist_dir, version)?;
+        }
+        Commands::BuildMono {
+            build_dir,
+            dist_dir,
+            version,
+        } => {
+            pipeline::build_mono(&build_dir, &dist_dir, version)?;
         }
     }
 
