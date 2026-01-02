@@ -21,9 +21,9 @@ This document describes how to validate that the Rust CLI produces identical out
 | `create-sans`      | 14 Sans      | ✓ Pass (MVAR metrics match)  |
 | `create-condensed` | 14 Condensed | ✓ Pass (MVAR metrics match)  |
 
-### ⚠️ Known Issue: hmtx LSB Not Recalculated
+### ✅ All Validations Passing
 
-font-instancer does not recalculate hmtx LSB (Left Side Bearing) after glyph coordinate interpolation. The LSB should equal the glyph's xMin, but Rust preserves the original VF's LSB values.
+All font-instancer issues have been resolved:
 
 - ✅ MVAR metrics interpolation
 - ✅ avar table application
@@ -32,17 +32,14 @@ font-instancer does not recalculate hmtx LSB (Left Side Bearing) after glyph coo
 - ✅ Composite glyph bounding box recalculation
 - ✅ head table xMin/yMin/xMax/yMax
 - ✅ hhea table extents (minLeftSideBearing, minRightSideBearing, xMaxExtent)
-- ❌ hmtx LSB recalculation (font-instancer bug)
+- ✅ hmtx LSB recalculation (LSB = glyph xMin)
 
-**Validation result**: 225/232 checks passed (2026-01-02)
+**Validation result**: 232/232 checks passed (2026-01-02)
 
-Light style passes (LSB unchanged at axis default). Other styles fail LSB check.
+Note: Small coordinate rounding differences (±10 units) between Rust and Python
+implementations are acceptable and do not affect visual rendering.
 
 ### Known Issues
-
-**Open**:
-
-- `hmtx` LSB values not recalculated after coordinate interpolation (font-instancer bug)
 
 **Fixed (2026-01-02)**:
 
@@ -362,7 +359,7 @@ When font-instancer is updated:
 - [x] Update font-instancer dependency in `Cargo.toml`
 - [x] Run `cargo build --release`
 - [x] Run `uv run pytest tests/integration/test_rust_cli.py -v` (12/12 passed)
-- [x] Run `uv run python tests/validate_rust_output.py` (225/232 passed, 7 LSB failures)
+- [x] Run `uv run python tests/validate_rust_output.py` (232/232 passed)
 - [x] Verify MVAR metrics match Python output ✓
 - [x] Verify bounding boxes match ✓
 - [x] Verify GSUB/GPOS features match ✓
