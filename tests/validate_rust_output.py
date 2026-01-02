@@ -120,6 +120,26 @@ def validate_bounding_box(
     return results
 
 
+def validate_table_tags(rust_font: TTFont, python_font: TTFont) -> dict:
+    """Validate that both fonts have the same set of table tags."""
+    results = {"pass": [], "fail": []}
+
+    rs_tables = set(rust_font.keys())
+    py_tables = set(python_font.keys())
+
+    if rs_tables == py_tables:
+        results["pass"].append(f"Table tags match ({len(rs_tables)} tables)")
+    else:
+        only_rust = rs_tables - py_tables
+        only_python = py_tables - rs_tables
+        if only_rust:
+            results["fail"].append(f"Tables only in Rust: {sorted(only_rust)}")
+        if only_python:
+            results["fail"].append(f"Tables only in Python: {sorted(only_python)}")
+
+    return results
+
+
 def validate_features(rust_font: TTFont, python_font: TTFont) -> dict:
     """Validate GSUB/GPOS features."""
     results = {"pass": [], "fail": []}
@@ -196,6 +216,11 @@ def validate_font_pair(rust_path: Path, python_path: Path) -> tuple[int, int, li
 
     all_pass = []
     all_fail = []
+
+    # Table tags (should always pass)
+    tables = validate_table_tags(rust_font, python_font)
+    all_pass.extend(tables["pass"])
+    all_fail.extend(tables["fail"])
 
     # Core metrics (should always pass)
     core = validate_core_metrics(rust_font, python_font)
