@@ -83,6 +83,18 @@ $ python -m http.server 8000
 - ital (Italic): 0-1
   - 0: Upright, 1: Italic
 
+### Variable Font Tables
+
+The variable font includes:
+
+- **fvar**: Axis definitions and 16 named instances
+- **gvar**: Glyph variation data with IUP optimization
+- **STAT**: Style Attributes table for proper font menu grouping
+  - Weight axis values with "Regular" as elidable default
+  - Italic axis values with "Upright" as elidable default
+
+Note: HVAR (Horizontal Metrics Variations) and MVAR (Metrics Variations) are not included. For a monospace font with fixed advance widths, HVAR provides minimal benefit. MVAR is optional and omitted for simplicity.
+
 ### OpenType Features
 
 See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-code-config) for detail of the each feature.
