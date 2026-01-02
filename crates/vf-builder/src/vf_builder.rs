@@ -196,12 +196,23 @@ fn build_fvar(designspace: &DesignSpace) -> Result<Fvar> {
     })
 }
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static TOTAL_POINTS: AtomicUsize = AtomicUsize::new(0);
+static REQUIRED_POINTS: AtomicUsize = AtomicUsize::new(0);
+static OPTIONAL_POINTS: AtomicUsize = AtomicUsize::new(0);
+
 fn build_gvar(
     designspace: &DesignSpace,
     masters: &[FontRef],
     model: &VariationModel,
     num_glyphs: u16,
 ) -> Result<Gvar> {
+    // Reset counters
+    TOTAL_POINTS.store(0, Ordering::Relaxed);
+    REQUIRED_POINTS.store(0, Ordering::Relaxed);
+    OPTIONAL_POINTS.store(0, Ordering::Relaxed);
+    
     // Load glyf/loca for all masters
     let master_glyfs: Vec<_> = masters
         .iter()
@@ -223,6 +234,18 @@ fn build_gvar(
 
         all_variations.push(variations);
     }
+
+    let total = TOTAL_POINTS.load(Ordering::Relaxed);
+    let required = REQUIRED_POINTS.load(Ordering::Relaxed);
+    let optional = OPTIONAL_POINTS.load(Ordering::Relaxed);
+    info!(
+        "IUP statistics: {} total points, {} required ({:.1}%), {} optional ({:.1}%)",
+        total,
+        required,
+        required as f64 / total as f64 * 100.0,
+        optional,
+        optional as f64 / total as f64 * 100.0
+    );
 
     Gvar::new(all_variations, axis_count).map_err(Error::GvarBuild)
 }
@@ -360,9 +383,20 @@ fn build_simple_glyph_variations(
         let deltas = match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
             Ok(optimized) => {
                 // Remove phantom point deltas from result
-                optimized.into_iter().take(num_points).collect()
+                let result: Vec<GlyphDelta> = optimized.into_iter().take(num_points).collect();
+                
+                // Track IUP statistics
+                let required_count = result.iter().filter(|d| d.required).count();
+                let optional_count = result.iter().filter(|d| !d.required).count();
+                TOTAL_POINTS.fetch_add(num_points, Ordering::Relaxed);
+                REQUIRED_POINTS.fetch_add(required_count, Ordering::Relaxed);
+                OPTIONAL_POINTS.fetch_add(optional_count, Ordering::Relaxed);
+                
+                result
             }
-            Err(_) => {
+            Err(e) => {
+                // Log the error for debugging
+                log::warn!("IUP optimization failed for glyph {}: {:?}", gid.to_u32(), e);
                 // Fall back to marking all as required
                 raw_deltas
                     .into_iter()
