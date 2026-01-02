@@ -23,6 +23,7 @@ zip.workspace = true
 warpnine-font-feature-freezer.workspace = true
 warpnine-font-instancer.workspace = true
 warpnine-font-merger.workspace = true
+warpnine-font-vf-builder.workspace = true
 
 [[bin]]
 name = "warpnine-fonts"

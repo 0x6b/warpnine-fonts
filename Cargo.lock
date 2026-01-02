@@ -2148,6 +2148,7 @@ dependencies = [
  "warpnine-font-feature-freezer",
  "warpnine-font-instancer",
  "warpnine-font-merger",
+ "warpnine-font-vf-builder",
  "write-fonts",
  "zip",
 ]

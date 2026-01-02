@@ -202,8 +202,6 @@ fn build_gvar(
     model: &VariationModel,
     num_glyphs: u16,
 ) -> Result<Gvar> {
-    let default_idx = designspace.default_source_index().unwrap();
-
     // Load glyf/loca for all masters
     let master_glyfs: Vec<_> = masters
         .iter()

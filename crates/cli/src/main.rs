@@ -20,6 +20,7 @@ use sans::create_sans;
 use std::path::PathBuf;
 use subset::subset_japanese;
 
+mod build_vf;
 mod calt;
 mod clean;
 mod condense;
@@ -199,6 +200,15 @@ enum Commands {
         /// Font files to process
         #[arg(required = true)]
         files: Vec<PathBuf>,
+    },
+    /// Build WarpnineMono variable font from static masters
+    BuildVf {
+        /// Directory containing static master fonts
+        #[arg(long, default_value = "dist")]
+        dist_dir: PathBuf,
+        /// Output variable font path
+        #[arg(long, default_value = "dist/WarpnineMono-VF.ttf")]
+        output: PathBuf,
     },
 }
 
@@ -414,6 +424,9 @@ fn main() -> Result<()> {
                 }
             }
             println!("Fix calt: {success} succeeded, {failed} failed");
+        }
+        Commands::BuildVf { dist_dir, output } => {
+            build_vf::build_warpnine_mono_vf(&dist_dir, &output)?;
         }
     }
 
