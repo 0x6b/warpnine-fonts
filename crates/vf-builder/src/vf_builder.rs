@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use write_fonts::from_obj::FromObjRef;
 use write_fonts::tables::fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord};
 use write_fonts::tables::glyf::{CompositeGlyph as WriteCompositeGlyph, GlyfLocaBuilder, Glyph as WriteGlyph, SimpleGlyph as WriteSimpleGlyph};
-use write_fonts::tables::gvar::{GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent};
+use write_fonts::tables::gvar::{iup::iup_delta_optimize, GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent};
 use write_fonts::tables::head::Head;
 use write_fonts::FontBuilder;
 
@@ -308,6 +308,19 @@ fn build_simple_glyph_variations(
         master_points.push(points);
     }
 
+    // Get default master coordinates for IUP optimization
+    let default_coords: Vec<kurbo::Point> = default_simple
+        .points()
+        .map(|p| kurbo::Point::new(f64::from(p.x), f64::from(p.y)))
+        .collect();
+
+    // Get contour end points for IUP
+    let contour_ends: Vec<usize> = default_simple
+        .end_pts_of_contours()
+        .iter()
+        .map(|v| v.get() as usize)
+        .collect();
+
     // Build GlyphDeltas for each region
     let mut glyph_deltas: Vec<GlyphDeltas> = Vec::with_capacity(model.regions.len());
 
@@ -318,19 +331,46 @@ fn build_simple_glyph_variations(
             .map(|&v| Tent::new(F2Dot14::from_f32(v), None))
             .collect();
 
-        let mut deltas: Vec<GlyphDelta> = Vec::with_capacity(num_points);
+        // Compute raw deltas for all points
+        let mut raw_deltas: Vec<kurbo::Vec2> = Vec::with_capacity(num_points);
 
         for point_idx in 0..num_points {
-            // Collect this point's coordinates from all masters
             let point_values: Vec<(i16, i16)> =
                 master_points.iter().map(|points| points[point_idx]).collect();
 
             let (_, point_deltas) = model.compute_deltas_2d(&point_values);
             let delta = point_deltas[region_idx];
 
-            // Mark as required (IUP optimization can be added later)
-            deltas.push(GlyphDelta::required(delta.0, delta.1));
+            raw_deltas.push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
         }
+
+        // Add 4 phantom point deltas (set to zero for now)
+        // Phantom points: LSB origin, advance width, top origin, advance height
+        for _ in 0..4 {
+            raw_deltas.push(kurbo::Vec2::ZERO);
+        }
+
+        // Extend coordinates with phantom points
+        let mut coords_with_phantom = default_coords.clone();
+        for _ in 0..4 {
+            coords_with_phantom.push(kurbo::Point::ZERO);
+        }
+
+        // Apply IUP optimization with tolerance of 0.5 (half a unit)
+        let deltas = match iup_delta_optimize(raw_deltas.clone(), coords_with_phantom, 0.5, &contour_ends) {
+            Ok(optimized) => {
+                // Remove phantom point deltas from result
+                optimized.into_iter().take(num_points).collect()
+            }
+            Err(_) => {
+                // Fall back to marking all as required
+                raw_deltas
+                    .into_iter()
+                    .take(num_points)
+                    .map(|d| GlyphDelta::required(d.x as i16, d.y as i16))
+                    .collect()
+            }
+        };
 
         glyph_deltas.push(GlyphDeltas::new(tents, deltas));
     }

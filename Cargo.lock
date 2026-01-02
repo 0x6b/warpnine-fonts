@@ -2125,6 +2125,7 @@ dependencies = [
  "env_logger",
  "font-test-data",
  "font-types",
+ "kurbo",
  "log",
  "rayon",
  "read-fonts",

@@ -9,6 +9,7 @@ description = "Variable font builder from static masters"
 read-fonts.workspace = true
 write-fonts.workspace = true
 font-types.workspace = true
+kurbo.workspace = true
 thiserror.workspace = true
 log.workspace = true
 rayon.workspace = true
