@@ -10,7 +10,6 @@
 //!
 //! ```no_run
 //! use warpnine_font_vf_builder::{DesignSpace, Axis, Source, build_variable_font};
-//! use std::path::PathBuf;
 //!
 //! let designspace = DesignSpace::new(
 //!     vec![
@@ -18,8 +17,8 @@
 //!         Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
 //!     ],
 //!     vec![
-//!         Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
-//!         Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 700.0), ("ital", 0.0)]),
+//!         Source::new("Regular.ttf", vec![("wght", 400.0), ("ital", 0.0)]),
+//!         Source::new("Bold.ttf", vec![("wght", 700.0), ("ital", 0.0)]),
 //!     ],
 //! );
 //!

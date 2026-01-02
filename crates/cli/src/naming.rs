@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
+use log::info;
 
 use crate::font_ops::{map_name_records, modify_font_in_place};
 
@@ -57,7 +58,7 @@ pub fn set_name(path: &Path, naming: &FontNaming) -> Result<()> {
         Ok(())
     })?;
 
-    println!(
+    info!(
         "{}: set name to '{}' ({})",
         path.file_name().unwrap_or_default().to_string_lossy(),
         naming.full_name(),

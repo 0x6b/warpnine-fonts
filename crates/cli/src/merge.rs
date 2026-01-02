@@ -4,13 +4,14 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use log::info;
 use rayon::prelude::*;
 use warpnine_font_merger::Merger;
 
 pub fn merge_fonts(inputs: &[impl AsRef<Path>], output: &Path) -> Result<()> {
-    println!("Merging {} fonts:", inputs.len());
+    info!("Merging {} fonts:", inputs.len());
     for input in inputs {
-        println!("  - {}", input.as_ref().display());
+        info!("  - {}", input.as_ref().display());
     }
 
     let font_data: Vec<Vec<u8>> = inputs
@@ -33,7 +34,7 @@ pub fn merge_fonts(inputs: &[impl AsRef<Path>], output: &Path) -> Result<()> {
     write(output, &merged_data).with_context(|| format!("Failed to write {}", output.display()))?;
 
     let output_size = merged_data.len() as f64 / 1024.0 / 1024.0;
-    println!("Merged font: {} ({output_size:.2} MB)", output.display());
+    info!("Merged font: {} ({output_size:.2} MB)", output.display());
 
     Ok(())
 }
@@ -43,7 +44,7 @@ pub fn merge_batch(
     fallback: &Path,
     output_dir: &Path,
 ) -> Result<()> {
-    println!("Merging {} fonts with {}", base_fonts.len(), fallback.display());
+    info!("Merging {} fonts with {}", base_fonts.len(), fallback.display());
 
     let fallback_data =
         read(fallback).with_context(|| format!("Failed to read {}", fallback.display()))?;
@@ -64,10 +65,10 @@ pub fn merge_batch(
         write(&output, &merged_data)
             .with_context(|| format!("Failed to write {}", output.display()))?;
 
-        println!("  Merged: {}", output.display());
+        info!("Merged: {}", output.display());
         Ok(())
     })?;
 
-    println!("Merged {} fonts", base_fonts.len());
+    info!("Merged {} fonts", base_fonts.len());
     Ok(())
 }

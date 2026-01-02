@@ -69,9 +69,12 @@ pub struct Source {
 
 impl Source {
     /// Create a new source with the given path and location.
-    pub fn new(path: PathBuf, location: impl IntoIterator<Item = (&'static str, f32)>) -> Self {
+    ///
+    /// The path accepts any type that can be converted to a `PathBuf`,
+    /// including `&str`, `String`, `&Path`, or `PathBuf`.
+    pub fn new(path: impl Into<PathBuf>, location: impl IntoIterator<Item = (&'static str, f32)>) -> Self {
         Self {
-            path,
+            path: path.into(),
             location: location.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
             family_name: None,
             style_name: None,
@@ -240,7 +243,7 @@ mod tests {
             Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
         ];
 
-        let source = Source::new(PathBuf::from("test.ttf"), vec![("wght", 900.0), ("ital", 1.0)]);
+        let source = Source::new("test.ttf", vec![("wght", 900.0), ("ital", 1.0)]);
         let normalized = source.normalized_location(&axes);
 
         assert_eq!(normalized, vec![1.0, 1.0]);
@@ -254,8 +257,8 @@ mod tests {
         ];
 
         let sources = vec![
-            Source::new(PathBuf::from("Regular.ttf"), vec![("wght", 400.0), ("ital", 0.0)]),
-            Source::new(PathBuf::from("Bold.ttf"), vec![("wght", 700.0), ("ital", 0.0)]),
+            Source::new("Regular.ttf", vec![("wght", 400.0), ("ital", 0.0)]),
+            Source::new("Bold.ttf", vec![("wght", 700.0), ("ital", 0.0)]),
         ];
 
         let ds = DesignSpace::new(axes, sources);

@@ -4,12 +4,13 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use log::{info, warn};
 use font_feature_freezer::freeze_features_with_stats;
 use rayon::prelude::*;
 
 pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) -> Result<()> {
     if features.is_empty() {
-        println!("No features specified");
+        info!("No features specified");
         return Ok(());
     }
 
@@ -22,7 +23,7 @@ pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) 
     };
 
     let feature_list = features.join(",");
-    println!("Freezing features: {feature_list}");
+    info!("Freezing features: {feature_list}");
 
     let results: Vec<_> = files.par_iter().map(|path| freeze_single(path, &features)).collect();
 
@@ -37,13 +38,13 @@ pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) 
                 total_substitutions += subs;
             }
             Err(e) => {
-                eprintln!("{e:?}");
+                warn!("{e:?}");
                 failed += 1;
             }
         }
     }
 
-    println!(
+    info!(
         "Freeze complete: {success} succeeded, {failed} failed, {total_substitutions} substitutions applied"
     );
     Ok(())
@@ -58,7 +59,7 @@ fn freeze_single(path: &PathBuf, features: &[String]) -> Result<usize> {
 
     write(path, frozen_data).with_context(|| format!("Failed to write {}", path.display()))?;
 
-    println!(
+    info!(
         "{}: {} substitutions applied",
         path.file_name().unwrap_or_default().to_string_lossy(),
         stats.substitutions_applied

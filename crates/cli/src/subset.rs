@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use log::info;
 use hb_subset::{Blob, FontFace, SubsetInput, Tag};
 
 /// Variable font tables to drop during subsetting (matches Python pipeline)
@@ -118,7 +119,7 @@ pub fn subset_japanese(input: &Path, output: &Path) -> Result<()> {
     let input_size = data.len() as f64 / 1024.0 / 1024.0;
     let output_size = blob.len() as f64 / 1024.0 / 1024.0;
 
-    println!(
+    info!(
         "Subset {} -> {} ({input_size:.2} MB -> {output_size:.2} MB, {:.1}% reduction)",
         input.file_name().unwrap_or_default().to_string_lossy(),
         output.file_name().unwrap_or_default().to_string_lossy(),

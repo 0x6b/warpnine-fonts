@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Result, anyhow};
+use log::info;
 use chrono::{Datelike, NaiveDate};
 use read_fonts::TableProvider;
 use write_fonts::{
@@ -38,7 +39,7 @@ pub fn set_monospace(path: &Path) -> Result<()> {
         Ok(())
     })?;
 
-    println!("Updated monospace metadata: {}", path.display());
+    info!("Updated monospace metadata: {}", path.display());
     Ok(())
 }
 
@@ -110,7 +111,7 @@ pub fn set_version(path: &Path, target_date: NaiveDate, version_tag: &str) -> Re
         Ok(())
     })?;
 
-    println!(
+    info!(
         "{}: version -> {version_string}, revision -> {revision_value}, updated {updated} records",
         path.file_name().unwrap_or_default().to_string_lossy()
     );
