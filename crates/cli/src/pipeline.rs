@@ -439,7 +439,12 @@ fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
     Ok(())
 }
 
-fn run_steps(steps: &[PipelineStep], ctx: &PipelineContext, offset: usize, total: usize) -> Result<()> {
+fn run_steps(
+    steps: &[PipelineStep],
+    ctx: &PipelineContext,
+    offset: usize,
+    total: usize,
+) -> Result<()> {
     for (i, (name, step_fn)) in steps.iter().enumerate() {
         run_step(name, offset + i + 1, total, ctx, step_fn)?;
     }

@@ -75,3 +75,20 @@ pub fn map_name_records(
 
     Ok(Name::new(new_records))
 }
+
+/// Apply family/style naming to a font, updating name IDs 1, 4, 6, 16, 17.
+pub fn apply_family_style_names(font_data: &[u8], family: &str, style: &str) -> Result<Vec<u8>> {
+    let postscript_family = family.replace(' ', "");
+
+    rewrite_font(font_data, |font, builder| {
+        let new_name = map_name_records(font, |name_id, _current| match name_id {
+            1 | 4 => Some(format!("{family} {style}")),
+            6 => Some(format!("{postscript_family}-{style}")),
+            16 => Some(family.to_string()),
+            17 => Some(style.to_string()),
+            _ => None,
+        })?;
+        builder.add_table(&new_name)?;
+        Ok(())
+    })
+}

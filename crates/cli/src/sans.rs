@@ -1,40 +1,27 @@
 use std::{
     fs::{create_dir_all, read, write},
     path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use anyhow::{Context, Result};
 use font_instancer::instantiate;
-use read_fonts::TableProvider;
-use write_fonts::{from_obj::ToOwnedTable, tables::os2::Os2};
+use rayon::prelude::*;
+use read_fonts::{FontRef, TableProvider};
+use write_fonts::{FontBuilder, from_obj::ToOwnedTable, tables::os2::Os2};
 
 use crate::{
-    font_ops::{map_name_records, rewrite_font},
-    styles::{SANS_STYLES, Style},
+    font_ops::{apply_family_style_names, rewrite_font},
+    styles::SANS_STYLES,
 };
 
-fn update_sans_metadata(font_data: &[u8], family: &str, style: &Style) -> Result<Vec<u8>> {
-    let postscript_family = family.replace(' ', "");
-    let style_name = style.name;
-    let weight = style.wght as u16;
-
-    rewrite_font(font_data, |font, builder| {
-        let new_name = map_name_records(font, |name_id, current| match name_id {
-            1 => Some(format!("{family} {style_name}")),
-            4 => Some(format!("{family} {style_name}")),
-            6 => Some(format!("{postscript_family}-{style_name}")),
-            16 => Some(family.to_string()),
-            17 => Some(style_name.to_string()),
-            _ => Some(current.to_string()),
-        })?;
-        builder.add_table(&new_name)?;
-
+fn update_weight_class(font_data: &[u8], weight: u16) -> Result<Vec<u8>> {
+    rewrite_font(font_data, |font: &FontRef, builder: &mut FontBuilder| {
         if let Ok(os2) = font.os2() {
             let mut new_os2: Os2 = os2.to_owned_table();
             new_os2.us_weight_class = weight;
             builder.add_table(&new_os2)?;
         }
-
         Ok(())
     })
 }
@@ -43,9 +30,9 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
     let data = read(input).context("Failed to read input font")?;
     create_dir_all(output_dir)?;
 
-    let mut success = 0;
+    let success = AtomicUsize::new(0);
 
-    for style in SANS_STYLES {
+    SANS_STYLES.par_iter().try_for_each(|style| -> Result<()> {
         let output = output_dir.join(format!("WarpnineSans-{}.ttf", style.name));
         println!("Creating {}", style.name);
 
@@ -54,13 +41,15 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", style.name))?;
 
-        let final_data = update_sans_metadata(&static_data, "Warpnine Sans", style)?;
+        let named_data = apply_family_style_names(&static_data, "Warpnine Sans", style.name)?;
+        let final_data = update_weight_class(&named_data, style.wght as u16)?;
 
         write(&output, final_data)?;
         println!("  Created: {}", output.display());
-        success += 1;
-    }
+        success.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    })?;
 
-    println!("Created {success} sans fonts in {}/", output_dir.display());
+    println!("Created {} sans fonts in {}/", success.load(Ordering::Relaxed), output_dir.display());
     Ok(())
 }

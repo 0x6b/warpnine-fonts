@@ -1,11 +1,17 @@
 use std::{
     fs::{create_dir_all, read, write},
     path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use anyhow::{Context, Result};
 use font_instancer::instantiate;
-use read_fonts::{FontRef, TableProvider, tables, tables::glyf::CurvePoint, types::GlyphId};
+use rayon::prelude::*;
+use read_fonts::{
+    FontRef, TableProvider, tables,
+    tables::glyf::CurvePoint,
+    types::{GlyphId, Tag},
+};
 use write_fonts::{
     FontBuilder,
     from_obj::ToOwnedTable,
@@ -21,28 +27,16 @@ use write_fonts::{
     },
 };
 
-use crate::{
-    font_ops::{map_name_records, rewrite_font},
-    styles::SANS_STYLES,
-};
+use crate::{font_ops::apply_family_style_names, styles::SANS_STYLES};
+
+const TAG_GLYF: Tag = Tag::new(b"glyf");
+const TAG_LOCA: Tag = Tag::new(b"loca");
+const TAG_HMTX: Tag = Tag::new(b"hmtx");
+const TAG_HEAD: Tag = Tag::new(b"head");
+const TAG_HHEA: Tag = Tag::new(b"hhea");
+const TAG_OS2: Tag = Tag::new(b"OS/2");
 
 const WIDTH_CLASS_CONDENSED: u16 = 3;
-
-fn update_condensed_name_table(font_data: &[u8], family: &str, style: &str) -> Result<Vec<u8>> {
-    let postscript_family = family.replace(' ', "");
-
-    rewrite_font(font_data, |font, builder| {
-        let new_name = map_name_records(font, |name_id, _current| match name_id {
-            1 | 4 => Some(format!("{family} {style}")),
-            6 => Some(format!("{postscript_family}-{style}")),
-            16 => Some(family.to_string()),
-            17 => Some(style.to_string()),
-            _ => None,
-        })?;
-        builder.add_table(&new_name)?;
-        Ok(())
-    })
-}
 
 fn scale_simple_glyph(glyph: &read_fonts::tables::glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
     let mut contours = Vec::new();
@@ -136,13 +130,7 @@ fn apply_horizontal_scale(font_data: &[u8], scale_x: f32, weight_class: u16) -> 
 
     for record in font.table_directory.table_records() {
         let tag = record.tag();
-        if tag == read_fonts::types::Tag::new(b"glyf")
-            || tag == read_fonts::types::Tag::new(b"loca")
-            || tag == read_fonts::types::Tag::new(b"hmtx")
-            || tag == read_fonts::types::Tag::new(b"head")
-            || tag == read_fonts::types::Tag::new(b"hhea")
-            || tag == read_fonts::types::Tag::new(b"OS/2")
-        {
+        if matches!(tag, TAG_GLYF | TAG_LOCA | TAG_HMTX | TAG_HEAD | TAG_HHEA | TAG_OS2) {
             continue;
         }
         if let Some(table_data) = font.table_data(tag) {
@@ -243,9 +231,9 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
     let data = read(input).context("Failed to read input font")?;
     create_dir_all(output_dir)?;
 
-    let mut success = 0;
+    let success = AtomicUsize::new(0);
 
-    for style in SANS_STYLES {
+    SANS_STYLES.par_iter().try_for_each(|style| -> Result<()> {
         let output = output_dir.join(format!("WarpnineSansCondensed-{}.ttf", style.name));
         println!("Creating {} condensed ({:.0}%)", style.name, scale * 100.0);
 
@@ -257,13 +245,18 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         let scaled_data = apply_horizontal_scale(&static_data, scale, style.wght as u16)?;
 
         let final_data =
-            update_condensed_name_table(&scaled_data, "Warpnine Sans Condensed", style.name)?;
+            apply_family_style_names(&scaled_data, "Warpnine Sans Condensed", style.name)?;
 
         write(&output, final_data)?;
         println!("  Created: {}", output.display());
-        success += 1;
-    }
+        success.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    })?;
 
-    println!("Created {success} condensed fonts in {}/", output_dir.display());
+    println!(
+        "Created {} condensed fonts in {}/",
+        success.load(Ordering::Relaxed),
+        output_dir.display()
+    );
     Ok(())
 }
