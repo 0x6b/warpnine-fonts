@@ -4,10 +4,9 @@ use anyhow::Result;
 use read_fonts::{FontRef, TableProvider};
 use write_fonts::{FontBuilder, from_obj::ToOwnedTable, tables::os2::Os2};
 
-use crate::{
-    font_ops::{apply_family_style_names, rewrite_font},
-    styles::{SANS_STYLES, Style, build_style_instances},
-};
+use warpnine_font_ops::{apply_family_style_names, rewrite_font};
+
+use crate::styles::{SANS_STYLES, Style, build_style_instances};
 
 fn update_weight_class(font_data: &[u8], weight: u16) -> Result<Vec<u8>> {
     rewrite_font(font_data, |font: &FontRef, builder: &mut FontBuilder| {

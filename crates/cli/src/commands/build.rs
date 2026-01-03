@@ -15,19 +15,21 @@ use rayon::prelude::*;
 use warpnine_font_vf_builder::{Axis, DesignSpace, Instance, Source, build_variable_font};
 
 use crate::{
-    condense::create_condensed,
-    font_ops::copy_gsub,
+    FontVersion, MonospaceSettings, Subsetter,
     freeze::{AutoRvrn, freeze_features},
     instance::{InstanceDef, create_instances_batch},
-    io::{check_results, glob_fonts},
-    ligatures::remove_grave_ligature,
+    io::{check_results, glob_fonts, read_font, write_font},
     merge::merge_batch,
-    metadata::{parse_version_string, set_monospace, set_version},
-    naming::{FontNaming, set_name, set_names_for_pattern},
-    sans::create_sans,
     styles::{MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
-    subset::subset_japanese,
+    warpnine::{
+        condense::create_condensed,
+        ligatures::remove_grave_ligature,
+        naming::{FontNaming, set_name, set_names_for_pattern},
+        sans::create_sans,
+    },
 };
+use read_fonts::types::Tag;
+use warpnine_font_ops::copy_table;
 
 use super::{clean, download};
 
@@ -280,7 +282,9 @@ fn step_subset_noto(ctx: &PipelineContext) -> Result<()> {
     for weight in ["400", "700"] {
         let input = ctx.build_dir.join(format!("Noto-{weight}.ttf"));
         let output = ctx.build_dir.join(format!("Noto-{weight}-subset.ttf"));
-        subset_japanese(&input, &output)?;
+        let data = read_font(&input)?;
+        let subset_data = Subsetter::japanese().subset(&data)?;
+        write_font(&output, subset_data)?;
     }
     Ok(())
 }
@@ -367,7 +371,14 @@ fn step_build_vf(ctx: &PipelineContext) -> Result<()> {
 
 fn step_copy_gsub(ctx: &PipelineContext) -> Result<()> {
     println!("  Copying GSUB from Recursive VF to WarpnineMono VF...");
-    copy_gsub(&ctx.recursive_vf, &ctx.vf_output())
+    let source = &ctx.recursive_vf;
+    let target = &ctx.vf_output();
+    let source_data = read_font(source)?;
+    let target_data = read_font(target)?;
+    let new_data = copy_table(&source_data, &target_data, Tag::new(b"GSUB"))?;
+    write_font(target, new_data)?;
+    println!("Copied GSUB table from {} to {}", source.display(), target.display());
+    Ok(())
 }
 
 fn step_restore_frozen(ctx: &PipelineContext) -> Result<()> {
@@ -394,7 +405,15 @@ fn step_set_monospace(ctx: &PipelineContext) -> Result<()> {
     let fonts = ctx.dist_fonts("WarpnineMono-*.ttf")?;
     println!("  Setting monospace flags on {} fonts...", fonts.len());
 
-    let results: Vec<_> = fonts.par_iter().map(|path| set_monospace(path)).collect();
+    let results: Vec<_> = fonts
+        .par_iter()
+        .map(|path| {
+            let data = read_font(path)?;
+            let new_data = MonospaceSettings::DEFAULT.apply(&data)?;
+            write_font(path, new_data)?;
+            Ok(())
+        })
+        .collect();
 
     check_results(&results, "set monospace")
 }
@@ -517,11 +536,16 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
     let fonts = ctx.dist_fonts("*.ttf")?;
     println!("  Setting version on {} fonts...", fonts.len());
 
-    let (date, version_tag) = parse_version_string(ctx.version.as_deref())?;
+    let version = FontVersion::parse(ctx.version.as_deref())?;
 
     let results: Vec<_> = fonts
         .par_iter()
-        .map(|path| set_version(path, date, &version_tag))
+        .map(|path| {
+            let data = read_font(path)?;
+            let new_data = version.apply(&data)?;
+            write_font(path, new_data)?;
+            Ok(())
+        })
         .collect();
 
     check_results(&results, "set version")

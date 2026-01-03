@@ -3,9 +3,11 @@ use std::path::Path;
 use anyhow::Result;
 use log::info;
 use rayon::prelude::*;
+use read_fonts::FontRef;
+use warpnine_font_ops::{map_name_records, rewrite_font};
+use write_fonts::FontBuilder;
 
-use crate::font_ops::{map_name_records, modify_font_in_place};
-use crate::io::{check_results, glob_fonts};
+use crate::io::{check_results, glob_fonts, transform_font_in_place};
 
 const COPYRIGHT_TEMPLATE: &str = "Copyright 2020 The Recursive Project Authors (https://github.com/arrowtype/recursive). \
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. ";
@@ -45,19 +47,22 @@ impl FontNaming {
 }
 
 pub fn set_name(path: &Path, naming: &FontNaming) -> Result<()> {
-    modify_font_in_place(path, |font, builder| {
-        let name = map_name_records(font, |name_id, _current| match name_id {
-            0 => Some(naming.copyright()),
-            1 => Some(format!("{} {}", naming.family, naming.style)),
-            3 => Some(naming.unique_id()),
-            4 => Some(naming.full_name()),
-            6 => Some(naming.postscript_name()),
-            16 => Some(naming.family.clone()),
-            17 => Some(naming.style.clone()),
-            _ => None,
-        })?;
-        builder.add_table(&name)?;
-        Ok(())
+    let naming = naming.clone();
+    transform_font_in_place(path, |data| {
+        rewrite_font(data, |font: &FontRef, builder: &mut FontBuilder| {
+            let name = map_name_records(font, |name_id, _current| match name_id {
+                0 => Some(naming.copyright()),
+                1 => Some(format!("{} {}", naming.family, naming.style)),
+                3 => Some(naming.unique_id()),
+                4 => Some(naming.full_name()),
+                6 => Some(naming.postscript_name()),
+                16 => Some(naming.family.clone()),
+                17 => Some(naming.style.clone()),
+                _ => None,
+            })?;
+            builder.add_table(&name)?;
+            Ok(())
+        })
     })?;
 
     info!(

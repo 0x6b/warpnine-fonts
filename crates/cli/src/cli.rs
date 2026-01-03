@@ -239,24 +239,31 @@ impl Commands {
 impl DevCommands {
     pub fn run(self) -> Result<()> {
         use crate::{
-            calt::fix_calt_registration,
             commands::build_warpnine_mono_vf,
-            condense::create_condensed,
-            font_ops::copy_gsub,
             freeze::{AutoRvrn, freeze_features},
             instance::{InstanceDef, create_instance, create_instances_batch},
-            ligatures::remove_grave_ligature,
+            io::{read_font, write_font, transform_font_in_place},
             merge::{merge_batch, merge_fonts},
-            metadata::{parse_version_string, set_monospace, set_version},
-            naming::{FontNaming, set_name},
             parallel::run_parallel,
-            sans::create_sans,
-            subset::subset_japanese,
+            warpnine::{
+                calt::fix_calt_registration,
+                condense::create_condensed,
+                ligatures::remove_grave_ligature,
+                naming::{FontNaming, set_name},
+                sans::create_sans,
+            },
+            FontVersion, MonospaceSettings, Subsetter,
         };
+        use read_fonts::types::Tag;
+        use warpnine_font_ops::copy_table;
 
         match self {
             DevCommands::CopyGsub { from, to } => {
-                copy_gsub(&from, &to)?;
+                let source_data = read_font(&from)?;
+                let target_data = read_font(&to)?;
+                let new_data = copy_table(&source_data, &target_data, Tag::new(b"GSUB"))?;
+                write_font(&to, new_data)?;
+                println!("Copied GSUB table from {} to {}", from.display(), to.display());
             }
             DevCommands::RemoveLigatures { files } => {
                 run_parallel("Remove ligatures", &files, |path| {
@@ -265,16 +272,22 @@ impl DevCommands {
                 })?;
             }
             DevCommands::SetMonospace { files } => {
-                run_parallel("Set monospace", &files, set_monospace)?;
+                run_parallel("Set monospace", &files, |path| {
+                    transform_font_in_place(path, |data| MonospaceSettings::DEFAULT.apply(data))
+                })?;
             }
             DevCommands::SetVersion { version, files } => {
-                let (date, version_tag) = parse_version_string(version.as_deref())?;
+                let font_version = FontVersion::parse(version.as_deref())?;
+                let version_tag = font_version.tag.clone();
                 run_parallel(&format!("Set version {version_tag}"), &files, |path| {
-                    set_version(path, date, &version_tag)
+                    transform_font_in_place(path, |data| font_version.apply(data))
                 })?;
             }
             DevCommands::SubsetJapanese { input, output } => {
-                subset_japanese(&input, &output)?;
+                let data = read_font(&input)?;
+                let subset_data = Subsetter::japanese().subset(&data)?;
+                write_font(&output, subset_data)?;
+                println!("Subset {} -> {}", input.display(), output.display());
             }
             DevCommands::Freeze { features, auto_rvrn, files } => {
                 let auto_rvrn = if auto_rvrn { AutoRvrn::Enabled } else { AutoRvrn::Disabled };

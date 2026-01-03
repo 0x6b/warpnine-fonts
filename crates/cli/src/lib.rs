@@ -6,16 +6,18 @@ pub mod io;
 pub mod parallel;
 pub mod styles;
 
-pub mod calt;
-pub mod condense;
-pub mod font_ops;
+// Batch processing wrappers (these add real value)
 pub mod freeze;
 pub mod instance;
-pub mod ligatures;
 pub mod merge;
-pub mod metadata;
-pub mod naming;
-pub mod sans;
-pub mod subset;
+
+// Project-specific operations
+pub mod warpnine;
+
+// Re-export from extracted crates for convenience
+pub use warpnine_font_condense::apply_horizontal_scale;
+pub use warpnine_font_metadata::{FontVersion, MonospaceSettings};
+pub use warpnine_font_ops::{apply_family_style_names, copy_table, map_name_records, rewrite_font};
+pub use warpnine_font_subsetter::{JAPANESE_RANGES, Subsetter};
 
 pub use styles::{MONO_STYLES, SANS_STYLES, Slant, Style, Weight};
