@@ -1,9 +1,6 @@
 //! Shared font manipulation helpers.
 
-use std::{
-    fs::{read, write},
-    path::Path,
-};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use read_fonts::{FontRef, TableProvider, types::Tag};
@@ -11,6 +8,8 @@ use write_fonts::{
     FontBuilder,
     tables::name::{Name, NameRecord},
 };
+
+use crate::io::{read_font, write_font};
 
 /// Rewrite font data by applying a transformation function.
 ///
@@ -38,9 +37,9 @@ pub fn modify_font_in_place(
     path: &Path,
     f: impl FnOnce(&FontRef, &mut FontBuilder) -> Result<()>,
 ) -> Result<()> {
-    let data = read(path)?;
+    let data = read_font(path)?;
     let new_data = rewrite_font(&data, f)?;
-    write(path, new_data)?;
+    write_font(path, new_data)?;
     Ok(())
 }
 
@@ -95,14 +94,14 @@ pub fn apply_family_style_names(font_data: &[u8], family: &str, style: &str) -> 
 
 /// Copy GSUB table from source font to target font.
 pub fn copy_gsub(source: &Path, target: &Path) -> Result<()> {
-    let source_data = read(source).context("Failed to read source font")?;
+    let source_data = read_font(source)?;
     let source_font = FontRef::new(&source_data).context("Failed to parse source font")?;
 
     let gsub_data = source_font
         .table_data(Tag::new(b"GSUB"))
         .context("Source font has no GSUB table")?;
 
-    let target_data = read(target).context("Failed to read target font")?;
+    let target_data = read_font(target)?;
     let target_font = FontRef::new(&target_data).context("Failed to parse target font")?;
 
     let mut builder = FontBuilder::new();
@@ -120,7 +119,7 @@ pub fn copy_gsub(source: &Path, target: &Path) -> Result<()> {
     builder.add_raw(Tag::new(b"GSUB"), gsub_data);
 
     let output = builder.build();
-    write(target, output).context("Failed to write target font")?;
+    write_font(target, output)?;
 
     println!("Copied GSUB table from {} to {}", source.display(), target.display());
     Ok(())
