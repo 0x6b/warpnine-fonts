@@ -16,7 +16,7 @@ use crate::{
     build_vf::build_warpnine_mono_vf,
     clean,
     condense::create_condensed,
-    copy_table::copy_gsub,
+    font_ops::copy_gsub,
     download,
     freeze::{AutoRvrn, freeze_features},
     instance::{InstanceDef, create_instances_batch},
