@@ -186,8 +186,8 @@ fn step_merge(ctx: &PipelineContext) -> Result<()> {
     for font in glob_fonts(&ctx.dist_dir, "RecMonoDuotone-*.ttf")? {
         let new_name = font
             .file_name()
-            .unwrap()
-            .to_string_lossy()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", font.display()))?
             .replace("RecMonoDuotone-", "WarpnineMono-");
         let new_path = ctx.dist_dir.join(new_name);
         rename(&font, &new_path)?;
@@ -197,8 +197,10 @@ fn step_merge(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
-    let fonts = static_mono_fonts(ctx)?;
+    const MONO_COPYRIGHT: &str =
+        "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP.";
 
+    let fonts = static_mono_fonts(ctx)?;
     println!("  Setting names for {} static mono fonts...", fonts.len());
 
     let results: Vec<_> = fonts
@@ -206,23 +208,23 @@ fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
         .map(|path| {
             let style = path
                 .file_stem()
-                .unwrap()
-                .to_string_lossy()
-                .replace("WarpnineMono-", "");
+                .and_then(|s| s.to_str())
+                .map(|s| s.strip_prefix("WarpnineMono-").unwrap_or(s))
+                .unwrap_or_default()
+                .to_string();
+
             let naming = FontNaming {
                 family: "Warpnine Mono".to_string(),
                 style,
                 postscript_family: Some("WarpnineMono".to_string()),
-                copyright_extra: Some(
-                    "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP."
-                        .to_string(),
-                ),
+                copyright_extra: Some(MONO_COPYRIGHT.to_string()),
             };
+
             set_name(path, &naming)
         })
         .collect();
 
-    check_results(&results, "set names")
+    check_results(&results, "set names (mono)")
 }
 
 fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
@@ -242,7 +244,10 @@ fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
     println!("  Backing up {} frozen static fonts...", fonts.len());
 
     for font in &fonts {
-        let dest = backup_dir.join(font.file_name().unwrap());
+        let file_name = font
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", font.display()))?;
+        let dest = backup_dir.join(file_name);
         copy(font, dest)?;
     }
     Ok(())
@@ -271,7 +276,10 @@ fn step_restore_frozen(ctx: &PipelineContext) -> Result<()> {
     println!("  Restoring {} frozen static fonts...", backups.len());
 
     for backup in &backups {
-        let dest = ctx.dist_dir.join(backup.file_name().unwrap());
+        let file_name = backup
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", backup.display()))?;
+        let dest = ctx.dist_dir.join(file_name);
         copy(backup, dest)?;
     }
     Ok(())
@@ -295,77 +303,45 @@ fn step_create_sans(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_set_names_sans(ctx: &PipelineContext) -> Result<()> {
-    // Sans fonts
-    let sans_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSans-*.ttf")?;
-    if !sans_fonts.is_empty() {
-        println!("  Setting names for {} Sans fonts...", sans_fonts.len());
-        let results: Vec<_> = sans_fonts
-            .par_iter()
-            .map(|path| {
-                let style = path
-                    .file_stem()
-                    .unwrap()
-                    .to_string_lossy()
-                    .replace("WarpnineSans-", "");
-                let naming = FontNaming {
-                    family: "Warpnine Sans".to_string(),
-                    style,
-                    postscript_family: Some("WarpnineSans".to_string()),
-                    copyright_extra: Some("Warpnine Sans is based on Recursive.".to_string()),
-                };
-                set_name(path, &naming)
-            })
-            .collect();
-        check_results(&results, "set names (Sans)")?;
-    }
+    set_names_for_pattern(
+        &ctx.dist_dir,
+        "WarpnineSans-*.ttf",
+        "Warpnine Sans",
+        "WarpnineSans",
+        "Warpnine Sans is based on Recursive.",
+        "WarpnineSans-",
+    )?;
 
-    // Condensed fonts
-    let condensed_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSansCondensed-*.ttf")?;
-    if !condensed_fonts.is_empty() {
-        println!("  Setting names for {} Condensed fonts...", condensed_fonts.len());
-        let results: Vec<_> = condensed_fonts
-            .par_iter()
-            .map(|path| {
-                let style = path
-                    .file_stem()
-                    .unwrap()
-                    .to_string_lossy()
-                    .replace("WarpnineSansCondensed-", "");
-                let naming = FontNaming {
-                    family: "Warpnine Sans Condensed".to_string(),
-                    style,
-                    postscript_family: Some("WarpnineSansCondensed".to_string()),
-                    copyright_extra: Some(
-                        "Warpnine Sans Condensed is based on Recursive.".to_string(),
-                    ),
-                };
-                set_name(path, &naming)
-            })
-            .collect();
-        check_results(&results, "set names (Condensed)")?;
-    }
+    set_names_for_pattern(
+        &ctx.dist_dir,
+        "WarpnineSansCondensed-*.ttf",
+        "Warpnine Sans Condensed",
+        "WarpnineSansCondensed",
+        "Warpnine Sans Condensed is based on Recursive.",
+        "WarpnineSansCondensed-",
+    )?;
 
     Ok(())
 }
 
 fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
-    let vf = ctx.dist_dir.join("WarpnineMono-VF.ttf");
-    if !vf.exists() {
+    const MONO_COPYRIGHT: &str =
+        "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP.";
+
+    let count = set_names_for_pattern(
+        &ctx.dist_dir,
+        "WarpnineMono-VF.ttf",
+        "Warpnine Mono",
+        "WarpnineMono",
+        MONO_COPYRIGHT,
+        "WarpnineMono-",
+    )?;
+
+    if count == 0 {
         println!("  VF not found, skipping name setting");
-        return Ok(());
     }
 
-    println!("  Setting names for VF...");
-    let naming = FontNaming {
-        family: "Warpnine Mono".to_string(),
-        style: "Regular".to_string(), // VF default style
-        postscript_family: Some("WarpnineMono".to_string()),
-        copyright_extra: Some(
-            "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP."
-                .to_string(),
-        ),
-    };
-    set_name(&vf, &naming)
+    Ok(())
 }
 
 fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
@@ -413,17 +389,64 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
 
 fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
     let glob_pattern = dir.join(pattern);
-    let paths: Vec<PathBuf> = glob(glob_pattern.to_str().unwrap())
+    let glob_str = glob_pattern
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Invalid path for glob: {}", glob_pattern.display()))?;
+    let paths: Vec<PathBuf> = glob(glob_str)
         .with_context(|| format!("Invalid glob pattern: {pattern}"))?
         .filter_map(|r| r.ok())
         .collect();
     Ok(paths)
 }
 
+fn set_names_for_pattern(
+    dir: &Path,
+    pattern: &str,
+    family: &str,
+    ps_family: &str,
+    copyright_extra: &str,
+    strip_prefix: &str,
+) -> Result<usize> {
+    let fonts = glob_fonts(dir, pattern)?;
+    if fonts.is_empty() {
+        return Ok(0);
+    }
+
+    println!("  Setting names for {} fonts ({})...", fonts.len(), pattern);
+    let results: Vec<_> = fonts
+        .par_iter()
+        .map(|path| {
+            let style = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.strip_prefix(strip_prefix).unwrap_or(s))
+                .unwrap_or_default()
+                .to_string();
+
+            let naming = FontNaming {
+                family: family.to_string(),
+                style,
+                postscript_family: Some(ps_family.to_string()),
+                copyright_extra: Some(copyright_extra.to_string()),
+            };
+
+            set_name(path, &naming)
+        })
+        .collect();
+
+    check_results(&results, &format!("set names ({})", pattern))?;
+    Ok(fonts.len())
+}
+
 fn static_mono_fonts(ctx: &PipelineContext) -> Result<Vec<PathBuf>> {
     Ok(glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
         .into_iter()
-        .filter(|p| !p.file_name().unwrap().to_string_lossy().contains("-VF"))
+        .filter(|p| {
+            p.file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| !s.contains("-VF"))
+                .unwrap_or(false)
+        })
         .collect())
 }
 

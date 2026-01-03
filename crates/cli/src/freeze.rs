@@ -1,6 +1,6 @@
 use std::{
     fs::{read, write},
-    path::PathBuf,
+    path::Path,
 };
 
 use anyhow::{Context, Result};
@@ -15,7 +15,7 @@ pub enum AutoRvrn {
 }
 
 pub fn freeze_features(
-    files: &[PathBuf],
+    files: &[impl AsRef<Path> + Sync],
     features: &[impl AsRef<str> + Sync],
     auto_rvrn: AutoRvrn,
 ) -> Result<()> {
@@ -39,7 +39,7 @@ pub fn freeze_features(
 
     let results: Vec<_> = files
         .par_iter()
-        .map(|path| freeze_single(path, features, needs_rvrn))
+        .map(|path| freeze_single(path.as_ref(), features, needs_rvrn))
         .collect();
 
     let mut success = 0;
@@ -65,7 +65,7 @@ pub fn freeze_features(
     Ok(())
 }
 
-fn freeze_single(path: &PathBuf, features: &[impl AsRef<str>], prepend_rvrn: bool) -> Result<usize> {
+fn freeze_single(path: &Path, features: &[impl AsRef<str>], prepend_rvrn: bool) -> Result<usize> {
     let data = read(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
     let feature_iter: Box<dyn Iterator<Item = &str>> = if prepend_rvrn {
