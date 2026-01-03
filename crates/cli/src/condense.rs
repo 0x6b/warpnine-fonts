@@ -1,12 +1,6 @@
-use std::{
-    fs::{create_dir_all, read, write},
-    path::Path,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::path::Path;
 
-use anyhow::{Context, Result};
-use font_instancer::instantiate;
-use rayon::prelude::*;
+use anyhow::Result;
 use read_fonts::{
     FontRef, TableProvider, tables,
     tables::glyf::CurvePoint,
@@ -27,7 +21,10 @@ use write_fonts::{
     },
 };
 
-use crate::{font_ops::apply_family_style_names, styles::SANS_STYLES};
+use crate::{
+    font_ops::apply_family_style_names,
+    styles::{SANS_STYLES, build_style_instances},
+};
 
 const TAG_GLYF: Tag = Tag::new(b"glyf");
 const TAG_LOCA: Tag = Tag::new(b"loca");
@@ -228,35 +225,18 @@ fn apply_horizontal_scale(font_data: &[u8], scale_x: f32, weight_class: u16) -> 
 }
 
 pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<()> {
-    let data = read(input).context("Failed to read input font")?;
-    create_dir_all(output_dir)?;
+    let count = build_style_instances(
+        input,
+        output_dir,
+        SANS_STYLES,
+        "WarpnineSansCondensed-",
+        |font_data, style| {
+            println!("  Applying {:.0}% horizontal scale", scale * 100.0);
+            let scaled_data = apply_horizontal_scale(font_data, scale, style.weight.0 as u16)?;
+            apply_family_style_names(&scaled_data, "Warpnine Sans Condensed", style.name)
+        },
+    )?;
 
-    let success = AtomicUsize::new(0);
-
-    SANS_STYLES.par_iter().try_for_each(|style| -> Result<()> {
-        let output = output_dir.join(format!("WarpnineSansCondensed-{}.ttf", style.name));
-        println!("Creating {} condensed ({:.0}%)", style.name, scale * 100.0);
-
-        let locations = style.axis_locations(0.0, 0.0);
-
-        let static_data = instantiate(&data, &locations)
-            .with_context(|| format!("Failed to instantiate {}", style.name))?;
-
-        let scaled_data = apply_horizontal_scale(&static_data, scale, style.weight.0 as u16)?;
-
-        let final_data =
-            apply_family_style_names(&scaled_data, "Warpnine Sans Condensed", style.name)?;
-
-        write(&output, final_data)?;
-        println!("  Created: {}", output.display());
-        success.fetch_add(1, Ordering::Relaxed);
-        Ok(())
-    })?;
-
-    println!(
-        "Created {} condensed fonts in {}/",
-        success.load(Ordering::Relaxed),
-        output_dir.display()
-    );
+    println!("Created {} condensed fonts in {}/", count, output_dir.display());
     Ok(())
 }

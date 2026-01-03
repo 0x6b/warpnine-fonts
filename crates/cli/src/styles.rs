@@ -1,6 +1,14 @@
 //! Unified style definitions for font generation.
 
-use font_instancer::AxisLocation;
+use std::{
+    fs::{create_dir_all, read, write},
+    path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+use anyhow::{Context, Result};
+use font_instancer::{instantiate, AxisLocation};
+use rayon::prelude::*;
 
 /// Font slant (upright or italic).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,4 +188,45 @@ pub const MONO_FEATURES: &[FeatureTag] = &[
 
 /// Features to freeze in sans fonts (same as base).
 pub const SANS_FEATURES: &[FeatureTag] = BASE_FEATURES;
+
+/// Build static font instances from a variable font by iterating over styles in parallel.
+///
+/// - Reads the input font once
+/// - Creates output_dir if needed
+/// - Iterates styles in parallel
+/// - For each style: instantiates at axis locations, applies transform, writes output
+/// - Returns the count of created fonts
+pub fn build_style_instances<F>(
+    input: &Path,
+    output_dir: &Path,
+    styles: &[Style],
+    output_prefix: &str,
+    transform: F,
+) -> Result<usize>
+where
+    F: Fn(&[u8], &Style) -> Result<Vec<u8>> + Sync,
+{
+    let data = read(input).context("Failed to read input font")?;
+    create_dir_all(output_dir)?;
+
+    let success = AtomicUsize::new(0);
+
+    styles.par_iter().try_for_each(|style| -> Result<()> {
+        let output = output_dir.join(format!("{output_prefix}{}.ttf", style.name));
+        println!("Creating {}", style.name);
+
+        let locations = style.axis_locations(0.0, 0.0);
+        let static_data =
+            instantiate(&data, &locations).with_context(|| format!("Failed to instantiate {}", style.name))?;
+
+        let final_data = transform(&static_data, style)?;
+
+        write(&output, final_data)?;
+        println!("  Created: {}", output.display());
+        success.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    })?;
+
+    Ok(success.load(Ordering::Relaxed))
+}
 

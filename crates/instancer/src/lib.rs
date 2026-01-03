@@ -77,3 +77,21 @@ impl From<(Tag, f32)> for AxisLocation {
         Self { tag, value }
     }
 }
+
+/// Instantiate a variable font from axis name/value pairs.
+///
+/// This is a convenience wrapper around [`instantiate`] that accepts
+/// a slice of `(&str, f32)` pairs directly.
+///
+/// # Example
+///
+/// ```no_run
+/// use font_instancer::instantiate_from_pairs;
+///
+/// let vf_data = std::fs::read("variable.ttf").unwrap();
+/// let static_font = instantiate_from_pairs(&vf_data, &[("wght", 700.0), ("wdth", 100.0)]).unwrap();
+/// ```
+pub fn instantiate_from_pairs(data: &[u8], locations: &[(&str, f32)]) -> Result<Vec<u8>> {
+    let axis_locations: Vec<AxisLocation> = locations.iter().copied().map(Into::into).collect();
+    instantiate(data, &axis_locations)
+}

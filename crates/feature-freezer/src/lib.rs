@@ -60,7 +60,18 @@ where
     freeze(data, &options_from_features(features)).map(|r| (r.data, r.stats))
 }
 
-fn options_from_features<I, S>(features: I) -> FreezeOptions
+/// Create FreezeOptions from an iterable of feature tags.
+///
+/// This is a convenience function for creating options with just feature tags.
+///
+/// # Example
+///
+/// ```
+/// use font_feature_freezer::options_from_features;
+///
+/// let options = options_from_features(["smcp", "onum"]);
+/// ```
+pub fn options_from_features<I, S>(features: I) -> FreezeOptions
 where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,

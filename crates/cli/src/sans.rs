@@ -1,18 +1,12 @@
-use std::{
-    fs::{create_dir_all, read, write},
-    path::Path,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::path::Path;
 
-use anyhow::{Context, Result};
-use font_instancer::instantiate;
-use rayon::prelude::*;
+use anyhow::Result;
 use read_fonts::{FontRef, TableProvider};
 use write_fonts::{FontBuilder, from_obj::ToOwnedTable, tables::os2::Os2};
 
 use crate::{
     font_ops::{apply_family_style_names, rewrite_font},
-    styles::SANS_STYLES,
+    styles::{Style, SANS_STYLES, build_style_instances},
 };
 
 fn update_weight_class(font_data: &[u8], weight: u16) -> Result<Vec<u8>> {
@@ -26,30 +20,13 @@ fn update_weight_class(font_data: &[u8], weight: u16) -> Result<Vec<u8>> {
     })
 }
 
+fn transform_sans(font_data: &[u8], style: &Style) -> Result<Vec<u8>> {
+    let named_data = apply_family_style_names(font_data, "Warpnine Sans", style.name)?;
+    update_weight_class(&named_data, style.weight.0 as u16)
+}
+
 pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
-    let data = read(input).context("Failed to read input font")?;
-    create_dir_all(output_dir)?;
-
-    let success = AtomicUsize::new(0);
-
-    SANS_STYLES.par_iter().try_for_each(|style| -> Result<()> {
-        let output = output_dir.join(format!("WarpnineSans-{}.ttf", style.name));
-        println!("Creating {}", style.name);
-
-        let locations = style.axis_locations(0.0, 0.0);
-
-        let static_data = instantiate(&data, &locations)
-            .with_context(|| format!("Failed to instantiate {}", style.name))?;
-
-        let named_data = apply_family_style_names(&static_data, "Warpnine Sans", style.name)?;
-        let final_data = update_weight_class(&named_data, style.weight.0 as u16)?;
-
-        write(&output, final_data)?;
-        println!("  Created: {}", output.display());
-        success.fetch_add(1, Ordering::Relaxed);
-        Ok(())
-    })?;
-
-    println!("Created {} sans fonts in {}/", success.load(Ordering::Relaxed), output_dir.display());
+    let count = build_style_instances(input, output_dir, SANS_STYLES, "WarpnineSans-", transform_sans)?;
+    println!("Created {} sans fonts in {}/", count, output_dir.display());
     Ok(())
 }

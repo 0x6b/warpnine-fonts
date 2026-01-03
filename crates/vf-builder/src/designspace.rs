@@ -31,6 +31,16 @@ impl Axis {
         }
     }
 
+    /// Create a standard weight axis (wght: 100-900, default 400).
+    pub fn weight() -> Self {
+        Self::new("wght", "Weight", 100.0, 400.0, 900.0)
+    }
+
+    /// Create a standard italic axis (ital: 0-1, default 0).
+    pub fn italic() -> Self {
+        Self::new("ital", "Italic", 0.0, 0.0, 1.0)
+    }
+
     /// Normalize a user-space value to the range [-1, 1].
     ///
     /// Values below the default normalize to [-1, 0].
