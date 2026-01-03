@@ -129,6 +129,22 @@ const SANS_STEPS: &[PipelineStep] = &[
 
 const FINAL_STEPS: &[PipelineStep] = &[("set-version", step_set_version)];
 
+const SANS_ONLY_STEPS: &[PipelineStep] = &[
+    ("download", step_download),
+    ("create-sans", step_create_sans),
+    ("set-names-sans-only", step_set_names_sans_only),
+    ("freeze-sans", step_freeze_sans),
+    ("set-version", step_set_version),
+];
+
+const CONDENSED_ONLY_STEPS: &[PipelineStep] = &[
+    ("download", step_download),
+    ("create-condensed", step_create_condensed),
+    ("set-names-condensed-only", step_set_names_condensed_only),
+    ("freeze-condensed", step_freeze_condensed),
+    ("set-version", step_set_version),
+];
+
 /// Pipeline execution context with helper methods.
 pub struct PipelineContext {
     pub build_dir: PathBuf,
@@ -404,6 +420,48 @@ fn step_set_names_sans(ctx: &PipelineContext) -> Result<()> {
     Ok(())
 }
 
+fn step_set_names_sans_only(ctx: &PipelineContext) -> Result<()> {
+    set_names_for_pattern(
+        &ctx.dist_dir,
+        "WarpnineSans-*.ttf",
+        "Warpnine Sans",
+        "WarpnineSans",
+        "Warpnine Sans is based on Recursive.",
+        "WarpnineSans-",
+    )?;
+    Ok(())
+}
+
+fn step_set_names_condensed_only(ctx: &PipelineContext) -> Result<()> {
+    set_names_for_pattern(
+        &ctx.dist_dir,
+        "WarpnineSansCondensed-*.ttf",
+        "Warpnine Sans Condensed",
+        "WarpnineSansCondensed",
+        "Warpnine Sans Condensed is based on Recursive.",
+        "WarpnineSansCondensed-",
+    )?;
+    Ok(())
+}
+
+fn step_freeze_sans(ctx: &PipelineContext) -> Result<()> {
+    let sans_fonts = ctx.dist_fonts("WarpnineSans-*.ttf")?;
+    if !sans_fonts.is_empty() {
+        println!("  Freezing features in {} Sans fonts...", sans_fonts.len());
+        freeze_features(&sans_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
+    }
+    Ok(())
+}
+
+fn step_freeze_condensed(ctx: &PipelineContext) -> Result<()> {
+    let condensed_fonts = ctx.dist_fonts("WarpnineSansCondensed-*.ttf")?;
+    if !condensed_fonts.is_empty() {
+        println!("  Freezing features in {} Condensed fonts...", condensed_fonts.len());
+        freeze_features(&condensed_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
+    }
+    Ok(())
+}
+
 fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
     const MONO_COPYRIGHT: &str =
         "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP.";
@@ -525,6 +583,54 @@ pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
 
     let mono_count = ctx.dist_fonts("WarpnineMono-*.ttf")?.len();
     println!("   Fonts: {mono_count} Mono");
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+
+    Ok(())
+}
+
+/// Run sans-only build pipeline
+pub fn build_sans(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> Result<()> {
+    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version);
+    let start = Instant::now();
+
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+    println!("Warpnine Sans Build Pipeline (Rust)");
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+
+    let total = SANS_ONLY_STEPS.len();
+
+    run_steps(SANS_ONLY_STEPS, &ctx, 0, total)?;
+
+    println!("\n═══════════════════════════════════════════════════════════════════════════════");
+    println!("✨ Sans build complete in {:.2}s", start.elapsed().as_secs_f64());
+    println!("   Output: {}", ctx.dist_dir.display());
+
+    let sans_count = ctx.dist_fonts("WarpnineSans-*.ttf")?.len();
+    println!("   Fonts: {sans_count} Sans");
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+
+    Ok(())
+}
+
+/// Run condensed-only build pipeline
+pub fn build_condensed(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> Result<()> {
+    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version);
+    let start = Instant::now();
+
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+    println!("Warpnine Sans Condensed Build Pipeline (Rust)");
+    println!("═══════════════════════════════════════════════════════════════════════════════");
+
+    let total = CONDENSED_ONLY_STEPS.len();
+
+    run_steps(CONDENSED_ONLY_STEPS, &ctx, 0, total)?;
+
+    println!("\n═══════════════════════════════════════════════════════════════════════════════");
+    println!("✨ Condensed build complete in {:.2}s", start.elapsed().as_secs_f64());
+    println!("   Output: {}", ctx.dist_dir.display());
+
+    let condensed_count = ctx.dist_fonts("WarpnineSansCondensed-*.ttf")?.len();
+    println!("   Fonts: {condensed_count} Condensed");
     println!("═══════════════════════════════════════════════════════════════════════════════");
 
     Ok(())
