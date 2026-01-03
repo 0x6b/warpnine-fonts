@@ -2,10 +2,11 @@
 
 use std::{
     fs::{create_dir_all, read, write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use glob::glob;
 
 /// Read font data from a file.
 pub fn read_font(path: impl AsRef<Path>) -> Result<Vec<u8>> {
@@ -37,6 +38,27 @@ pub fn ensure_parent_dir(path: &Path) -> Result<()> {
             create_dir_all(parent)
                 .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
+    }
+    Ok(())
+}
+
+/// Find fonts matching a glob pattern in a directory.
+pub fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
+    let pattern = dir.join(pattern);
+    let pattern_str = pattern
+        .to_str()
+        .context("Invalid pattern path")?;
+    Ok(glob(pattern_str)
+        .with_context(|| format!("Failed to glob pattern: {pattern_str}"))?
+        .filter_map(Result::ok)
+        .collect())
+}
+
+/// Check batch operation results and report failures.
+pub fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
+    let failed_count = results.iter().filter(|r| r.is_err()).count();
+    if failed_count > 0 {
+        bail!("{operation} failed for {} files", failed_count);
     }
     Ok(())
 }

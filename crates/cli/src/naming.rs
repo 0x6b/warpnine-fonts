@@ -1,11 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use anyhow::{Result, bail};
-use glob::glob;
+use anyhow::Result;
 use log::info;
 use rayon::prelude::*;
 
 use crate::font_ops::{map_name_records, modify_font_in_place};
+use crate::io::{check_results, glob_fonts};
 
 const COPYRIGHT_TEMPLATE: &str = "Copyright 2020 The Recursive Project Authors (https://github.com/arrowtype/recursive). \
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. ";
@@ -107,21 +107,4 @@ pub fn set_names_for_pattern(
 
     check_results(&results, &format!("set names ({})", pattern))?;
     Ok(fonts.len())
-}
-
-fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
-    let glob_pattern = dir.join(pattern);
-    let glob_str = glob_pattern
-        .to_str()
-        .ok_or_else(|| anyhow::anyhow!("Invalid path for glob: {}", glob_pattern.display()))?;
-    let paths: Vec<PathBuf> = glob(glob_str)?.filter_map(|r| r.ok()).collect();
-    Ok(paths)
-}
-
-fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
-    let failed: Vec<_> = results.iter().filter(|r| r.is_err()).collect();
-    if !failed.is_empty() {
-        bail!("{operation} failed for {} files", failed.len());
-    }
-    Ok(())
 }

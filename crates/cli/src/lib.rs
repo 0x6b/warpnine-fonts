@@ -1,5 +1,6 @@
 //! Warpnine fonts CLI library.
 
+pub mod cli;
 pub mod commands;
 pub mod io;
 pub mod parallel;

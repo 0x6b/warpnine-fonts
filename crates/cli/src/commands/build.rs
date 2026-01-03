@@ -11,12 +11,12 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use font_instancer::AxisLocation;
-use glob::glob;
 use rayon::prelude::*;
 use warpnine_font_vf_builder::{Axis, DesignSpace, Instance, Source, build_variable_font};
 
 use crate::{
     condense::create_condensed,
+    io::{check_results, glob_fonts},
     font_ops::copy_gsub,
     freeze::{AutoRvrn, freeze_features},
     instance::{InstanceDef, create_instances_batch},
@@ -454,18 +454,6 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
 // Helper Functions
 // ============================================================================
 
-fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
-    let glob_pattern = dir.join(pattern);
-    let glob_str = glob_pattern
-        .to_str()
-        .ok_or_else(|| anyhow::anyhow!("Invalid path for glob: {}", glob_pattern.display()))?;
-    let paths: Vec<PathBuf> = glob(glob_str)
-        .with_context(|| format!("Invalid glob pattern: {pattern}"))?
-        .filter_map(|r| r.ok())
-        .collect();
-    Ok(paths)
-}
-
 fn static_mono_fonts(ctx: &PipelineContext) -> Result<Vec<PathBuf>> {
     Ok(glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
         .into_iter()
@@ -476,14 +464,6 @@ fn static_mono_fonts(ctx: &PipelineContext) -> Result<Vec<PathBuf>> {
                 .unwrap_or(false)
         })
         .collect())
-}
-
-fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
-    let failed: Vec<_> = results.iter().filter(|r| r.is_err()).collect();
-    if !failed.is_empty() {
-        bail!("{operation} failed for {} files", failed.len());
-    }
-    Ok(())
 }
 
 fn run_steps(
