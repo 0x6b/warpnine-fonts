@@ -243,12 +243,12 @@ impl DevCommands {
             commands::build_warpnine_mono_vf,
             condense::create_condensed,
             font_ops::copy_gsub,
-            freeze::{freeze_features, AutoRvrn},
-            instance::{create_instance, create_instances_batch, InstanceDef},
+            freeze::{AutoRvrn, freeze_features},
+            instance::{InstanceDef, create_instance, create_instances_batch},
             ligatures::remove_grave_ligature,
             merge::{merge_batch, merge_fonts},
             metadata::{parse_version_string, set_monospace, set_version},
-            naming::{set_name, FontNaming},
+            naming::{FontNaming, set_name},
             parallel::run_parallel,
             sans::create_sans,
             subset::subset_japanese,
@@ -302,7 +302,13 @@ impl DevCommands {
             DevCommands::CreateCondensed { input, output_dir, scale } => {
                 create_condensed(&input, &output_dir, scale)?;
             }
-            DevCommands::SetName { family, style, postscript_family, copyright_extra, files } => {
+            DevCommands::SetName {
+                family,
+                style,
+                postscript_family,
+                copyright_extra,
+                files,
+            } => {
                 let naming = FontNaming { family, style, postscript_family, copyright_extra };
                 run_parallel("Set name", &files, |path| set_name(path, &naming))?;
             }

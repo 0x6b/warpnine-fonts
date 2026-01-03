@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use glob::glob;
 
 /// A font file handle for I/O operations.
@@ -30,7 +30,8 @@ impl FontFile {
 
     /// Write font data to the file.
     pub fn write(&self, data: impl AsRef<[u8]>) -> Result<()> {
-        write(&self.path, data).with_context(|| format!("Failed to write font: {}", self.path.display()))
+        write(&self.path, data)
+            .with_context(|| format!("Failed to write font: {}", self.path.display()))
     }
 
     /// Read, transform, and write back to the same file.

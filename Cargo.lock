@@ -2082,6 +2082,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "warpnine-font-condense"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "read-fonts",
+ "write-fonts",
+]
+
+[[package]]
 name = "warpnine-font-feature-freezer"
 version = "0.1.0"
 dependencies = [
@@ -2119,6 +2128,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "warpnine-font-metadata"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "font-test-data",
+ "read-fonts",
+ "warpnine-font-ops",
+ "write-fonts",
+]
+
+[[package]]
+name = "warpnine-font-ops"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "read-fonts",
+ "write-fonts",
+]
+
+[[package]]
+name = "warpnine-font-subsetter"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hb-subset",
+]
+
+[[package]]
 name = "warpnine-font-vf-builder"
 version = "0.1.0"
 dependencies = [
@@ -2146,9 +2184,13 @@ dependencies = [
  "rayon",
  "read-fonts",
  "reqwest",
+ "warpnine-font-condense",
  "warpnine-font-feature-freezer",
  "warpnine-font-instancer",
  "warpnine-font-merger",
+ "warpnine-font-metadata",
+ "warpnine-font-ops",
+ "warpnine-font-subsetter",
  "warpnine-font-vf-builder",
  "write-fonts",
  "zip",

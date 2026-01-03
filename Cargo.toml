@@ -3,6 +3,10 @@ resolver = "3"
 members = [
     "crates/cli",
     "crates/feature-freezer",
+    "crates/font-condense",
+    "crates/font-metadata",
+    "crates/font-ops",
+    "crates/font-subsetter",
     "crates/instancer",
     "crates/merger",
     "crates/vf-builder",
@@ -48,3 +52,7 @@ warpnine-font-feature-freezer = { path = "crates/feature-freezer", default-featu
 warpnine-font-instancer = { path = "crates/instancer", default-features = false }
 warpnine-font-merger = { path = "crates/merger" }
 warpnine-font-vf-builder = { path = "crates/vf-builder" }
+warpnine-font-ops = { path = "crates/font-ops" }
+warpnine-font-subsetter = { path = "crates/font-subsetter" }
+warpnine-font-condense = { path = "crates/font-condense" }
+warpnine-font-metadata = { path = "crates/font-metadata" }

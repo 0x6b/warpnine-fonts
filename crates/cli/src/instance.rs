@@ -1,9 +1,6 @@
 //! Font instance creation from variable fonts.
 
-use std::{
-    fs::create_dir_all,
-    path::Path,
-};
+use std::{fs::create_dir_all, path::Path};
 
 use anyhow::{Context, Result};
 pub use font_instancer::AxisLocation;
@@ -49,7 +46,8 @@ impl<'a> Instancer<'a> {
 
     /// Create a static instance and write to a file.
     pub fn instantiate_to_file(&self, output: &Path, axes: &[AxisLocation]) -> Result<()> {
-        let axis_desc: Vec<String> = axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
+        let axis_desc: Vec<String> =
+            axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
         info!("Creating instance with axes: {}", axis_desc.join(", "));
 
         let static_data = self.instantiate(axes)?;
@@ -78,7 +76,8 @@ impl<'a> Instancer<'a> {
         create_dir_all(output_dir)?;
 
         instances.par_iter().try_for_each(|inst| -> Result<()> {
-            let static_data = self.instantiate(&inst.axes)
+            let static_data = self
+                .instantiate(&inst.axes)
                 .with_context(|| format!("Failed to instantiate {}", inst.name))?;
 
             let output = output_dir.join(format!("{}.ttf", inst.name));
@@ -121,11 +120,13 @@ impl OwnedInstancer {
 pub fn create_instance(input: &Path, output: &Path, axes: &[AxisLocation]) -> Result<()> {
     let data = read_font(input)?;
     let instancer = Instancer::new(&data);
-    
-    let axis_desc: Vec<String> = axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
+
+    let axis_desc: Vec<String> =
+        axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
     info!("Creating instance with axes: {}", axis_desc.join(", "));
-    
-    let static_data = instancer.instantiate(axes)
+
+    let static_data = instancer
+        .instantiate(axes)
         .with_context(|| format!("Failed to instantiate {}", input.display()))?;
 
     if let Some(parent) = output.parent() {

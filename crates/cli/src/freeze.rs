@@ -30,7 +30,8 @@ impl Freezer {
     }
 
     pub fn with_features(mut self, features: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
-        self.features.extend(features.into_iter().map(|f| f.as_ref().to_string()));
+        self.features
+            .extend(features.into_iter().map(|f| f.as_ref().to_string()));
         self
     }
 
@@ -40,8 +41,8 @@ impl Freezer {
     }
 
     fn resolved_features(&self) -> Vec<String> {
-        let needs_rvrn = self.auto_rvrn == AutoRvrn::Enabled
-            && !self.features.iter().any(|f| f == "rvrn");
+        let needs_rvrn =
+            self.auto_rvrn == AutoRvrn::Enabled && !self.features.iter().any(|f| f == "rvrn");
 
         if needs_rvrn {
             std::iter::once("rvrn".to_string())
@@ -55,14 +56,16 @@ impl Freezer {
     /// Freeze features in font data, returning the frozen data.
     pub fn freeze(&self, data: &[u8]) -> Result<(Vec<u8>, usize)> {
         let features = self.resolved_features();
-        let (frozen_data, stats) = freeze_features_with_stats(data, features.iter().map(|f| f.as_str()))?;
+        let (frozen_data, stats) =
+            freeze_features_with_stats(data, features.iter().map(|f| f.as_str()))?;
         Ok((frozen_data, stats.substitutions_applied))
     }
 
     /// Freeze features in a font file in-place.
     pub fn freeze_file(&self, path: &Path) -> Result<usize> {
         let data = read_font(path)?;
-        let (frozen_data, subs) = self.freeze(&data)
+        let (frozen_data, subs) = self
+            .freeze(&data)
             .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
         write_font(path, frozen_data)?;
 
@@ -85,10 +88,8 @@ impl Freezer {
 
         info!("Freezing features: {}", features.join(","));
 
-        let results: Vec<_> = files
-            .par_iter()
-            .map(|path| self.freeze_file(path.as_ref()))
-            .collect();
+        let results: Vec<_> =
+            files.par_iter().map(|path| self.freeze_file(path.as_ref())).collect();
 
         let mut stats = FreezeStats::default();
         for result in results {

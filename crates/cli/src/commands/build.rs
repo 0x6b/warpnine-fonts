@@ -16,10 +16,10 @@ use warpnine_font_vf_builder::{Axis, DesignSpace, Instance, Source, build_variab
 
 use crate::{
     condense::create_condensed,
-    io::{check_results, glob_fonts},
     font_ops::copy_gsub,
     freeze::{AutoRvrn, freeze_features},
     instance::{InstanceDef, create_instances_batch},
+    io::{check_results, glob_fonts},
     ligatures::remove_grave_ligature,
     merge::merge_batch,
     metadata::{parse_version_string, set_monospace, set_version},
@@ -158,7 +158,13 @@ impl PipelineContext {
     pub fn new(build_dir: PathBuf, dist_dir: PathBuf, version: Option<String>) -> Self {
         let recursive_vf = build_dir.join("Recursive_VF_1.085.ttf");
         let noto_vf = build_dir.join("NotoSansMonoCJKjp-VF.ttf");
-        Self { build_dir, dist_dir, recursive_vf, noto_vf, version }
+        Self {
+            build_dir,
+            dist_dir,
+            recursive_vf,
+            noto_vf,
+            version,
+        }
     }
 
     /// Get fonts matching a pattern in the build directory.
@@ -173,7 +179,8 @@ impl PipelineContext {
 
     /// Get static mono fonts (excluding VF) in the dist directory.
     pub fn static_mono_fonts(&self) -> Result<Vec<PathBuf>> {
-        Ok(self.dist_fonts("WarpnineMono-*.ttf")?
+        Ok(self
+            .dist_fonts("WarpnineMono-*.ttf")?
             .into_iter()
             .filter(|p| {
                 p.file_name()
@@ -346,7 +353,8 @@ fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
     println!("  Backing up {} frozen static fonts...", fonts.len());
 
     for font in &fonts {
-        let file_name = font.file_name()
+        let file_name = font
+            .file_name()
             .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", font.display()))?;
         copy(font, backup_dir.join(file_name))?;
     }
@@ -374,7 +382,8 @@ fn step_restore_frozen(ctx: &PipelineContext) -> Result<()> {
     println!("  Restoring {} frozen static fonts...", backups.len());
 
     for backup in &backups {
-        let file_name = backup.file_name()
+        let file_name = backup
+            .file_name()
             .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", backup.display()))?;
         copy(backup, ctx.dist_dir.join(file_name))?;
     }

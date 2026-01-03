@@ -1,9 +1,6 @@
 //! Font merging operations.
 
-use std::{
-    fs::create_dir_all,
-    path::Path,
-};
+use std::{fs::create_dir_all, path::Path};
 
 use anyhow::{Context, Result};
 use log::info;
@@ -79,11 +76,17 @@ impl<'a> BatchMerger<'a> {
     /// Merge a base font with the fallback.
     pub fn merge_with_fallback(&self, base_data: &[u8]) -> Result<Vec<u8>> {
         let merger = Merger::default();
-        merger.merge(&[base_data, self.fallback_data]).context("Failed to merge fonts")
+        merger
+            .merge(&[base_data, self.fallback_data])
+            .context("Failed to merge fonts")
     }
 
     /// Merge multiple base fonts with the fallback in parallel.
-    pub fn merge_batch(&self, base_fonts: &[impl AsRef<Path> + Sync], output_dir: &Path) -> Result<()> {
+    pub fn merge_batch(
+        &self,
+        base_fonts: &[impl AsRef<Path> + Sync],
+        output_dir: &Path,
+    ) -> Result<()> {
         info!("Merging {} fonts with fallback", base_fonts.len());
 
         create_dir_all(output_dir)?;
@@ -91,7 +94,8 @@ impl<'a> BatchMerger<'a> {
         base_fonts.par_iter().try_for_each(|base_path| -> Result<()> {
             let base_path = base_path.as_ref();
             let base_data = read_font(base_path)?;
-            let merged_data = self.merge_with_fallback(&base_data)
+            let merged_data = self
+                .merge_with_fallback(&base_data)
                 .with_context(|| format!("Failed to merge {}", base_path.display()))?;
 
             let output = output_dir.join(base_path.file_name().unwrap());
@@ -116,7 +120,11 @@ impl OwnedBatchMerger {
         BatchMerger::new(&self.fallback_data)
     }
 
-    pub fn merge_batch(&self, base_fonts: &[impl AsRef<Path> + Sync], output_dir: &Path) -> Result<()> {
+    pub fn merge_batch(
+        &self,
+        base_fonts: &[impl AsRef<Path> + Sync],
+        output_dir: &Path,
+    ) -> Result<()> {
         self.as_batch_merger().merge_batch(base_fonts, output_dir)
     }
 }
