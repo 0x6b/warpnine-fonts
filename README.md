@@ -139,6 +139,18 @@ The variable font retains additional OpenType features from Recursive:
 - Stylistic Sets: `ss09`, `ss20`
 - Other: `zero`, `frac`, `locl`, `calt`, and more
 
+## Known Limitations
+
+### Typst: ExtraBlack Weight Not Accessible
+
+[Typst](https://typst.app/) caps font weights at 900, so ExtraBlack (weight 1000) cannot be selected via the `weight` parameter. Both Black (900) and ExtraBlack (1000) will render as Black when using:
+
+```typ
+#text(font: "Warpnine Mono", weight: 900)[This renders as Black]
+```
+
+The fonts are correctly built per OpenType spec; this is a Typst limitation.
+
 ## Testing
 
 Validation tests use Python with fonttools:
