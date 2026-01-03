@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use anyhow::{Result, anyhow};
-use log::info;
 use chrono::{Datelike, NaiveDate};
+use log::info;
 use read_fonts::TableProvider;
 use write_fonts::{
     from_obj::ToOwnedTable,

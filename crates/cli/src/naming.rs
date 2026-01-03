@@ -114,9 +114,7 @@ fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
     let glob_str = glob_pattern
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Invalid path for glob: {}", glob_pattern.display()))?;
-    let paths: Vec<PathBuf> = glob(glob_str)?
-        .filter_map(|r| r.ok())
-        .collect();
+    let paths: Vec<PathBuf> = glob(glob_str)?.filter_map(|r| r.ok()).collect();
     Ok(paths)
 }
 

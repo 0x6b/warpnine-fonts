@@ -6,7 +6,7 @@ use write_fonts::{FontBuilder, from_obj::ToOwnedTable, tables::os2::Os2};
 
 use crate::{
     font_ops::{apply_family_style_names, rewrite_font},
-    styles::{Style, SANS_STYLES, build_style_instances},
+    styles::{SANS_STYLES, Style, build_style_instances},
 };
 
 fn update_weight_class(font_data: &[u8], weight: u16) -> Result<Vec<u8>> {
@@ -26,7 +26,8 @@ fn transform_sans(font_data: &[u8], style: &Style) -> Result<Vec<u8>> {
 }
 
 pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
-    let count = build_style_instances(input, output_dir, SANS_STYLES, "WarpnineSans-", transform_sans)?;
+    let count =
+        build_style_instances(input, output_dir, SANS_STYLES, "WarpnineSans-", transform_sans)?;
     println!("Created {} sans fonts in {}/", count, output_dir.display());
     Ok(())
 }

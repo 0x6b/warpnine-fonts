@@ -4,8 +4,8 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use log::info;
 use hb_subset::{Blob, FontFace, SubsetInput, Tag};
+use log::info;
 
 /// Variable font tables to drop during subsetting (matches Python pipeline)
 const VF_TABLES_TO_DROP: &[&[u8; 4]] = &[

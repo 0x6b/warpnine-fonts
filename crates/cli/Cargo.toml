@@ -6,6 +6,10 @@ license.workspace = true
 description = "Fast font metadata operations for Warpnine fonts"
 repository = "https://github.com/0x6b/warpnine-fonts"
 
+[lib]
+name = "warpnine_fonts_cli"
+path = "src/lib.rs"
+
 [dependencies]
 clap.workspace = true
 read-fonts.workspace = true

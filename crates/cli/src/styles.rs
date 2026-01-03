@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use font_instancer::{instantiate, AxisLocation};
+use font_instancer::{AxisLocation, instantiate};
 use rayon::prelude::*;
 
 /// Font slant (upright or italic).
@@ -216,8 +216,8 @@ where
         println!("Creating {}", style.name);
 
         let locations = style.axis_locations(0.0, 0.0);
-        let static_data =
-            instantiate(&data, &locations).with_context(|| format!("Failed to instantiate {}", style.name))?;
+        let static_data = instantiate(&data, &locations)
+            .with_context(|| format!("Failed to instantiate {}", style.name))?;
 
         let final_data = transform(&static_data, style)?;
 
@@ -229,4 +229,3 @@ where
 
     Ok(success.load(Ordering::Relaxed))
 }
-

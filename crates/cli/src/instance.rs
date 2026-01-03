@@ -4,7 +4,8 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use font_instancer::{AxisLocation, instantiate};
+pub use font_instancer::AxisLocation;
+use font_instancer::instantiate;
 use log::info;
 use rayon::prelude::*;
 
@@ -15,8 +16,8 @@ pub fn create_instance(input: &Path, output: &Path, axes: &[AxisLocation]) -> Re
         axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
     info!("Creating instance with axes: {}", axis_desc.join(", "));
 
-    let static_data =
-        instantiate(&data, axes).with_context(|| format!("Failed to instantiate {}", input.display()))?;
+    let static_data = instantiate(&data, axes)
+        .with_context(|| format!("Failed to instantiate {}", input.display()))?;
 
     if let Some(parent) = output.parent() {
         create_dir_all(parent)?;

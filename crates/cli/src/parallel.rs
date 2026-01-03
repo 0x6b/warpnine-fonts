@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 
 /// Result of a parallel batch operation.
@@ -27,11 +27,7 @@ impl BatchResult {
 
     pub fn ok_or_bail(&self, operation: &str) -> Result<()> {
         if self.failed > 0 {
-            bail!(
-                "{operation} failed: {} succeeded, {} failed",
-                self.succeeded,
-                self.failed
-            );
+            bail!("{operation} failed: {} succeeded, {} failed", self.succeeded, self.failed);
         }
         Ok(())
     }

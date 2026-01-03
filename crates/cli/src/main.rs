@@ -1,42 +1,24 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use build_vf::build_warpnine_mono_vf;
-use calt::fix_calt_registration;
 use clap::{Parser, Subcommand};
-use condense::create_condensed;
 use env_logger::init;
-use font_instancer::AxisLocation;
-use font_ops::copy_gsub;
-use freeze::{AutoRvrn, freeze_features};
-use instance::{InstanceDef, create_instance, create_instances_batch};
-use ligatures::remove_grave_ligature;
-use merge::{merge_batch, merge_fonts};
-use metadata::{parse_version_string, set_monospace, set_version};
-use naming::set_name;
-use parallel::run_parallel;
-use pipeline::{build_all, build_mono};
-use sans::create_sans;
-use subset::subset_japanese;
-
-mod build_vf;
-mod calt;
-mod clean;
-mod condense;
-mod download;
-mod font_ops;
-mod freeze;
-mod instance;
-mod io;
-mod ligatures;
-mod merge;
-mod metadata;
-mod naming;
-mod parallel;
-mod pipeline;
-mod sans;
-mod styles;
-mod subset;
+use warpnine_fonts_cli::instance::AxisLocation;
+use warpnine_fonts_cli::{
+    calt::fix_calt_registration,
+    commands::{build_all, build_mono, build_warpnine_mono_vf, clean, download},
+    condense::create_condensed,
+    font_ops::copy_gsub,
+    freeze::{AutoRvrn, freeze_features},
+    instance::{InstanceDef, create_instance, create_instances_batch},
+    ligatures::remove_grave_ligature,
+    merge::{merge_batch, merge_fonts},
+    metadata::{parse_version_string, set_monospace, set_version},
+    naming::{FontNaming, set_name},
+    parallel::run_parallel,
+    sans::create_sans,
+    subset::subset_japanese,
+};
 
 #[derive(Parser)]
 #[command(name = "warpnine-fonts")]
@@ -264,10 +246,10 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Clean { build_dir, dist_dir } => {
-            clean::clean(&build_dir, &dist_dir)?;
+            clean(&build_dir, &dist_dir)?;
         }
         Commands::Download { build_dir } => {
-            download::download(&build_dir)?;
+            download(&build_dir)?;
         }
         Commands::CopyGsub { from, to } => {
             copy_gsub(&from, &to)?;
@@ -300,7 +282,7 @@ fn main() -> Result<()> {
         Commands::InstanceBatch { input, output_dir, instances } => {
             let defs: Vec<InstanceDef> = instances
                 .into_iter()
-                .map(|(name, axes)| instance::InstanceDef { name, axes })
+                .map(|(name, axes)| InstanceDef { name, axes })
                 .collect();
             create_instances_batch(&input, &output_dir, &defs)?;
         }
@@ -323,8 +305,7 @@ fn main() -> Result<()> {
             copyright_extra,
             files,
         } => {
-            let font_naming =
-                naming::FontNaming { family, style, postscript_family, copyright_extra };
+            let font_naming = FontNaming { family, style, postscript_family, copyright_extra };
             run_parallel("Set name", &files, |path| set_name(path, &font_naming))?;
         }
         Commands::FixCalt { files } => {
