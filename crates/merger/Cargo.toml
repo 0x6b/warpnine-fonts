@@ -1,7 +1,7 @@
 [package]
 name = "warpnine-font-merger"
 version = "0.1.0"
-edition = "2021"  # Keep 2021 as original - can upgrade later
+edition = "2024"
 license.workspace = true
 description = "A Rust port of fontTools merge.Merger for merging multiple fonts into one"
 repository = "https://github.com/0x6b/warpnine-fonts"

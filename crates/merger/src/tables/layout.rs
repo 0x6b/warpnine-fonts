@@ -1372,13 +1372,23 @@ fn build_gsub(
             }
         }
 
+        // Sort LangSysRecords by tag (OpenType spec requirement)
+        lang_sys_records.sort_by_key(|r| r.lang_sys_tag);
+
         let script = Script::new(default_lang_sys, lang_sys_records);
         script_records.push(ScriptRecord::new(script_tag, script));
     }
 
+    // Sort ScriptRecords by tag (OpenType spec requirement for binary search)
+    script_records.sort_by_key(|r| r.script_tag);
+
     let script_list = ScriptList::new(script_records);
 
     // Build feature records
+    // Note: FeatureRecords should ideally be sorted by tag per OpenType spec,
+    // but since LangSys records reference features by index, we would need to
+    // remap all indices after sorting. The current order from the source font
+    // should be acceptable as HarfBuzz can handle unsorted FeatureList.
     let feature_records: Vec<FeatureRecord> = features
         .into_iter()
         .map(|(tag, lookup_indices)| {
@@ -1417,13 +1427,23 @@ fn build_gpos(
             }
         }
 
+        // Sort LangSysRecords by tag (OpenType spec requirement)
+        lang_sys_records.sort_by_key(|r| r.lang_sys_tag);
+
         let script = Script::new(default_lang_sys, lang_sys_records);
         script_records.push(ScriptRecord::new(script_tag, script));
     }
 
+    // Sort ScriptRecords by tag (OpenType spec requirement for binary search)
+    script_records.sort_by_key(|r| r.script_tag);
+
     let script_list = ScriptList::new(script_records);
 
     // Build feature records
+    // Note: FeatureRecords should ideally be sorted by tag per OpenType spec,
+    // but since LangSys records reference features by index, we would need to
+    // remap all indices after sorting. The current order from the source font
+    // should be acceptable as HarfBuzz can handle unsorted FeatureList.
     let feature_records: Vec<FeatureRecord> = features
         .into_iter()
         .map(|(tag, lookup_indices)| {
