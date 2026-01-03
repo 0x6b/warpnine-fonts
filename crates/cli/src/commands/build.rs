@@ -129,7 +129,7 @@ const SANS_STEPS: &[PipelineStep] = &[
 
 const FINAL_STEPS: &[PipelineStep] = &[("set-version", step_set_version)];
 
-/// Pipeline execution context
+/// Pipeline execution context with helper methods.
 pub struct PipelineContext {
     pub build_dir: PathBuf,
     pub dist_dir: PathBuf,
@@ -142,13 +142,40 @@ impl PipelineContext {
     pub fn new(build_dir: PathBuf, dist_dir: PathBuf, version: Option<String>) -> Self {
         let recursive_vf = build_dir.join("Recursive_VF_1.085.ttf");
         let noto_vf = build_dir.join("NotoSansMonoCJKjp-VF.ttf");
-        Self {
-            build_dir,
-            dist_dir,
-            recursive_vf,
-            noto_vf,
-            version,
-        }
+        Self { build_dir, dist_dir, recursive_vf, noto_vf, version }
+    }
+
+    /// Get fonts matching a pattern in the build directory.
+    pub fn build_fonts(&self, pattern: &str) -> Result<Vec<PathBuf>> {
+        glob_fonts(&self.build_dir, pattern)
+    }
+
+    /// Get fonts matching a pattern in the dist directory.
+    pub fn dist_fonts(&self, pattern: &str) -> Result<Vec<PathBuf>> {
+        glob_fonts(&self.dist_dir, pattern)
+    }
+
+    /// Get static mono fonts (excluding VF) in the dist directory.
+    pub fn static_mono_fonts(&self) -> Result<Vec<PathBuf>> {
+        Ok(self.dist_fonts("WarpnineMono-*.ttf")?
+            .into_iter()
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|s| s.to_str())
+                    .map(|s| !s.contains("-VF"))
+                    .unwrap_or(false)
+            })
+            .collect())
+    }
+
+    /// Path to the variable font output.
+    pub fn vf_output(&self) -> PathBuf {
+        self.dist_dir.join("WarpnineMono-VF.ttf")
+    }
+
+    /// Path to the frozen fonts backup directory.
+    pub fn frozen_backup_dir(&self) -> PathBuf {
+        self.build_dir.join("frozen")
     }
 }
 
@@ -200,11 +227,10 @@ fn step_extract_duotone(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_remove_ligatures(ctx: &PipelineContext) -> Result<()> {
-    let fonts: Vec<PathBuf> = glob_fonts(&ctx.build_dir, "RecMonoDuotone-*.ttf")?;
+    let fonts = ctx.build_fonts("RecMonoDuotone-*.ttf")?;
     println!("  Removing triple-backtick ligature from {} fonts...", fonts.len());
 
     let results: Vec<_> = fonts.par_iter().map(|path| remove_grave_ligature(path)).collect();
-
     check_results(&results, "remove ligatures")
 }
 
@@ -239,18 +265,14 @@ fn step_subset_noto(ctx: &PipelineContext) -> Result<()> {
 fn step_merge(ctx: &PipelineContext) -> Result<()> {
     println!("  Merging Duotone + Noto CJK into WarpnineMono...");
 
-    // Get all Duotone fonts
-    let duotone_fonts: Vec<PathBuf> = glob_fonts(&ctx.build_dir, "RecMonoDuotone-*.ttf")?;
-
-    // Use Noto-400-subset as fallback for all
+    let duotone_fonts = ctx.build_fonts("RecMonoDuotone-*.ttf")?;
     let fallback = ctx.build_dir.join("Noto-400-subset.ttf");
 
-    // Merge each Duotone with Noto fallback
     create_dir_all(&ctx.dist_dir)?;
     merge_batch(&duotone_fonts, &fallback, &ctx.dist_dir)?;
 
     // Rename merged files from RecMonoDuotone-* to WarpnineMono-*
-    for font in glob_fonts(&ctx.dist_dir, "RecMonoDuotone-*.ttf")? {
+    for font in ctx.dist_fonts("RecMonoDuotone-*.ttf")? {
         let new_name = font
             .file_name()
             .and_then(|s| s.to_str())
@@ -267,7 +289,7 @@ fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
     const MONO_COPYRIGHT: &str =
         "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP.";
 
-    let fonts = static_mono_fonts(ctx)?;
+    let fonts = ctx.static_mono_fonts()?;
     println!("  Setting names for {} static mono fonts...", fonts.len());
 
     let results: Vec<_> = fonts
@@ -295,65 +317,56 @@ fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
-    let fonts = static_mono_fonts(ctx)?;
-
+    let fonts = ctx.static_mono_fonts()?;
     println!("  Freezing features in {} static mono fonts...", fonts.len());
-
     freeze_features(&fonts, MONO_FEATURES, AutoRvrn::Enabled)
 }
 
 fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
-    let backup_dir = ctx.build_dir.join("frozen");
+    let backup_dir = ctx.frozen_backup_dir();
     create_dir_all(&backup_dir)?;
 
-    let fonts = static_mono_fonts(ctx)?;
-
+    let fonts = ctx.static_mono_fonts()?;
     println!("  Backing up {} frozen static fonts...", fonts.len());
 
     for font in &fonts {
-        let file_name = font
-            .file_name()
+        let file_name = font.file_name()
             .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", font.display()))?;
-        let dest = backup_dir.join(file_name);
-        copy(font, dest)?;
+        copy(font, backup_dir.join(file_name))?;
     }
     Ok(())
 }
 
 fn step_build_vf(ctx: &PipelineContext) -> Result<()> {
-    let output = ctx.dist_dir.join("WarpnineMono-VF.ttf");
-    build_warpnine_mono_vf(&ctx.dist_dir, &output)
+    build_warpnine_mono_vf(&ctx.dist_dir, &ctx.vf_output())
 }
 
 fn step_copy_gsub(ctx: &PipelineContext) -> Result<()> {
-    let vf = ctx.dist_dir.join("WarpnineMono-VF.ttf");
     println!("  Copying GSUB from Recursive VF to WarpnineMono VF...");
-    copy_gsub(&ctx.recursive_vf, &vf)
+    copy_gsub(&ctx.recursive_vf, &ctx.vf_output())
 }
 
 fn step_restore_frozen(ctx: &PipelineContext) -> Result<()> {
-    let backup_dir = ctx.build_dir.join("frozen");
+    let backup_dir = ctx.frozen_backup_dir();
 
     if !backup_dir.exists() {
         println!("  No backup directory found, skipping restore");
         return Ok(());
     }
 
-    let backups: Vec<PathBuf> = glob_fonts(&backup_dir, "WarpnineMono-*.ttf")?;
+    let backups = glob_fonts(&backup_dir, "WarpnineMono-*.ttf")?;
     println!("  Restoring {} frozen static fonts...", backups.len());
 
     for backup in &backups {
-        let file_name = backup
-            .file_name()
+        let file_name = backup.file_name()
             .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", backup.display()))?;
-        let dest = ctx.dist_dir.join(file_name);
-        copy(backup, dest)?;
+        copy(backup, ctx.dist_dir.join(file_name))?;
     }
     Ok(())
 }
 
 fn step_set_monospace(ctx: &PipelineContext) -> Result<()> {
-    let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?;
+    let fonts = ctx.dist_fonts("WarpnineMono-*.ttf")?;
     println!("  Setting monospace flags on {} fonts...", fonts.len());
 
     let results: Vec<_> = fonts.par_iter().map(|path| set_monospace(path)).collect();
@@ -412,22 +425,19 @@ fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
-    // Freeze VF
-    let vf = ctx.dist_dir.join("WarpnineMono-VF.ttf");
+    let vf = ctx.vf_output();
     if vf.exists() {
         println!("  Freezing features in VF...");
         freeze_features(&[vf], MONO_FEATURES, AutoRvrn::Enabled)?;
     }
 
-    // Freeze Sans fonts
-    let sans_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSans-*.ttf")?;
+    let sans_fonts = ctx.dist_fonts("WarpnineSans-*.ttf")?;
     if !sans_fonts.is_empty() {
         println!("  Freezing features in {} Sans fonts...", sans_fonts.len());
         freeze_features(&sans_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
     }
 
-    // Freeze Condensed fonts
-    let condensed_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSansCondensed-*.ttf")?;
+    let condensed_fonts = ctx.dist_fonts("WarpnineSansCondensed-*.ttf")?;
     if !condensed_fonts.is_empty() {
         println!("  Freezing features in {} Condensed fonts...", condensed_fonts.len());
         freeze_features(&condensed_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
@@ -437,7 +447,7 @@ fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_set_version(ctx: &PipelineContext) -> Result<()> {
-    let fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "*.ttf")?;
+    let fonts = ctx.dist_fonts("*.ttf")?;
     println!("  Setting version on {} fonts...", fonts.len());
 
     let (date, version_tag) = parse_version_string(ctx.version.as_deref())?;
@@ -448,22 +458,6 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
         .collect();
 
     check_results(&results, "set version")
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-fn static_mono_fonts(ctx: &PipelineContext) -> Result<Vec<PathBuf>> {
-    Ok(glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?
-        .into_iter()
-        .filter(|p| {
-            p.file_name()
-                .and_then(|s| s.to_str())
-                .map(|s| !s.contains("-VF"))
-                .unwrap_or(false)
-        })
-        .collect())
 }
 
 fn run_steps(
@@ -501,10 +495,9 @@ pub fn build_all(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> 
     println!("✨ Build complete in {:.2}s", start.elapsed().as_secs_f64());
     println!("   Output: {}", ctx.dist_dir.display());
 
-    // Print summary
-    let mono_count = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?.len();
-    let sans_count = glob_fonts(&ctx.dist_dir, "WarpnineSans-*.ttf")?.len();
-    let condensed_count = glob_fonts(&ctx.dist_dir, "WarpnineSansCondensed-*.ttf")?.len();
+    let mono_count = ctx.dist_fonts("WarpnineMono-*.ttf")?.len();
+    let sans_count = ctx.dist_fonts("WarpnineSans-*.ttf")?.len();
+    let condensed_count = ctx.dist_fonts("WarpnineSansCondensed-*.ttf")?.len();
 
     println!("   Fonts: {mono_count} Mono, {sans_count} Sans, {condensed_count} Condensed");
     println!("═══════════════════════════════════════════════════════════════════════════════");
@@ -530,7 +523,7 @@ pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
     println!("✨ Mono build complete in {:.2}s", start.elapsed().as_secs_f64());
     println!("   Output: {}", ctx.dist_dir.display());
 
-    let mono_count = glob_fonts(&ctx.dist_dir, "WarpnineMono-*.ttf")?.len();
+    let mono_count = ctx.dist_fonts("WarpnineMono-*.ttf")?.len();
     println!("   Fonts: {mono_count} Mono");
     println!("═══════════════════════════════════════════════════════════════════════════════");
 
