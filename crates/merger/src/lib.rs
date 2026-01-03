@@ -24,7 +24,7 @@ pub use types::{Codepoint, FontIndex, GlyphId, MegaGlyphId, TableTag};
 /// # Example
 ///
 /// ```no_run
-/// use font_merger::merge_fonts_bytes;
+/// use warpnine_font_merger::merge_fonts_bytes;
 ///
 /// let font1 = std::fs::read("font1.ttf").unwrap();
 /// let font2 = std::fs::read("font2.ttf").unwrap();
