@@ -242,7 +242,7 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         let static_data = instantiate(&data, &locations)
             .with_context(|| format!("Failed to instantiate {}", style.name))?;
 
-        let scaled_data = apply_horizontal_scale(&static_data, scale, style.wght as u16)?;
+        let scaled_data = apply_horizontal_scale(&static_data, scale, style.weight.0 as u16)?;
 
         let final_data =
             apply_family_style_names(&scaled_data, "Warpnine Sans Condensed", style.name)?;

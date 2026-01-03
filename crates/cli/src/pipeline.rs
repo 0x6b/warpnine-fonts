@@ -18,14 +18,14 @@ use crate::{
     condense::create_condensed,
     copy_table::copy_gsub,
     download,
-    freeze::freeze_features,
+    freeze::{AutoRvrn, freeze_features},
     instance::{InstanceDef, create_instances_batch},
     ligatures::remove_grave_ligature,
     merge::merge_batch,
     metadata::{parse_version_string, set_monospace, set_version},
     naming::{FontNaming, set_name},
     sans::create_sans,
-    styles::{MONO_STYLES, duotone_casl, mono_features_owned, sans_features_owned},
+    styles::{MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
     subset::subset_japanese,
 };
 
@@ -121,10 +121,10 @@ fn step_extract_duotone(ctx: &PipelineContext) -> Result<()> {
             name: format!("RecMonoDuotone-{}", style.name),
             axes: vec![
                 ("MONO".to_string(), 1.0),
-                ("CASL".to_string(), duotone_casl(style.wght)),
-                ("wght".to_string(), style.wght),
-                ("slnt".to_string(), style.slnt()),
-                ("CRSV".to_string(), style.crsv()),
+                ("CASL".to_string(), duotone_casl(style.weight.0)),
+                ("wght".to_string(), style.weight.0),
+                ("slnt".to_string(), style.slant.slnt()),
+                ("CRSV".to_string(), style.slant.crsv()),
             ],
         })
         .collect();
@@ -230,7 +230,7 @@ fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
 
     println!("  Freezing features in {} static mono fonts...", fonts.len());
 
-    freeze_features(&fonts, &mono_features_owned(), true)
+    freeze_features(&fonts, MONO_FEATURES, AutoRvrn::Enabled)
 }
 
 fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
@@ -369,28 +369,25 @@ fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
-    let mono_features = mono_features_owned();
-    let sans_features = sans_features_owned();
-
     // Freeze VF
     let vf = ctx.dist_dir.join("WarpnineMono-VF.ttf");
     if vf.exists() {
         println!("  Freezing features in VF...");
-        freeze_features(&[vf], &mono_features, true)?;
+        freeze_features(&[vf], MONO_FEATURES, AutoRvrn::Enabled)?;
     }
 
     // Freeze Sans fonts
     let sans_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSans-*.ttf")?;
     if !sans_fonts.is_empty() {
         println!("  Freezing features in {} Sans fonts...", sans_fonts.len());
-        freeze_features(&sans_fonts, &sans_features, true)?;
+        freeze_features(&sans_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
     }
 
     // Freeze Condensed fonts
     let condensed_fonts: Vec<PathBuf> = glob_fonts(&ctx.dist_dir, "WarpnineSansCondensed-*.ttf")?;
     if !condensed_fonts.is_empty() {
         println!("  Freezing features in {} Condensed fonts...", condensed_fonts.len());
-        freeze_features(&condensed_fonts, &sans_features, true)?;
+        freeze_features(&condensed_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
     }
 
     Ok(())

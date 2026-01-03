@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use condense::create_condensed;
 use copy_table::copy_gsub;
 use env_logger::init;
-use freeze::freeze_features;
+use freeze::{AutoRvrn, freeze_features};
 use instance::{InstanceDef, create_instance, create_instances_batch};
 use ligatures::remove_grave_ligature;
 use merge::{merge_batch, merge_fonts};
@@ -290,6 +290,7 @@ fn main() -> Result<()> {
             subset_japanese(&input, &output)?;
         }
         Commands::Freeze { features, auto_rvrn, files } => {
+            let auto_rvrn = if auto_rvrn { AutoRvrn::Enabled } else { AutoRvrn::Disabled };
             freeze_features(&files, &features, auto_rvrn)?;
         }
         Commands::Instance { axes, input, output } => {

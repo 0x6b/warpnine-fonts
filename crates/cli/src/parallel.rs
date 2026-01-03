@@ -5,10 +5,25 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 
+/// Result of a parallel batch operation.
+#[derive(Debug, Default)]
+pub struct ParallelResult {
+    pub succeeded: usize,
+    pub failed: usize,
+}
+
+impl ParallelResult {
+    pub fn total(&self) -> usize {
+        self.succeeded + self.failed
+    }
+
+    pub fn all_succeeded(&self) -> bool {
+        self.failed == 0
+    }
+}
+
 /// Run an operation on multiple files in parallel with consistent error reporting.
-///
-/// Returns the number of successful operations.
-pub fn run_parallel<T, F>(label: &str, items: &[T], op: F) -> Result<usize>
+pub fn run_parallel<T, F>(label: &str, items: &[T], op: F) -> Result<ParallelResult>
 where
     T: AsRef<Path> + Sync,
     F: Fn(&Path) -> Result<()> + Sync,
@@ -21,15 +36,16 @@ where
         })
         .collect();
 
-    let (success, failed) = results.iter().fold((0, 0), |(ok, err), r| {
+    let mut result = ParallelResult::default();
+    for r in &results {
         if let Err(e) = r {
             eprintln!("{e:?}");
-            (ok, err + 1)
+            result.failed += 1;
         } else {
-            (ok + 1, err)
+            result.succeeded += 1;
         }
-    });
+    }
 
-    println!("{label}: {success} succeeded, {failed} failed");
-    Ok(success)
+    println!("{label}: {} succeeded, {} failed", result.succeeded, result.failed);
+    Ok(result)
 }

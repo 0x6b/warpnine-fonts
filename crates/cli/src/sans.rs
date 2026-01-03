@@ -42,7 +42,7 @@ pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
             .with_context(|| format!("Failed to instantiate {}", style.name))?;
 
         let named_data = apply_family_style_names(&static_data, "Warpnine Sans", style.name)?;
-        let final_data = update_weight_class(&named_data, style.wght as u16)?;
+        let final_data = update_weight_class(&named_data, style.weight.0 as u16)?;
 
         write(&output, final_data)?;
         println!("  Created: {}", output.display());

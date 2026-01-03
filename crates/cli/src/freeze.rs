@@ -4,28 +4,43 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use log::{info, warn};
 use font_feature_freezer::freeze_features_with_stats;
+use log::{info, warn};
 use rayon::prelude::*;
 
-pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) -> Result<()> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutoRvrn {
+    Enabled,
+    Disabled,
+}
+
+pub fn freeze_features(
+    files: &[PathBuf],
+    features: &[impl AsRef<str> + Sync],
+    auto_rvrn: AutoRvrn,
+) -> Result<()> {
     if features.is_empty() {
         info!("No features specified");
         return Ok(());
     }
 
-    let features: Vec<String> = if auto_rvrn && !features.iter().any(|f| f == "rvrn") {
-        let mut with_rvrn = vec!["rvrn".to_string()];
-        with_rvrn.extend(features.iter().cloned());
-        with_rvrn
-    } else {
-        features.to_vec()
-    };
+    let needs_rvrn =
+        auto_rvrn == AutoRvrn::Enabled && !features.iter().any(|f| f.as_ref() == "rvrn");
 
-    let feature_list = features.join(",");
+    let feature_list: String = if needs_rvrn {
+        std::iter::once("rvrn")
+            .chain(features.iter().map(|f| f.as_ref()))
+            .collect::<Vec<_>>()
+            .join(",")
+    } else {
+        features.iter().map(|f| f.as_ref()).collect::<Vec<_>>().join(",")
+    };
     info!("Freezing features: {feature_list}");
 
-    let results: Vec<_> = files.par_iter().map(|path| freeze_single(path, &features)).collect();
+    let results: Vec<_> = files
+        .par_iter()
+        .map(|path| freeze_single(path, features, needs_rvrn))
+        .collect();
 
     let mut success = 0;
     let mut failed = 0;
@@ -50,12 +65,17 @@ pub fn freeze_features(files: &[PathBuf], features: &[String], auto_rvrn: bool) 
     Ok(())
 }
 
-fn freeze_single(path: &PathBuf, features: &[String]) -> Result<usize> {
+fn freeze_single(path: &PathBuf, features: &[impl AsRef<str>], prepend_rvrn: bool) -> Result<usize> {
     let data = read(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
-    let (frozen_data, stats) =
-        freeze_features_with_stats(&data, features.iter().map(|s| s.as_str()))
-            .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
+    let feature_iter: Box<dyn Iterator<Item = &str>> = if prepend_rvrn {
+        Box::new(std::iter::once("rvrn").chain(features.iter().map(|f| f.as_ref())))
+    } else {
+        Box::new(features.iter().map(|f| f.as_ref()))
+    };
+
+    let (frozen_data, stats) = freeze_features_with_stats(&data, feature_iter)
+        .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
 
     write(path, frozen_data).with_context(|| format!("Failed to write {}", path.display()))?;
 
