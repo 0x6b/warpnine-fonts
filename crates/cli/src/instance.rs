@@ -4,23 +4,19 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use log::info;
 use font_instancer::{AxisLocation, instantiate};
+use log::info;
 use rayon::prelude::*;
 
-pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> Result<()> {
+pub fn create_instance(input: &Path, output: &Path, axes: &[AxisLocation]) -> Result<()> {
     let data = read(input).with_context(|| format!("Failed to read {}", input.display()))?;
 
-    let locations: Vec<AxisLocation> = axes
-        .iter()
-        .map(|(tag, value)| AxisLocation::new(tag, *value))
-        .collect();
-
-    let axis_desc: Vec<String> = axes.iter().map(|(tag, val)| format!("{tag}={val}")).collect();
+    let axis_desc: Vec<String> =
+        axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
     info!("Creating instance with axes: {}", axis_desc.join(", "));
 
-    let static_data = instantiate(&data, &locations)
-        .with_context(|| format!("Failed to instantiate {}", input.display()))?;
+    let static_data =
+        instantiate(&data, axes).with_context(|| format!("Failed to instantiate {}", input.display()))?;
 
     if let Some(parent) = output.parent() {
         create_dir_all(parent)?;
@@ -43,7 +39,7 @@ pub fn create_instance(input: &Path, output: &Path, axes: &[(String, f32)]) -> R
 /// Instance definition for batch processing
 pub struct InstanceDef {
     pub name: String,
-    pub axes: Vec<(String, f32)>,
+    pub axes: Vec<AxisLocation>,
 }
 
 pub fn create_instances_batch(
@@ -58,13 +54,7 @@ pub fn create_instances_batch(
     create_dir_all(output_dir)?;
 
     instances.par_iter().try_for_each(|inst| -> Result<()> {
-        let locations: Vec<AxisLocation> = inst
-            .axes
-            .iter()
-            .map(|(tag, value)| AxisLocation::new(tag, *value))
-            .collect();
-
-        let static_data = instantiate(&data, &locations)
+        let static_data = instantiate(&data, &inst.axes)
             .with_context(|| format!("Failed to instantiate {}", inst.name))?;
 
         let output = output_dir.join(format!("{}.ttf", inst.name));

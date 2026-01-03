@@ -1,7 +1,9 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
+use glob::glob;
 use log::info;
+use rayon::prelude::*;
 
 use crate::font_ops::{map_name_records, modify_font_in_place};
 
@@ -65,5 +67,63 @@ pub fn set_name(path: &Path, naming: &FontNaming) -> Result<()> {
         naming.postscript_name()
     );
 
+    Ok(())
+}
+
+pub fn set_names_for_pattern(
+    dir: &Path,
+    pattern: &str,
+    family: &str,
+    ps_family: &str,
+    copyright_extra: &str,
+    strip_prefix: &str,
+) -> Result<usize> {
+    let fonts = glob_fonts(dir, pattern)?;
+    if fonts.is_empty() {
+        return Ok(0);
+    }
+
+    println!("  Setting names for {} fonts ({})...", fonts.len(), pattern);
+    let results: Vec<_> = fonts
+        .par_iter()
+        .map(|path| {
+            let style = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.strip_prefix(strip_prefix).unwrap_or(s))
+                .unwrap_or_default()
+                .to_string();
+
+            let naming = FontNaming {
+                family: family.to_string(),
+                style,
+                postscript_family: Some(ps_family.to_string()),
+                copyright_extra: Some(copyright_extra.to_string()),
+            };
+
+            set_name(path, &naming)
+        })
+        .collect();
+
+    check_results(&results, &format!("set names ({})", pattern))?;
+    Ok(fonts.len())
+}
+
+fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
+    let glob_pattern = dir.join(pattern);
+    let glob_str = glob_pattern
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Invalid path for glob: {}", glob_pattern.display()))?;
+    let paths: Vec<PathBuf> = glob(glob_str)?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(paths)
+}
+
+fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
+    let failed: Vec<_> = results.iter().filter(|r| r.is_err()).collect();
+    if !failed.is_empty() {
+        bail!("{operation} failed for {} files", failed.len());
+    }
     Ok(())
 }

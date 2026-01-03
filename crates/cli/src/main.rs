@@ -5,8 +5,9 @@ use build_vf::build_warpnine_mono_vf;
 use calt::fix_calt_registration;
 use clap::{Parser, Subcommand};
 use condense::create_condensed;
-use font_ops::copy_gsub;
 use env_logger::init;
+use font_instancer::AxisLocation;
+use font_ops::copy_gsub;
 use freeze::{AutoRvrn, freeze_features};
 use instance::{InstanceDef, create_instance, create_instances_batch};
 use ligatures::remove_grave_ligature;
@@ -26,6 +27,7 @@ mod download;
 mod font_ops;
 mod freeze;
 mod instance;
+mod io;
 mod ligatures;
 mod merge;
 mod metadata;
@@ -116,7 +118,7 @@ enum Commands {
     Instance {
         /// Axis values in format TAG=VALUE (e.g., wght=700)
         #[arg(short, long = "axis", value_parser = parse_axis)]
-        axes: Vec<(String, f32)>,
+        axes: Vec<AxisLocation>,
         /// Input variable font
         #[arg(required = true)]
         input: PathBuf,
@@ -134,7 +136,7 @@ enum Commands {
         output_dir: PathBuf,
         /// Instance definitions: NAME:TAG=VAL,TAG=VAL (can be repeated)
         #[arg(short, long = "instance", value_parser = parse_instance_def)]
-        instances: Vec<(String, Vec<(String, f32)>)>,
+        instances: Vec<(String, Vec<AxisLocation>)>,
     },
     /// Merge multiple fonts into one
     Merge {
@@ -237,22 +239,22 @@ enum Commands {
     },
 }
 
-fn parse_axis(s: &str) -> Result<(String, f32), String> {
+fn parse_axis(s: &str) -> Result<AxisLocation, String> {
     let (tag, value_str) = s
         .split_once('=')
         .ok_or_else(|| format!("Invalid axis format '{s}', expected TAG=VALUE"))?;
     let value: f32 = value_str
         .parse()
         .map_err(|_| format!("Invalid value '{value_str}' for axis '{tag}'"))?;
-    Ok((tag.to_string(), value))
+    Ok(AxisLocation::new(tag, value))
 }
 
 /// Parse instance definition: NAME:TAG=VAL,TAG=VAL
-fn parse_instance_def(s: &str) -> Result<(String, Vec<(String, f32)>), String> {
+fn parse_instance_def(s: &str) -> Result<(String, Vec<AxisLocation>), String> {
     let (name, axes_str) = s
         .split_once(':')
         .ok_or_else(|| format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{s}'"))?;
-    let axes: Result<Vec<(String, f32)>, String> = axes_str.split(',').map(parse_axis).collect();
+    let axes: Result<Vec<AxisLocation>, String> = axes_str.split(',').map(parse_axis).collect();
     Ok((name.to_string(), axes?))
 }
 

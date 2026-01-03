@@ -36,9 +36,25 @@ impl Slant {
     }
 }
 
+/// OS/2 weight class (usWeightClass) as a newtype.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WeightClass(pub u16);
+
+impl From<Weight> for WeightClass {
+    fn from(weight: Weight) -> Self {
+        WeightClass(weight.0 as u16)
+    }
+}
+
 /// Font weight as a newtype for type safety.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Weight(pub f32);
+
+impl Weight {
+    pub fn as_class(&self) -> WeightClass {
+        WeightClass::from(*self)
+    }
+}
 
 /// A font style definition with weight and slant.
 #[derive(Debug, Clone, Copy)]
@@ -64,8 +80,8 @@ impl Style {
         }
     }
 
-    pub fn axis_locations(&self, mono: f32, casl: f32) -> Vec<AxisLocation> {
-        vec![
+    pub fn axis_locations(&self, mono: f32, casl: f32) -> [AxisLocation; 5] {
+        [
             AxisLocation::new("MONO", mono),
             AxisLocation::new("CASL", casl),
             AxisLocation::new("wght", self.weight.0),
@@ -127,7 +143,24 @@ impl AsRef<str> for FeatureTag {
     }
 }
 
-/// Features to freeze in mono fonts.
+/// Base features shared by both mono and sans fonts.
+const BASE_FEATURES: &[FeatureTag] = &[
+    FeatureTag("dlig"),
+    FeatureTag("ss01"),
+    FeatureTag("ss02"),
+    FeatureTag("ss03"),
+    FeatureTag("ss04"),
+    FeatureTag("ss05"),
+    FeatureTag("ss06"),
+    FeatureTag("ss07"),
+    FeatureTag("ss08"),
+    FeatureTag("ss10"),
+    FeatureTag("ss11"),
+    FeatureTag("ss12"),
+    FeatureTag("liga"),
+];
+
+/// Features to freeze in mono fonts (base + pnum).
 pub const MONO_FEATURES: &[FeatureTag] = &[
     FeatureTag("dlig"),
     FeatureTag("ss01"),
@@ -145,20 +178,6 @@ pub const MONO_FEATURES: &[FeatureTag] = &[
     FeatureTag("liga"),
 ];
 
-/// Features to freeze in sans fonts.
-pub const SANS_FEATURES: &[FeatureTag] = &[
-    FeatureTag("dlig"),
-    FeatureTag("ss01"),
-    FeatureTag("ss02"),
-    FeatureTag("ss03"),
-    FeatureTag("ss04"),
-    FeatureTag("ss05"),
-    FeatureTag("ss06"),
-    FeatureTag("ss07"),
-    FeatureTag("ss08"),
-    FeatureTag("ss10"),
-    FeatureTag("ss11"),
-    FeatureTag("ss12"),
-    FeatureTag("liga"),
-];
+/// Features to freeze in sans fonts (same as base).
+pub const SANS_FEATURES: &[FeatureTag] = BASE_FEATURES;
 

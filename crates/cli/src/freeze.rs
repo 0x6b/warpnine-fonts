@@ -27,19 +27,18 @@ pub fn freeze_features(
     let needs_rvrn =
         auto_rvrn == AutoRvrn::Enabled && !features.iter().any(|f| f.as_ref() == "rvrn");
 
-    let feature_list: String = if needs_rvrn {
-        std::iter::once("rvrn")
-            .chain(features.iter().map(|f| f.as_ref()))
-            .collect::<Vec<_>>()
-            .join(",")
+    let feature_tags: Vec<String> = if needs_rvrn {
+        std::iter::once("rvrn".to_string())
+            .chain(features.iter().map(|f| f.as_ref().to_string()))
+            .collect()
     } else {
-        features.iter().map(|f| f.as_ref()).collect::<Vec<_>>().join(",")
+        features.iter().map(|f| f.as_ref().to_string()).collect()
     };
-    info!("Freezing features: {feature_list}");
+    info!("Freezing features: {}", feature_tags.join(","));
 
     let results: Vec<_> = files
         .par_iter()
-        .map(|path| freeze_single(path.as_ref(), features, needs_rvrn))
+        .map(|path| freeze_single(path.as_ref(), &feature_tags))
         .collect();
 
     let mut success = 0;
@@ -65,17 +64,12 @@ pub fn freeze_features(
     Ok(())
 }
 
-fn freeze_single(path: &Path, features: &[impl AsRef<str>], prepend_rvrn: bool) -> Result<usize> {
+fn freeze_single(path: &Path, features: &[String]) -> Result<usize> {
     let data = read(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
-    let feature_iter: Box<dyn Iterator<Item = &str>> = if prepend_rvrn {
-        Box::new(std::iter::once("rvrn").chain(features.iter().map(|f| f.as_ref())))
-    } else {
-        Box::new(features.iter().map(|f| f.as_ref()))
-    };
-
-    let (frozen_data, stats) = freeze_features_with_stats(&data, feature_iter)
-        .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
+    let (frozen_data, stats) =
+        freeze_features_with_stats(&data, features.iter().map(|f| f.as_str()))
+            .with_context(|| format!("Failed to freeze features in {}", path.display()))?;
 
     write(path, frozen_data).with_context(|| format!("Failed to write {}", path.display()))?;
 

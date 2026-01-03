@@ -12,18 +12,20 @@ use anyhow::{Context, Result, bail};
 use glob::glob;
 use rayon::prelude::*;
 
+use font_instancer::AxisLocation;
+
 use crate::{
     build_vf::build_warpnine_mono_vf,
     clean,
     condense::create_condensed,
-    font_ops::copy_gsub,
     download,
+    font_ops::copy_gsub,
     freeze::{AutoRvrn, freeze_features},
     instance::{InstanceDef, create_instances_batch},
     ligatures::remove_grave_ligature,
     merge::merge_batch,
     metadata::{parse_version_string, set_monospace, set_version},
-    naming::{FontNaming, set_name},
+    naming::{FontNaming, set_name, set_names_for_pattern},
     sans::create_sans,
     styles::{MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
     subset::subset_japanese,
@@ -120,11 +122,11 @@ fn step_extract_duotone(ctx: &PipelineContext) -> Result<()> {
         .map(|style| InstanceDef {
             name: format!("RecMonoDuotone-{}", style.name),
             axes: vec![
-                ("MONO".to_string(), 1.0),
-                ("CASL".to_string(), duotone_casl(style.weight.0)),
-                ("wght".to_string(), style.weight.0),
-                ("slnt".to_string(), style.slant.slnt()),
-                ("CRSV".to_string(), style.slant.crsv()),
+                AxisLocation::new("MONO", 1.0),
+                AxisLocation::new("CASL", duotone_casl(style.weight.0)),
+                AxisLocation::new("wght", style.weight.0),
+                AxisLocation::new("slnt", style.slant.slnt()),
+                AxisLocation::new("CRSV", style.slant.crsv()),
             ],
         })
         .collect();
@@ -147,11 +149,11 @@ fn step_extract_noto_weights(ctx: &PipelineContext) -> Result<()> {
     let instances = vec![
         InstanceDef {
             name: "Noto-400".to_string(),
-            axes: vec![("wght".to_string(), 400.0)],
+            axes: vec![AxisLocation::new("wght", 400.0)],
         },
         InstanceDef {
             name: "Noto-700".to_string(),
-            axes: vec![("wght".to_string(), 700.0)],
+            axes: vec![AxisLocation::new("wght", 700.0)],
         },
     ];
 
@@ -397,45 +399,6 @@ fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
         .filter_map(|r| r.ok())
         .collect();
     Ok(paths)
-}
-
-fn set_names_for_pattern(
-    dir: &Path,
-    pattern: &str,
-    family: &str,
-    ps_family: &str,
-    copyright_extra: &str,
-    strip_prefix: &str,
-) -> Result<usize> {
-    let fonts = glob_fonts(dir, pattern)?;
-    if fonts.is_empty() {
-        return Ok(0);
-    }
-
-    println!("  Setting names for {} fonts ({})...", fonts.len(), pattern);
-    let results: Vec<_> = fonts
-        .par_iter()
-        .map(|path| {
-            let style = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .map(|s| s.strip_prefix(strip_prefix).unwrap_or(s))
-                .unwrap_or_default()
-                .to_string();
-
-            let naming = FontNaming {
-                family: family.to_string(),
-                style,
-                postscript_family: Some(ps_family.to_string()),
-                copyright_extra: Some(copyright_extra.to_string()),
-            };
-
-            set_name(path, &naming)
-        })
-        .collect();
-
-    check_results(&results, &format!("set names ({})", pattern))?;
-    Ok(fonts.len())
 }
 
 fn static_mono_fonts(ctx: &PipelineContext) -> Result<Vec<PathBuf>> {
