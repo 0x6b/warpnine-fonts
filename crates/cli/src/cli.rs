@@ -67,7 +67,7 @@ pub enum Commands {
         dist_dir: PathBuf,
     },
     /// Development and debugging commands
-    #[command(subcommand)]
+    #[command(subcommand, hide = true)]
     Dev(DevCommands),
 }
 

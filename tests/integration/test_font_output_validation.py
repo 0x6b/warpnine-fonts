@@ -735,6 +735,7 @@ class TestRustCLIOperations:
         result = subprocess.run(
             [
                 str(rust_cli),
+                "dev",
                 "instance",
                 "-a",
                 "MONO=1",
@@ -767,6 +768,7 @@ class TestRustCLIOperations:
         subprocess.run(
             [
                 str(rust_cli),
+                "dev",
                 "instance",
                 "-a",
                 "MONO=1",
@@ -789,7 +791,7 @@ class TestRustCLIOperations:
         shutil.copy(instance, dest)
 
         result = subprocess.run(
-            [str(rust_cli), "freeze", "-f", "ss01,ss02", str(dest)],
+            [str(rust_cli), "dev", "freeze", "-f", "ss01,ss02", str(dest)],
             capture_output=True,
         )
 
@@ -813,7 +815,7 @@ class TestRustCLIOperations:
         shutil.copy(src, dest)
 
         result = subprocess.run(
-            [str(rust_cli), "set-monospace", str(dest)],
+            [str(rust_cli), "dev", "set-monospace", str(dest)],
             capture_output=True,
         )
 
@@ -835,7 +837,15 @@ class TestRustCLIOperations:
         output = tmp_path / "merged.ttf"
 
         result = subprocess.run(
-            [str(rust_cli), "merge", str(base), str(fallback), "-o", str(output)],
+            [
+                str(rust_cli),
+                "dev",
+                "merge",
+                str(base),
+                str(fallback),
+                "-o",
+                str(output),
+            ],
             capture_output=True,
         )
 
@@ -881,6 +891,7 @@ class TestRustCLIOperations:
         result = subprocess.run(
             [
                 str(rust_cli),
+                "dev",
                 "build-vf",
                 "--dist-dir",
                 str(temp_dist),
