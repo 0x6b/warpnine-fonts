@@ -163,6 +163,15 @@ pub enum DevCommands {
         #[arg(long, default_value = "dist/WarpnineMono-VF.ttf")]
         output: PathBuf,
     },
+    /// Generate sample PDF using typst
+    GenerateSample {
+        /// Directory containing fonts
+        #[arg(long, default_value = "dist")]
+        font_dir: PathBuf,
+        /// Output PDF path
+        #[arg(long, default_value = "docs/sample.pdf")]
+        output: PathBuf,
+    },
 }
 
 fn parse_axis(s: &str) -> Result<AxisLocation, String> {
@@ -259,7 +268,33 @@ impl DevCommands {
             DevCommands::BuildVf { dist_dir, output } => {
                 build_warpnine_mono_vf(&dist_dir, &output)?;
             }
+            DevCommands::GenerateSample { font_dir, output } => {
+                generate_sample(&font_dir, &output)?;
+            }
         }
         Ok(())
     }
+}
+
+fn generate_sample(font_dir: &PathBuf, output: &PathBuf) -> Result<()> {
+    use std::process::Command;
+
+    let docs_dir = PathBuf::from("docs");
+    let sample_typ = docs_dir.join("sample.typ");
+
+    let status = Command::new("typst")
+        .arg("compile")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg(font_dir)
+        .arg(&sample_typ)
+        .arg(output)
+        .status()?;
+
+    if !status.success() {
+        anyhow::bail!("typst compile failed with exit code: {:?}", status.code());
+    }
+
+    println!("Generated: {}", output.display());
+    Ok(())
 }
