@@ -1,0 +1,10 @@
+[package]
+name = "warpnine-font-condense"
+edition.workspace = true
+license.workspace = true
+version = "0.1.0"
+
+[dependencies]
+read-fonts.workspace = true
+write-fonts.workspace = true
+anyhow.workspace = true

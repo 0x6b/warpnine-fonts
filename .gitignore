@@ -8,3 +8,6 @@ recursive/
 __pycache__/
 *.py[cod]
 *$py.class
+# Rust
+target/
+Cargo.lock

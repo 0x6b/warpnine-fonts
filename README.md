@@ -1,5 +1,7 @@
 # Warpnine Fonts
 
+[![Warpnine Fonts Sample](docs/sample.png)](docs/sample.pdf)
+
 Custom monospace font combining:
 
 - [Recursive Mono Duotone](https://github.com/arrowtype/recursive) 1.085 (Linear for Light/Regular, Casual for Medium+)
@@ -35,27 +37,19 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 
 ## Requirements
 
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/)
-- [FontForge](https://fontforge.org/)
-
-## Setup
-
-```console
-$ brew install fontforge
-$ curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+- Rust 1.85+ (2024 edition)
 
 ## Build
 
 ```console
-$ uv run warpnine build all
-$ uv run warpnine build all --date 2025-01-15  # with explicit version date
+$ cargo build --release
+$ warpnine-fonts build
+$ warpnine-fonts build --version 2025-01-15  # with explicit version date
 ```
 
 That will generate the following fonts:
 
-- Variable font: `dist/WarpnineMono-VF.ttf` (74 MB)
+- Variable font: `dist/WarpnineMono-VF.ttf` (31 MB)
 - Static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
   - Each with upright and italic variants
@@ -69,16 +63,12 @@ That will generate the following fonts:
 ### Other Commands
 
 ```console
-$ uv run warpnine validate all      # run all validations
-$ uv run warpnine build clean       # remove build artifacts
-$ uv run warpnine build --help      # list all build subcommands
-```
-
-Preview fonts locally:
-
-```console
-$ uv run python -m http.server 8000
-# Open http://localhost:8000/preview.html
+$ warpnine-fonts build-mono       # build only WarpnineMono
+$ warpnine-fonts build-sans       # build only WarpnineSans
+$ warpnine-fonts build-condensed  # build only WarpnineSansCondensed
+$ warpnine-fonts download         # download source fonts only
+$ warpnine-fonts clean            # remove build artifacts
+$ warpnine-fonts --help           # list all commands
 ```
 
 ## Technical Details
@@ -90,6 +80,18 @@ $ uv run python -m http.server 8000
   - 700: Bold, 800: ExtraBold, 900: Black, 1000: ExtraBlack
 - ital (Italic): 0-1
   - 0: Upright, 1: Italic
+
+### Variable Font Tables
+
+The variable font includes:
+
+- **fvar**: Axis definitions and 16 named instances
+- **gvar**: Glyph variation data with IUP optimization
+- **STAT**: Style Attributes table for proper font menu grouping
+  - Weight axis values with "Regular" as elidable default
+  - Italic axis values with "Upright" as elidable default
+
+Note: HVAR (Horizontal Metrics Variations) and MVAR (Metrics Variations) are not included. For a monospace font with fixed advance widths, HVAR provides minimal benefit. MVAR is optional and omitted for simplicity.
 
 ### OpenType Features
 
@@ -114,9 +116,6 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 
 #### WarpnineSans and WarpnineSansCondensed (Frozen at Build)
 
-- `case`: Case-sensitive forms
-- `liga`: Standard ligatures
-- `pnum`: Proportional figures
 - `ss01`: Single-story a
 - `ss02`: Single-story g
 - `ss03`: Simplified f
@@ -127,6 +126,9 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 - `ss08`: Serifless L and Z
 - `ss10`: Dotted 0
 - `ss12`: Simplified @
+- `case`: Case-sensitive forms
+- `pnum`: Proportional figures
+- `liga`: Standard ligatures
 
 #### Additional Features (Variable Font)
 
@@ -135,30 +137,31 @@ The variable font retains additional OpenType features from Recursive:
 - Stylistic Sets: `ss09`, `ss20`
 - Other: `zero`, `frac`, `locl`, `calt`, and more
 
-## Development
+## Known Limitations
 
-This project uses [Ruff](https://github.com/astral-sh/ruff) for code formatting and linting.
+### Typst: ExtraBlack Weight Not Accessible
 
-```bash
-# Install dev dependencies
-uv sync --dev
+[Typst](https://typst.app/) caps font weights at 900, so ExtraBlack (weight 1000) cannot be selected via the `weight` parameter. Both Black (900) and ExtraBlack (1000) will render as Black when using:
 
-# Check code
-uv run ruff check warpnine_fonts/
+```typ
+#text(font: "Warpnine Mono", weight: 900)[This renders as Black]
+```
 
-# Auto-fix issues
-uv run ruff check --fix warpnine_fonts/
+The fonts are correctly built per OpenType spec; this is a Typst limitation.
 
-# Format code
-uv run ruff format warpnine_fonts/
+## Testing
 
-# Check formatting (without modifying files)
-uv run ruff format --check warpnine_fonts/
+Validation tests use Python with fonttools:
+
+```console
+$ uv run pytest tests/ -v
 ```
 
 ## License
 
-SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
+The build tools and source code are licensed under the [MIT License](./LICENSE).
+
+The fonts are licensed under the SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
 
 - Recursive Mono: [SIL Open Font License](https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt)
 - Noto Sans Mono CJK JP: [SIL Open Font License](https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE)

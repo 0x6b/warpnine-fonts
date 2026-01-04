@@ -1,0 +1,18 @@
+[package]
+name = "warpnine-font-vf-builder"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Variable font builder from static masters"
+
+[dependencies]
+read-fonts.workspace = true
+write-fonts.workspace = true
+font-types.workspace = true
+kurbo.workspace = true
+thiserror.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+font-test-data.workspace = true
+env_logger.workspace = true

@@ -1,0 +1,37 @@
+[package]
+name = "warpnine-core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Core build pipeline logic for Warpnine fonts"
+repository = "https://github.com/0x6b/warpnine-fonts"
+
+[dependencies]
+# Error handling
+anyhow.workspace = true
+
+# Logging
+log.workspace = true
+
+# Parallelism
+rayon.workspace = true
+
+# Font libraries
+read-fonts.workspace = true
+write-fonts.workspace = true
+
+# Utilities
+chrono.workspace = true
+glob.workspace = true
+reqwest.workspace = true
+zip.workspace = true
+
+# Workspace crates
+warpnine-font-condense.workspace = true
+warpnine-font-feature-freezer.workspace = true
+warpnine-font-instancer.workspace = true
+warpnine-font-merger.workspace = true
+warpnine-font-metadata.workspace = true
+warpnine-font-ops.workspace = true
+warpnine-font-subsetter.workspace = true
+warpnine-font-vf-builder.workspace = true

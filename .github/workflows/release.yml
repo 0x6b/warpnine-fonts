@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Determine version
         id: version
@@ -39,26 +39,17 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}"
 
-      - name: Install FontForge
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fontforge
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      - name: Build CLI
+        run: cargo build --release
 
       - name: Build fonts
-        run: uv run warpnine build all --date ${{ steps.version.outputs.version }}
-
-      - name: Validate fonts
-        run: uv run warpnine validate all
+        run: ./target/release/warpnine-fonts build --version ${{ steps.version.outputs.version }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
