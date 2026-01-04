@@ -37,7 +37,6 @@ pub const SANS_FEATURES: &[FeatureTag] = &[
     FeatureTag("ss06"), // Simplified r
     FeatureTag("ss07"), // Simplified italic diagonals / Serifless I
     FeatureTag("ss08"), // No-serif L and Z
-    FeatureTag("ss10"), // Dotted zero
     FeatureTag("ss12"), // Simplified @
     FeatureTag("case"), // Case-sensitive forms
     FeatureTag("pnum"), // Proportional numerals

@@ -124,7 +124,6 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 - `ss06`: Simplified r
 - `ss07`: Serifless I
 - `ss08`: Serifless L and Z
-- `ss10`: Dotted 0
 - `ss12`: Simplified @
 - `case`: Case-sensitive forms
 - `pnum`: Proportional figures
