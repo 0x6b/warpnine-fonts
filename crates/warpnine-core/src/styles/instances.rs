@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use font_instancer::instantiate;
+use log::info;
 use rayon::prelude::*;
 
 use super::design::Style;
@@ -29,7 +30,7 @@ where
 
     styles.par_iter().try_for_each(|style| -> Result<()> {
         let output = output_dir.join(format!("{output_prefix}{}.ttf", style.name));
-        println!("Creating {}", style.name);
+        info!("Creating {}", style.name);
 
         let locations = style.axis_locations(0.0, 0.0);
         let static_data = instantiate(&data, &locations)
@@ -38,7 +39,7 @@ where
         let final_data = transform(&static_data, style)?;
 
         write(&output, final_data)?;
-        println!("  Created: {}", output.display());
+        info!("  Created: {}", output.display());
         success.fetch_add(1, Ordering::Relaxed);
         Ok(())
     })?;
