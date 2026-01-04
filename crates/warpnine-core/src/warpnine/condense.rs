@@ -22,7 +22,7 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
                 font_data,
                 scale,
                 Some(WIDTH_CLASS_CONDENSED),
-                Some(style.weight.0 as u16),
+                Some(style.weight.value() as u16),
             )?;
             apply_family_style_names(&scaled_data, "Warpnine Sans Condensed", style.name)
         },

@@ -85,8 +85,8 @@ fn step_extract_duotone(ctx: &PipelineContext) -> Result<()> {
             name: format!("RecMonoDuotone-{}", style.name),
             axes: vec![
                 AxisLocation::new("MONO", 1.0),
-                AxisLocation::new("CASL", duotone_casl(style.weight.0)),
-                AxisLocation::new("wght", style.weight.0),
+                AxisLocation::new("CASL", duotone_casl(style.weight.value())),
+                AxisLocation::new("wght", style.weight.value()),
                 AxisLocation::new("slnt", style.slant.slnt()),
                 AxisLocation::new("CRSV", style.slant.crsv()),
             ],

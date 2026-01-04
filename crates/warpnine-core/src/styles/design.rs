@@ -48,6 +48,12 @@ impl From<Weight> for WeightClass {
 pub struct Weight(pub f32);
 
 impl Weight {
+    /// Returns the weight value as f32.
+    pub const fn value(&self) -> f32 {
+        self.0
+    }
+
+    /// Converts to OS/2 usWeightClass (u16).
     pub fn as_class(&self) -> WeightClass {
         WeightClass::from(*self)
     }
@@ -78,7 +84,7 @@ impl Style {
         [
             AxisLocation::new("MONO", mono),
             AxisLocation::new("CASL", casl),
-            AxisLocation::new("wght", self.weight.0),
+            AxisLocation::new("wght", self.weight.value()),
             AxisLocation::new("slnt", self.slant.slnt()),
             AxisLocation::new("CRSV", self.slant.crsv()),
         ]

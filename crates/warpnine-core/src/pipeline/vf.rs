@@ -18,7 +18,7 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
         .map(|style| {
             Source::new(
                 dist_dir.join(format!("WarpnineMono-{}.ttf", style.name)),
-                vec![("wght", style.weight.0), ("ital", style.slant.ital())],
+                vec![("wght", style.weight.value()), ("ital", style.slant.ital())],
             )
             .with_style_name(&style.display_name())
         })
@@ -29,7 +29,7 @@ pub fn warpnine_mono_designspace(dist_dir: &Path) -> DesignSpace {
         .map(|style| {
             Instance::new(
                 &style.display_name(),
-                vec![("wght", style.weight.0), ("ital", style.slant.ital())],
+                vec![("wght", style.weight.value()), ("ital", style.slant.ital())],
             )
         })
         .collect();

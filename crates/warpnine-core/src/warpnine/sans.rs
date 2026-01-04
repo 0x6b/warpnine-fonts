@@ -21,7 +21,7 @@ fn update_weight_class(font_data: &[u8], weight: u16) -> Result<Vec<u8>> {
 
 fn transform_sans(font_data: &[u8], style: &Style) -> Result<Vec<u8>> {
     let named_data = apply_family_style_names(font_data, "Warpnine Sans", style.name)?;
-    update_weight_class(&named_data, style.weight.0 as u16)
+    update_weight_class(&named_data, style.weight.value() as u16)
 }
 
 pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
