@@ -142,7 +142,6 @@ SANS_FROZEN_FEATURES = {
     "ss06",
     "ss07",
     "ss08",
-    "ss10",
     "ss12",
     "case",
     "pnum",
@@ -1208,6 +1207,58 @@ class TestFeatureFreezing:
         assert glyph is not None, "Glyph for 'a' should exist"
         assert glyph != "a", (
             f"Expected 'a' to be substituted (ss01 frozen), got '{glyph}'"
+        )
+
+    def test_mono_has_dotted_zero(self):
+        """Verify WarpnineMono uses dotted zero (ss10 frozen)."""
+        font_path = DIST_DIR / "WarpnineMono-Regular.ttf"
+        if not font_path.exists():
+            pytest.skip("Font not built")
+
+        font = TTFont(font_path)
+        glyph = get_cmap_glyph(font, ord("0"))
+        font.close()
+
+        assert glyph is not None, "Glyph for '0' should exist"
+        # After ss10+pnum freeze, should be zero.dotted_pnum
+        assert "dotted" in glyph, (
+            f"Expected Mono '0' to use dotted zero variant, got '{glyph}'"
+        )
+
+    def test_sans_has_plain_zero(self):
+        """Verify WarpnineSans uses plain zero (not dotted, not slashed).
+
+        Sans fonts should use the .sans glyph variants from Recursive's
+        FeatureVariations (rvrn feature with MONO=0). After pnum freeze,
+        the zero should be 'zero.sans' - the plain proportional zero.
+        """
+        font_path = DIST_DIR / "WarpnineSans-Regular.ttf"
+        if not font_path.exists():
+            pytest.skip("Font not built")
+
+        font = TTFont(font_path)
+        glyph = get_cmap_glyph(font, ord("0"))
+        font.close()
+
+        assert glyph is not None, "Glyph for '0' should exist"
+        # After FeatureVariations + pnum, should be zero.sans (plain zero)
+        assert glyph == "zero.sans", (
+            f"Expected Sans '0' to use plain zero (zero.sans), got '{glyph}'"
+        )
+
+    def test_condensed_has_plain_zero(self):
+        """Verify WarpnineSansCondensed uses plain zero."""
+        font_path = DIST_DIR / "WarpnineSansCondensed-Regular.ttf"
+        if not font_path.exists():
+            pytest.skip("Font not built")
+
+        font = TTFont(font_path)
+        glyph = get_cmap_glyph(font, ord("0"))
+        font.close()
+
+        assert glyph is not None, "Glyph for '0' should exist"
+        assert glyph == "zero.sans", (
+            f"Expected Condensed '0' to use plain zero (zero.sans), got '{glyph}'"
         )
 
 
