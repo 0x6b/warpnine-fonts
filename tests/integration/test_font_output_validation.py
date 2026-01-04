@@ -115,6 +115,40 @@ CONDENSED_SPEC = FontSpec(
     is_monospace=False,
 )
 
+# Expected frozen features
+MONO_FROZEN_FEATURES = {
+    "dlig",
+    "ss01",
+    "ss02",
+    "ss03",
+    "ss04",
+    "ss05",
+    "ss06",
+    "ss07",
+    "ss08",
+    "ss10",
+    "ss11",
+    "ss12",
+    "pnum",
+    "liga",
+}
+
+SANS_FROZEN_FEATURES = {
+    "ss01",
+    "ss02",
+    "ss03",
+    "ss04",
+    "ss05",
+    "ss06",
+    "ss07",
+    "ss08",
+    "ss10",
+    "ss12",
+    "case",
+    "pnum",
+    "liga",
+}
+
 
 # ============================================================================
 # Test Fixtures
@@ -140,6 +174,16 @@ def recursive_vf():
 # ============================================================================
 # Naming Helpers
 # ============================================================================
+
+
+def get_gsub_features(font: TTFont) -> set[str]:
+    """Get all feature tags in the font's GSUB table."""
+    if "GSUB" not in font:
+        return set()
+    gsub = font["GSUB"]
+    if not hasattr(gsub.table, "FeatureList") or gsub.table.FeatureList is None:
+        return set()
+    return {fr.FeatureTag for fr in gsub.table.FeatureList.FeatureRecord}
 
 
 def get_name_entry(font: TTFont, name_id: int) -> str | None:
@@ -1062,6 +1106,79 @@ class TestFontNaming:
             assert "-" in ps_name, (
                 f"{font_path.name}: PostScript name missing hyphen: {ps_name}"
             )
+
+
+# ============================================================================
+# Summary Test
+# ============================================================================
+
+
+class TestFeatureFreezing:
+    """Test that OpenType features are correctly frozen."""
+
+    def test_mono_features_frozen(self):
+        """Verify MONO_FROZEN_FEATURES are not in GSUB (were frozen)."""
+        font_path = DIST_DIR / "WarpnineMono-Regular.ttf"
+        if not font_path.exists():
+            pytest.skip("Font not built")
+
+        font = TTFont(font_path)
+        gsub_features = get_gsub_features(font)
+        font.close()
+
+        ss_features = {f for f in MONO_FROZEN_FEATURES if f.startswith("ss")}
+        ss_still_present = ss_features & gsub_features
+        assert not ss_still_present, (
+            f"Stylistic sets should be frozen: {ss_still_present}"
+        )
+
+    def test_sans_features_frozen(self):
+        """Verify SANS_FROZEN_FEATURES are not in GSUB (were frozen)."""
+        font_path = DIST_DIR / "WarpnineSans-Regular.ttf"
+        if not font_path.exists():
+            pytest.skip("Font not built")
+
+        font = TTFont(font_path)
+        gsub_features = get_gsub_features(font)
+        font.close()
+
+        ss_features = {f for f in SANS_FROZEN_FEATURES if f.startswith("ss")}
+        ss_still_present = ss_features & gsub_features
+        assert not ss_still_present, (
+            f"Stylistic sets should be frozen: {ss_still_present}"
+        )
+
+    def test_condensed_features_frozen(self):
+        """Verify SANS_FROZEN_FEATURES are not in GSUB for condensed."""
+        font_path = DIST_DIR / "WarpnineSansCondensed-Regular.ttf"
+        if not font_path.exists():
+            pytest.skip("Font not built")
+
+        font = TTFont(font_path)
+        gsub_features = get_gsub_features(font)
+        font.close()
+
+        ss_features = {f for f in SANS_FROZEN_FEATURES if f.startswith("ss")}
+        ss_still_present = ss_features & gsub_features
+        assert not ss_still_present, (
+            f"Stylistic sets should be frozen: {ss_still_present}"
+        )
+
+    def test_mono_vf_features_frozen(self):
+        """Verify MONO_FROZEN_FEATURES are frozen in variable font."""
+        font_path = DIST_DIR / "WarpnineMono-VF.ttf"
+        if not font_path.exists():
+            pytest.skip("VF not built")
+
+        font = TTFont(font_path)
+        gsub_features = get_gsub_features(font)
+        font.close()
+
+        ss_features = {f for f in MONO_FROZEN_FEATURES if f.startswith("ss")}
+        ss_still_present = ss_features & gsub_features
+        assert not ss_still_present, (
+            f"Stylistic sets should be frozen in VF: {ss_still_present}"
+        )
 
 
 # ============================================================================
