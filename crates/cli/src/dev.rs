@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use clap::Subcommand;
 use read_fonts::types::Tag;
 use warpnine_core::{
@@ -299,7 +299,7 @@ fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool, png: bool)
         .status()?;
 
     if !status.success() {
-        anyhow::bail!("typst {subcommand} failed with exit code: {:?}", status.code());
+        bail!("typst {subcommand} failed with exit code: {:?}", status.code());
     }
 
     if !watch {
@@ -322,7 +322,7 @@ fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool, png: bool)
             .status()?;
 
         if !status.success() {
-            anyhow::bail!("typst compile (PNG) failed with exit code: {:?}", status.code());
+            bail!("typst compile (PNG) failed with exit code: {:?}", status.code());
         }
         println!("Generated: {}", png_output.display());
     }

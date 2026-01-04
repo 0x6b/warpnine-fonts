@@ -1,18 +1,21 @@
 //! Variable font instantiation.
 
-use std::iter::repeat_n;
+use std::{collections::HashMap, iter::repeat_n};
 
 pub use read_fonts::tables::glyf::CurvePoint;
 use read_fonts::{
     FontRef, TableProvider,
     tables::{
+        cmap::{Cmap, CmapSubtable},
         fvar::Fvar,
         glyf::{
             Anchor as ReadAnchor, CompositeGlyph as ReadCompositeGlyph, Glyph, PointFlags,
             SimpleGlyph as ReadSimpleGlyph,
         },
+        gsub::{Gsub, SingleSubst},
         gvar::Gvar,
         hhea::Hhea,
+        layout::Condition,
         mvar::{Mvar, tags as mvar_tags},
         os2::Os2,
         post::Post,
@@ -22,6 +25,7 @@ use read_fonts::{
 use write_fonts::{
     FontBuilder,
     from_obj::ToOwnedTable,
+    tables,
     tables::{
         glyf::{Bbox, CompositeGlyph, Contour, GlyfLocaBuilder, Glyph as WriteGlyph, SimpleGlyph},
         hhea::Hhea as WriteHhea,
@@ -227,10 +231,31 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
     let stat = build_new_stat(&fvar, locations);
     builder.add_table(&stat)?;
 
+    // Build cmap table with FeatureVariations substitutions applied (only if substitutions exist)
+    let cmap_replaced = if let Ok(cmap) = font.cmap() {
+        let gsub = font.gsub().ok();
+        let substitutions = gsub
+            .and_then(|gsub| compute_feature_variation_substitutions(&gsub, &normalized_coords));
+        if let Some(subs) = &substitutions {
+            if let Some(new_cmap) = build_instanced_cmap(&cmap, Some(subs)) {
+                builder.add_table(&new_cmap)?;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    let cmap_tag = Tag::new(b"cmap");
     for record in font.table_directory.table_records() {
         let tag = record.tag();
+        let is_replaced = REPLACED_TABLES.contains(&tag) || (tag == cmap_tag && cmap_replaced);
         if !VARIATION_TABLES.contains(&tag)
-            && !REPLACED_TABLES.contains(&tag)
+            && !is_replaced
             && !REMOVED_TABLES.contains(&tag)
             && let Some(data) = font.table_data(tag)
         {
@@ -913,6 +938,158 @@ fn build_new_stat(fvar: &Fvar, locations: &[AxisLocation]) -> Stat {
         .collect();
 
     Stat::new(design_axes, axis_values, NameId::new(2))
+}
+
+fn compute_feature_variation_substitutions(
+    gsub: &Gsub,
+    normalized_coords: &[F2Dot14],
+) -> Option<HashMap<GlyphId, GlyphId>> {
+    let feature_variations = gsub.feature_variations()?.ok()?;
+    let lookup_list = gsub.lookup_list().ok()?;
+    let feature_list = gsub.feature_list().ok()?;
+
+    for record in feature_variations.feature_variation_records() {
+        let Some(Ok(condition_set)) = record.condition_set(feature_variations.offset_data()) else {
+            continue;
+        };
+
+        let all_conditions_match = condition_set.conditions().iter().all(|cond| {
+            let Ok(Condition::Format1AxisRange(c)) = cond else {
+                return false;
+            };
+            let axis_index = c.axis_index() as usize;
+            if axis_index >= normalized_coords.len() {
+                return false;
+            }
+            let coord = normalized_coords[axis_index];
+            coord >= c.filter_range_min_value() && coord <= c.filter_range_max_value()
+        });
+
+        if !all_conditions_match {
+            continue;
+        }
+
+        let Some(Ok(feature_table_subst)) =
+            record.feature_table_substitution(feature_variations.offset_data())
+        else {
+            continue;
+        };
+
+        let mut substitutions = HashMap::new();
+
+        for subst_record in feature_table_subst.substitutions() {
+            let feature_index = subst_record.feature_index();
+
+            let Ok(feature_record) =
+                feature_list.feature_records().get(feature_index as usize).ok_or(())
+            else {
+                continue;
+            };
+            let feature_tag = feature_record.feature_tag();
+
+            if feature_tag != Tag::new(b"rvrn") {
+                continue;
+            }
+
+            let Ok(alternate_feature) =
+                subst_record.alternate_feature(feature_table_subst.offset_data())
+            else {
+                continue;
+            };
+
+            for lookup_index in alternate_feature.lookup_list_indices() {
+                let lookup_idx = lookup_index.get() as usize;
+                let Ok(lookup) = lookup_list.lookups().get(lookup_idx) else {
+                    continue;
+                };
+
+                if let read_fonts::tables::gsub::SubstitutionLookup::Single(single_lookup) = lookup
+                {
+                    for subtable_result in single_lookup.subtables().iter() {
+                        let Ok(subtable) = subtable_result else {
+                            continue;
+                        };
+                        match subtable {
+                            SingleSubst::Format1(f1) => {
+                                let Ok(coverage) = f1.coverage() else {
+                                    continue;
+                                };
+                                let delta = f1.delta_glyph_id() as i32;
+                                for glyph in coverage.iter() {
+                                    let from_gid = GlyphId::from(glyph);
+                                    let to_gid =
+                                        GlyphId::new((from_gid.to_u32() as i32 + delta) as u32);
+                                    substitutions.insert(from_gid, to_gid);
+                                }
+                            }
+                            SingleSubst::Format2(f2) => {
+                                let Ok(coverage) = f2.coverage() else {
+                                    continue;
+                                };
+                                let substitute_glyph_ids = f2.substitute_glyph_ids();
+                                for (i, glyph) in coverage.iter().enumerate() {
+                                    if let Some(substitute) = substitute_glyph_ids.get(i) {
+                                        let from_gid = GlyphId::from(glyph);
+                                        let to_gid = GlyphId::from(substitute.get());
+                                        substitutions.insert(from_gid, to_gid);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !substitutions.is_empty() {
+            return Some(substitutions);
+        }
+    }
+
+    None
+}
+
+fn build_instanced_cmap(
+    cmap: &Cmap,
+    substitutions: Option<&HashMap<GlyphId, GlyphId>>,
+) -> Option<tables::cmap::Cmap> {
+    let mut mappings: Vec<(char, GlyphId)> = Vec::new();
+
+    for record in cmap.encoding_records() {
+        let Ok(subtable) = record.subtable(cmap.offset_data()) else {
+            continue;
+        };
+        match subtable {
+            CmapSubtable::Format4(f4) => {
+                for (codepoint, glyph_id) in f4.iter() {
+                    if let Some(ch) = char::from_u32(codepoint) {
+                        let final_gid = substitutions
+                            .and_then(|subs| subs.get(&glyph_id).copied())
+                            .unwrap_or(glyph_id);
+                        mappings.push((ch, final_gid));
+                    }
+                }
+            }
+            CmapSubtable::Format12(f12) => {
+                for (codepoint, glyph_id) in f12.iter() {
+                    if let Some(ch) = char::from_u32(codepoint) {
+                        let final_gid = substitutions
+                            .and_then(|subs| subs.get(&glyph_id).copied())
+                            .unwrap_or(glyph_id);
+                        mappings.push((ch, final_gid));
+                    }
+                }
+            }
+            _ => continue,
+        }
+        break;
+    }
+
+    if mappings.is_empty() {
+        return None;
+    }
+
+    write_fonts::tables::cmap::Cmap::from_mappings(mappings).ok()
 }
 
 #[cfg(test)]
