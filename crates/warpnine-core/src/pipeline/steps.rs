@@ -9,7 +9,7 @@ use warpnine_font_ops::copy_table;
 
 use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
 use crate::{
-    FontVersion, MonospaceSettings, Subsetter,
+    MonospaceSettings, Subsetter,
     freeze::{AutoRvrn, freeze_features},
     instance::{AxisLocation, InstanceDef, create_instances_batch},
     io::{check_results, glob_fonts, read_font, write_font},
@@ -377,13 +377,11 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
     let fonts = ctx.dist_fonts("*.ttf")?;
     println!("  Setting version on {} fonts...", fonts.len());
 
-    let version = FontVersion::parse(ctx.version.as_deref())?;
-
     let results: Vec<_> = fonts
         .par_iter()
         .map(|path| {
             let data = read_font(path)?;
-            let new_data = version.apply(&data)?;
+            let new_data = ctx.version.apply(&data)?;
             write_font(path, new_data)?;
             Ok(())
         })

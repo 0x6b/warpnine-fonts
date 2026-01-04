@@ -15,7 +15,7 @@ use std::{
 
 use anyhow::Result;
 
-use crate::io::glob_fonts;
+use crate::{FontVersion, io::glob_fonts};
 pub use steps::{
     CONDENSED_ONLY_STEPS, FINAL_STEPS, MONO_STEPS, PipelineStep, SANS_ONLY_STEPS, SANS_STEPS,
 };
@@ -26,20 +26,21 @@ pub struct PipelineContext {
     pub dist_dir: PathBuf,
     pub recursive_vf: PathBuf,
     pub noto_vf: PathBuf,
-    pub version: Option<String>,
+    pub version: FontVersion,
 }
 
 impl PipelineContext {
-    pub fn new(build_dir: PathBuf, dist_dir: PathBuf, version: Option<String>) -> Self {
+    pub fn new(build_dir: PathBuf, dist_dir: PathBuf, version: Option<String>) -> Result<Self> {
+        let version = FontVersion::parse(version.as_deref())?;
         let recursive_vf = build_dir.join("Recursive_VF_1.085.ttf");
         let noto_vf = build_dir.join("NotoSansMonoCJKjp-VF.ttf");
-        Self {
+        Ok(Self {
             build_dir,
             dist_dir,
             recursive_vf,
             noto_vf,
             version,
-        }
+        })
     }
 
     pub fn build_fonts(&self, pattern: &str) -> Result<Vec<PathBuf>> {
@@ -99,7 +100,7 @@ pub fn run_steps(
 }
 
 pub fn build_all(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> Result<()> {
-    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version);
+    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version)?;
     let start = Instant::now();
 
     println!("═══════════════════════════════════════════════════════════════════════════════");
@@ -127,7 +128,7 @@ pub fn build_all(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> 
 }
 
 pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> Result<()> {
-    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version);
+    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version)?;
     let start = Instant::now();
 
     println!("═══════════════════════════════════════════════════════════════════════════════");
@@ -151,7 +152,7 @@ pub fn build_mono(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
 }
 
 pub fn build_sans(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> Result<()> {
-    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version);
+    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version)?;
     let start = Instant::now();
 
     println!("═══════════════════════════════════════════════════════════════════════════════");
@@ -174,7 +175,7 @@ pub fn build_sans(build_dir: &Path, dist_dir: &Path, version: Option<String>) ->
 }
 
 pub fn build_condensed(build_dir: &Path, dist_dir: &Path, version: Option<String>) -> Result<()> {
-    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version);
+    let ctx = PipelineContext::new(build_dir.to_path_buf(), dist_dir.to_path_buf(), version)?;
     let start = Instant::now();
 
     println!("═══════════════════════════════════════════════════════════════════════════════");
