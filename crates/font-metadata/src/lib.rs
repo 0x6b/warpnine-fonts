@@ -1,6 +1,6 @@
 //! Font metadata manipulation (monospace settings, versioning).
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{Datelike, NaiveDate};
 use read_fonts::TableProvider;
 use warpnine_font_ops::{map_name_records, rewrite_font};
@@ -125,8 +125,11 @@ impl FontVersion {
                 if name_id == NAME_ID_VERSION {
                     Some(version_string.clone())
                 } else if name_id == NAME_ID_UNIQUE_ID {
-                    let parts: Vec<&str> =
-                        current.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+                    let parts: Vec<&str> = current
+                        .split(';')
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .collect();
                     let new_parts = if !parts.is_empty() {
                         let mut new_parts: Vec<String> =
                             parts[..parts.len() - 1].iter().map(|s| s.to_string()).collect();

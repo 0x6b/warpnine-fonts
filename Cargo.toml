@@ -10,6 +10,7 @@ members = [
     "crates/instancer",
     "crates/merger",
     "crates/vf-builder",
+    "crates/warpnine-core",
 ]
 
 [workspace.package]
@@ -56,3 +57,4 @@ warpnine-font-ops = { path = "crates/font-ops" }
 warpnine-font-subsetter = { path = "crates/font-subsetter" }
 warpnine-font-condense = { path = "crates/font-condense" }
 warpnine-font-metadata = { path = "crates/font-metadata" }
+warpnine-core = { path = "crates/warpnine-core" }

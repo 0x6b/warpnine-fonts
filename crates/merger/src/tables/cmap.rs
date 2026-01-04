@@ -2,18 +2,19 @@
 
 use std::collections::HashMap;
 
-use indexmap::{map::Entry, IndexMap};
+use indexmap::{IndexMap, map::Entry};
 use read_fonts::{
+    FontRef, TableProvider,
     tables::cmap::{Cmap as ReadCmap, CmapSubtable, PlatformId},
-    types, FontRef, TableProvider,
+    types,
 };
 use write_fonts::tables::cmap::Cmap;
 
 use crate::{
+    MergeError, Result,
     context::GlyphOrder,
     glyph_order::GlyphName,
     types::{Codepoint, GlyphId},
-    MergeError, Result,
 };
 
 /// Information about duplicate glyphs (same codepoint, different glyphs)

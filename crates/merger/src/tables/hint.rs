@@ -39,7 +39,7 @@
 //! However, this is extremely complex and may introduce subtle rendering bugs.
 
 use log::{debug, warn};
-use read_fonts::{types::Tag, FontRef};
+use read_fonts::{FontRef, types::Tag};
 
 /// Check if fonts have compatible hinting
 ///

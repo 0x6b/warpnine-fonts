@@ -12,27 +12,14 @@ path = "src/lib.rs"
 
 [dependencies]
 clap.workspace = true
-read-fonts.workspace = true
-write-fonts.workspace = true
-hb-subset.workspace = true
 anyhow.workspace = true
-chrono.workspace = true
-rayon.workspace = true
 log.workspace = true
 env_logger.workspace = true
-reqwest.workspace = true
-zip.workspace = true
-glob.workspace = true
+read-fonts.workspace = true
 
-# Workspace crates
-warpnine-font-condense.workspace = true
-warpnine-font-feature-freezer.workspace = true
-warpnine-font-instancer.workspace = true
-warpnine-font-merger.workspace = true
-warpnine-font-metadata.workspace = true
+# Core functionality
+warpnine-core.workspace = true
 warpnine-font-ops.workspace = true
-warpnine-font-subsetter.workspace = true
-warpnine-font-vf-builder.workspace = true
 
 [[bin]]
 name = "warpnine-fonts"

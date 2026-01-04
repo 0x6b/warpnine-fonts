@@ -29,9 +29,8 @@ use hb_subset::{Blob, FontFace, SubsetInput, Tag};
 ///
 /// These tables are specific to variable fonts and can be safely removed
 /// when creating a static font subset.
-pub const VF_TABLES_TO_DROP: &[&[u8; 4]] = &[
-    b"HVAR", b"MVAR", b"STAT", b"avar", b"fvar", b"gvar", b"cvar",
-];
+pub const VF_TABLES_TO_DROP: &[&[u8; 4]] =
+    &[b"HVAR", b"MVAR", b"STAT", b"avar", b"fvar", b"gvar", b"cvar"];
 
 /// Japanese Unicode ranges for subsetting.
 ///
@@ -145,10 +144,7 @@ impl Subsetter {
     /// Sets the layout features to retain in the subset.
     ///
     /// Replaces any previously configured layout features.
-    pub fn with_layout_features(
-        mut self,
-        features: impl IntoIterator<Item = [u8; 4]>,
-    ) -> Self {
+    pub fn with_layout_features(mut self, features: impl IntoIterator<Item = [u8; 4]>) -> Self {
         self.layout_features = features.into_iter().collect();
         self
     }

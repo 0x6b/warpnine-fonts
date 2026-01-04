@@ -3,10 +3,11 @@
 use std::collections::HashSet;
 
 use log::info;
-use read_fonts::{types::Tag, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, types::Tag};
 use write_fonts::FontBuilder;
 
 use crate::{
+    MergeError, Result,
     context::{GlyphOrder, MergeContext},
     options::Options,
     tables::{
@@ -25,7 +26,6 @@ use crate::{
         vhea::merge_vhea,
         vmtx::merge_vmtx,
     },
-    MergeError, Result,
 };
 
 /// Constant table tags to avoid repeated construction

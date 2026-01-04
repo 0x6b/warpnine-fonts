@@ -26,13 +26,6 @@ fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<u16> {
     None
 }
 
-/// Remove the three-backtick ligature from a font.
-///
-/// The ligature in Recursive fonts uses:
-/// - Type 6 Format 1 chaining contextual substitution
-/// - Rules that match grave+grave+grave and call a ligature lookup
-///
-/// We clear the SubstLookupRecord by setting seq_lookup_count to 0.
 pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
     let data = read(path).context("Failed to read font")?;
     let font = FontRef::new(&data).context("Failed to parse font")?;
@@ -53,7 +46,6 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         }
     };
 
-    // Get the raw GSUB table data and its offset in the file
     let gsub_tag = read_fonts::types::Tag::new(b"GSUB");
     let gsub_record = font
         .table_directory
@@ -71,7 +63,6 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             Err(_) => continue,
         };
 
-        // Type 6 is chaining contextual
         if lookup.lookup_type() != 6 {
             continue;
         }
@@ -87,7 +78,6 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
                 _ => continue,
             };
 
-            // Check if coverage contains grave
             let coverage = match subtable.coverage() {
                 Ok(c) => c,
                 Err(_) => continue,
@@ -98,23 +88,19 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
                 None => continue,
             };
 
-            // Get the rule sets
             let rule_sets = subtable.chained_seq_rule_sets();
 
-            // Get the rule set for grave
             let rule_set = match rule_sets.get(grave_coverage_idx as usize) {
                 Some(Ok(rs)) => rs,
                 _ => continue,
             };
 
-            // Check each rule
             for rule_result in rule_set.chained_seq_rules().iter() {
                 let rule: TableRef<'_, ChainedSequenceRuleMarker> = match rule_result {
                     Ok(r) => r,
                     Err(_) => continue,
                 };
 
-                // Check if this is a grave+grave+grave pattern
                 let input_seq = rule.input_sequence();
                 if input_seq.len() != 2 {
                     continue;
@@ -128,7 +114,6 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
                     continue;
                 }
 
-                // Check if there are SubstLookupRecords to clear
                 let lookup_count = rule.seq_lookup_count();
                 if lookup_count == 0 {
                     continue;
@@ -141,36 +126,20 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         }
     }
 
-    // Since calculating exact offsets through the nested structure is complex,
-    // let's search for the specific byte pattern and patch it.
-    // The grave glyph ID is typically around 0x0265 (613).
-    // We're looking for: grave grave (as input sequence), followed by seq_lookup_count > 0
-
     let grave_be = (grave_gid as u16).to_be_bytes();
     let mut modified_data = data.clone();
     let mut modifications = 0;
 
-    // Search within GSUB table for the pattern
     let gsub_data = font.table_data(gsub_tag).context("Failed to get GSUB data")?;
     let gsub_bytes = gsub_data.as_ref();
-
-    // We need to find ChainedSequenceRule structures that have:
-    // - input_glyph_count = 3 (meaning 2 glyphs in input_sequence since first is implicit)
-    // - input_sequence = [grave, grave]
-    // - seq_lookup_count > 0
-
-    // Pattern to search for within GSUB:
-    // ... [input_glyph_count=0x0003] [grave] [grave] [lookahead_count] ... [seq_lookup_count > 0]
 
     let input_count_pattern = 0x0003u16.to_be_bytes();
 
     for i in 0..gsub_bytes.len().saturating_sub(20) {
-        // Check for input_glyph_count = 3
         if gsub_bytes[i..i + 2] != input_count_pattern {
             continue;
         }
 
-        // Check for grave, grave following
         if i + 6 > gsub_bytes.len() {
             continue;
         }
@@ -178,13 +147,11 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             continue;
         }
 
-        // Read lookahead_glyph_count at i+6
         if i + 8 > gsub_bytes.len() {
             continue;
         }
         let lookahead_count = u16::from_be_bytes([gsub_bytes[i + 6], gsub_bytes[i + 7]]) as usize;
 
-        // seq_lookup_count is at i + 8 + lookahead_count * 2
         let seq_lookup_count_offset = i + 8 + lookahead_count * 2;
         if seq_lookup_count_offset + 2 > gsub_bytes.len() {
             continue;
@@ -196,12 +163,10 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         ]);
 
         if seq_lookup_count > 0 && seq_lookup_count < 10 {
-            // Sanity check
             println!(
                 "  Patching seq_lookup_count at GSUB offset 0x{seq_lookup_count_offset:x} (was {seq_lookup_count})"
             );
 
-            // Patch in the file
             let file_offset = gsub_offset + seq_lookup_count_offset;
             modified_data[file_offset] = 0;
             modified_data[file_offset + 1] = 0;
@@ -214,18 +179,13 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         return Ok(false);
     }
 
-    // We also need to look for backtrack patterns like [backtrack=grave] [input_count=3] [grave]
-    // [grave] Pattern: [backtrack_count=1] [grave] [input_count=3] [grave] [grave] ...
-
     let backtrack_one_pattern = 0x0001u16.to_be_bytes();
 
     for i in 0..gsub_bytes.len().saturating_sub(20) {
-        // Check for backtrack_glyph_count = 1
         if gsub_bytes[i..i + 2] != backtrack_one_pattern {
             continue;
         }
 
-        // Check for grave in backtrack
         if i + 4 > gsub_bytes.len() {
             continue;
         }
@@ -233,7 +193,6 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             continue;
         }
 
-        // Check for input_glyph_count = 3
         if i + 6 > gsub_bytes.len() {
             continue;
         }
@@ -241,7 +200,6 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             continue;
         }
 
-        // Check for grave, grave in input
         if i + 10 > gsub_bytes.len() {
             continue;
         }
@@ -249,13 +207,11 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             continue;
         }
 
-        // lookahead_count at i+10
         if i + 12 > gsub_bytes.len() {
             continue;
         }
         let lookahead_count = u16::from_be_bytes([gsub_bytes[i + 10], gsub_bytes[i + 11]]) as usize;
 
-        // seq_lookup_count at i + 12 + lookahead_count * 2
         let seq_lookup_count_offset = i + 12 + lookahead_count * 2;
         if seq_lookup_count_offset + 2 > gsub_bytes.len() {
             continue;

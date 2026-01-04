@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use read_fonts::TableProvider;
 use write_fonts::tables::hmtx::Hmtx;
 
-use crate::{context::MergeContext, glyph_order::GlyphName, types::GlyphId, Result};
+use crate::{Result, context::MergeContext, glyph_order::GlyphName, types::GlyphId};
 
 #[derive(Debug, Clone)]
 pub struct GlyphMetrics {

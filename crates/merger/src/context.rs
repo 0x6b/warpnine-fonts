@@ -7,8 +7,8 @@
 
 use std::collections::HashMap;
 
-use indexmap::{map::Entry, IndexMap};
-use read_fonts::{tables::post::Post, FontRef, TableProvider};
+use indexmap::{IndexMap, map::Entry};
+use read_fonts::{FontRef, TableProvider, tables::post::Post};
 
 use crate::{
     glyph_order::GlyphName,

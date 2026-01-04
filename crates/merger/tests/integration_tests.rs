@@ -2,9 +2,10 @@
 
 use std::collections::HashMap;
 
-use read_fonts::{types::GlyphId, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, types::GlyphId};
 use warpnine_font_merger::{Merger, Options};
 use write_fonts::{
+    FontBuilder,
     tables::{
         cmap::Cmap,
         glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph},
@@ -15,7 +16,6 @@ use write_fonts::{
         os2::Os2,
         post::Post,
     },
-    FontBuilder,
 };
 
 /// Create a minimal TrueType font with specified glyphs and cmap

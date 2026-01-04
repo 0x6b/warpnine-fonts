@@ -3,12 +3,12 @@
 use std::result;
 
 use font_types::Version16Dot16;
-use read_fonts::{tables::maxp::Maxp as ReadMaxp, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, tables::maxp::Maxp as ReadMaxp};
 use write_fonts::tables::maxp::Maxp;
 
 use crate::{
-    strategies::{first, max},
     MergeError, Result,
+    strategies::{first, max},
 };
 
 pub fn merge_maxp(fonts: &[FontRef], total_glyphs: u16) -> Result<Maxp> {

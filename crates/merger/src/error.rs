@@ -2,7 +2,7 @@ use std::{io, result};
 
 use read_fonts::ReadError;
 use thiserror::Error;
-use write_fonts::{error, BuilderError};
+use write_fonts::{BuilderError, error};
 
 #[derive(Error, Debug)]
 pub enum MergeError {

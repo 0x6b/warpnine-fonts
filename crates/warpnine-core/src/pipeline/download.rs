@@ -95,11 +95,8 @@ pub fn download(build_dir: &Path) -> Result<()> {
     let failure_count = AtomicUsize::new(0);
     let total_count = DOWNLOADS.len() + 1;
 
-    let all_items: Vec<Option<&DownloadItem>> = DOWNLOADS
-        .iter()
-        .map(Some)
-        .chain(once(None)) // None represents Recursive VF
-        .collect();
+    let all_items: Vec<Option<&DownloadItem>> =
+        DOWNLOADS.iter().map(Some).chain(once(None)).collect();
 
     all_items.par_iter().for_each(|item| {
         let result = match item {

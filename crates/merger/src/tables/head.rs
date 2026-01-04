@@ -2,12 +2,12 @@
 
 use std::result;
 
-use read_fonts::{tables::head::Head as ReadHead, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, tables::head::Head as ReadHead};
 use write_fonts::tables::head::Head;
 
 use crate::{
-    strategies::{equal, max, merge_bits, min},
     MergeError, Result,
+    strategies::{equal, max, merge_bits, min},
 };
 
 /// Bit map for merging head.flags

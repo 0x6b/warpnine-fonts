@@ -5,7 +5,25 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{build_all, build_condensed, build_mono, build_sans, clean, download};
+use read_fonts::types::Tag;
+use warpnine_core::{
+    FontVersion, MonospaceSettings, Subsetter, build_all, build_condensed, build_mono, build_sans,
+    build_warpnine_mono_vf,
+    freeze::{AutoRvrn, freeze_features},
+    instance::{AxisLocation, InstanceDef, create_instance, create_instances_batch},
+    io::{read_font, transform_font_in_place, write_font},
+    merge::{merge_batch, merge_fonts},
+    parallel::run_parallel,
+    pipeline::{clean, download},
+    warpnine::{
+        calt::fix_calt_registration,
+        condense::create_condensed,
+        ligatures::remove_grave_ligature,
+        naming::{FontNaming, set_name},
+        sans::create_sans,
+    },
+};
+use warpnine_font_ops::copy_table;
 
 #[derive(Parser)]
 #[command(name = "warpnine-fonts")]
@@ -15,97 +33,76 @@ pub struct Cli {
     pub command: Commands,
 }
 
-/// Build directory arguments shared by build commands.
 #[derive(Debug, Clone, clap::Args)]
 pub struct BuildArgs {
-    /// Build directory for intermediate files
     #[arg(long, default_value = "build")]
     pub build_dir: PathBuf,
-    /// Distribution directory for output fonts
     #[arg(long, default_value = "dist")]
     pub dist_dir: PathBuf,
-    /// Version string (YYYY-MM-DD or YYYY-MM-DD.N)
     #[arg(short, long)]
     pub version: Option<String>,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Build all fonts (Mono, Sans, Condensed)
     Build {
         #[command(flatten)]
         args: BuildArgs,
     },
-    /// Build WarpnineMono fonts only (static + variable)
     BuildMono {
         #[command(flatten)]
         args: BuildArgs,
     },
-    /// Build WarpnineSans fonts only
     BuildSans {
         #[command(flatten)]
         args: BuildArgs,
     },
-    /// Build WarpnineSansCondensed fonts only
     BuildCondensed {
         #[command(flatten)]
         args: BuildArgs,
     },
-    /// Download source fonts (Recursive VF, Noto CJK)
     Download {
-        /// Build directory to download to
         #[arg(long, default_value = "build")]
         build_dir: PathBuf,
     },
-    /// Remove build artifacts (build/ and dist/ directories)
     Clean {
-        /// Build directory to clean
         #[arg(long, default_value = "build")]
         build_dir: PathBuf,
-        /// Dist directory to clean
         #[arg(long, default_value = "dist")]
         dist_dir: PathBuf,
     },
-    /// Development and debugging commands
     #[command(subcommand, hide = true)]
     Dev(DevCommands),
 }
 
-/// Internal commands for development, testing, and debugging.
 #[derive(Subcommand)]
 pub enum DevCommands {
-    /// Copy GSUB table from source font to target font
     CopyGsub {
         #[arg(long)]
         from: PathBuf,
         #[arg(long)]
         to: PathBuf,
     },
-    /// Remove three-backtick ligature from fonts
     RemoveLigatures {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Set monospace flags on font files
     SetMonospace {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Set version date on font files
     SetVersion {
         #[arg(short, long)]
         version: Option<String>,
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Subset font to Japanese Unicode ranges
     SubsetJapanese {
         #[arg(required = true)]
         input: PathBuf,
         #[arg(required = true)]
         output: PathBuf,
     },
-    /// Freeze OpenType features into fonts
     Freeze {
         #[arg(short, long, value_delimiter = ',')]
         features: Vec<String>,
@@ -114,32 +111,28 @@ pub enum DevCommands {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Create static instance from variable font
     Instance {
         #[arg(short, long = "axis", value_parser = parse_axis)]
-        axes: Vec<crate::instance::AxisLocation>,
+        axes: Vec<AxisLocation>,
         #[arg(required = true)]
         input: PathBuf,
         #[arg(required = true)]
         output: PathBuf,
     },
-    /// Create multiple static instances from variable font
     InstanceBatch {
         #[arg(long)]
         input: PathBuf,
         #[arg(long, default_value = "dist")]
         output_dir: PathBuf,
         #[arg(short, long = "instance", value_parser = parse_instance_def)]
-        instances: Vec<(String, Vec<crate::instance::AxisLocation>)>,
+        instances: Vec<(String, Vec<AxisLocation>)>,
     },
-    /// Merge multiple fonts into one
     Merge {
         #[arg(required = true, num_args = 2..)]
         inputs: Vec<PathBuf>,
         #[arg(short, long)]
         output: PathBuf,
     },
-    /// Merge multiple base fonts with a fallback font
     MergeBatch {
         #[arg(required = true)]
         base_fonts: Vec<PathBuf>,
@@ -148,14 +141,12 @@ pub enum DevCommands {
         #[arg(short, long, default_value = "dist")]
         output_dir: PathBuf,
     },
-    /// Create WarpnineSans fonts from Recursive VF (without naming/freezing)
     CreateSans {
         #[arg(long)]
         input: PathBuf,
         #[arg(long, default_value = "dist")]
         output_dir: PathBuf,
     },
-    /// Create WarpnineSansCondensed fonts from Recursive VF (without naming/freezing)
     CreateCondensed {
         #[arg(long)]
         input: PathBuf,
@@ -164,7 +155,6 @@ pub enum DevCommands {
         #[arg(long, default_value = "0.90")]
         scale: f32,
     },
-    /// Set name table entries
     SetName {
         #[arg(long)]
         family: String,
@@ -177,12 +167,10 @@ pub enum DevCommands {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Fix calt/rclt feature registration across all scripts
     FixCalt {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Build WarpnineMono variable font from static masters
     BuildVf {
         #[arg(long, default_value = "dist")]
         dist_dir: PathBuf,
@@ -191,17 +179,17 @@ pub enum DevCommands {
     },
 }
 
-fn parse_axis(s: &str) -> Result<crate::instance::AxisLocation, String> {
+fn parse_axis(s: &str) -> Result<AxisLocation, String> {
     let (tag, value_str) = s
         .split_once('=')
         .ok_or_else(|| format!("Invalid axis format '{s}', expected TAG=VALUE"))?;
     let value: f32 = value_str
         .parse()
         .map_err(|_| format!("Invalid value '{value_str}' for axis '{tag}'"))?;
-    Ok(crate::instance::AxisLocation::new(tag, value))
+    Ok(AxisLocation::new(tag, value))
 }
 
-fn parse_instance_def(s: &str) -> Result<(String, Vec<crate::instance::AxisLocation>), String> {
+fn parse_instance_def(s: &str) -> Result<(String, Vec<AxisLocation>), String> {
     let (name, axes_str) = s
         .split_once(':')
         .ok_or_else(|| format!("Expected NAME:TAG=VAL,TAG=VAL format, got '{s}'"))?;
@@ -238,25 +226,6 @@ impl Commands {
 
 impl DevCommands {
     pub fn run(self) -> Result<()> {
-        use crate::{
-            commands::build_warpnine_mono_vf,
-            freeze::{AutoRvrn, freeze_features},
-            instance::{InstanceDef, create_instance, create_instances_batch},
-            io::{read_font, write_font, transform_font_in_place},
-            merge::{merge_batch, merge_fonts},
-            parallel::run_parallel,
-            warpnine::{
-                calt::fix_calt_registration,
-                condense::create_condensed,
-                ligatures::remove_grave_ligature,
-                naming::{FontNaming, set_name},
-                sans::create_sans,
-            },
-            FontVersion, MonospaceSettings, Subsetter,
-        };
-        use read_fonts::types::Tag;
-        use warpnine_font_ops::copy_table;
-
         match self {
             DevCommands::CopyGsub { from, to } => {
                 let source_data = read_font(&from)?;

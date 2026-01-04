@@ -10,7 +10,6 @@ use anyhow::{Context, Result};
 use font_instancer::{AxisLocation, instantiate};
 use rayon::prelude::*;
 
-/// Font slant (upright or italic).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Slant {
     Upright,
@@ -44,7 +43,6 @@ impl Slant {
     }
 }
 
-/// OS/2 weight class (usWeightClass) as a newtype.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WeightClass(pub u16);
 
@@ -54,7 +52,6 @@ impl From<Weight> for WeightClass {
     }
 }
 
-/// Font weight as a newtype for type safety.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Weight(pub f32);
 
@@ -64,7 +61,6 @@ impl Weight {
     }
 }
 
-/// A font style definition with weight and slant.
 #[derive(Debug, Clone, Copy)]
 pub struct Style {
     pub name: &'static str,
@@ -77,8 +73,6 @@ impl Style {
         Self { name, weight, slant }
     }
 
-    /// Display name with space before "Italic" (e.g., "LightItalic" -> "Light Italic").
-    /// "Italic" alone stays as "Italic".
     pub fn display_name(&self) -> String {
         if self.name.ends_with("Italic") && self.name != "Italic" {
             let base = self.name.strip_suffix("Italic").unwrap();
@@ -99,7 +93,6 @@ impl Style {
     }
 }
 
-/// All 16 WarpnineMono styles (8 weights × 2 italic states).
 pub const MONO_STYLES: &[Style] = &[
     Style::new("Light", Weight(300.0), Slant::Upright),
     Style::new("LightItalic", Weight(300.0), Slant::Italic),
@@ -119,7 +112,6 @@ pub const MONO_STYLES: &[Style] = &[
     Style::new("ExtraBlackItalic", Weight(1000.0), Slant::Italic),
 ];
 
-/// Sans styles (14 styles - no ExtraBlack).
 pub const SANS_STYLES: &[Style] = &[
     Style::new("Light", Weight(300.0), Slant::Upright),
     Style::new("LightItalic", Weight(300.0), Slant::Italic),
@@ -137,7 +129,6 @@ pub const SANS_STYLES: &[Style] = &[
     Style::new("BlackItalic", Weight(900.0), Slant::Italic),
 ];
 
-/// CASL axis value for duotone instances (Linear for Light/Regular, Casual for Medium+).
 pub fn duotone_casl(wght: f32) -> f32 {
     if wght < 500.0 { 0.0 } else { 1.0 }
 }
@@ -151,7 +142,6 @@ impl AsRef<str> for FeatureTag {
     }
 }
 
-/// Base features shared by both mono and sans fonts.
 const BASE_FEATURES: &[FeatureTag] = &[
     FeatureTag("dlig"),
     FeatureTag("ss01"),
@@ -168,7 +158,6 @@ const BASE_FEATURES: &[FeatureTag] = &[
     FeatureTag("liga"),
 ];
 
-/// Features to freeze in mono fonts (base + pnum).
 pub const MONO_FEATURES: &[FeatureTag] = &[
     FeatureTag("dlig"),
     FeatureTag("ss01"),
@@ -186,16 +175,8 @@ pub const MONO_FEATURES: &[FeatureTag] = &[
     FeatureTag("liga"),
 ];
 
-/// Features to freeze in sans fonts (same as base).
 pub const SANS_FEATURES: &[FeatureTag] = BASE_FEATURES;
 
-/// Build static font instances from a variable font by iterating over styles in parallel.
-///
-/// - Reads the input font once
-/// - Creates output_dir if needed
-/// - Iterates styles in parallel
-/// - For each style: instantiates at axis locations, applies transform, writes output
-/// - Returns the count of created fonts
 pub fn build_style_instances<F>(
     input: &Path,
     output_dir: &Path,

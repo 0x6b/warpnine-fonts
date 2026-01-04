@@ -1,11 +1,11 @@
 //! OS/2 table merging
 
-use read_fonts::{tables::os2::Os2 as ReadOs2, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, tables::os2::Os2 as ReadOs2};
 use write_fonts::tables::os2::{Os2, SelectionFlags};
 
 use crate::{
-    strategies::{first, max, min},
     Result,
+    strategies::{first, max, min},
 };
 
 pub fn merge_os2(fonts: &[FontRef]) -> Result<Option<Os2>> {

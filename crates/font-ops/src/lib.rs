@@ -1,10 +1,10 @@
 //! Generic font table manipulation utilities.
 
 use anyhow::{Context, Result};
-use read_fonts::{types::Tag, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, types::Tag};
 use write_fonts::{
-    tables::name::{Name, NameRecord},
     FontBuilder,
+    tables::name::{Name, NameRecord},
 };
 
 /// Rewrite font data by applying a transformation function.

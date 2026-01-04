@@ -3,10 +3,10 @@
 use std::result;
 
 use font_types::Version16Dot16;
-use read_fonts::{tables::post::Post as ReadPost, TableProvider};
+use read_fonts::{TableProvider, tables::post::Post as ReadPost};
 use write_fonts::tables::post::Post;
 
-use crate::{context::MergeContext, strategies::first, MergeError, Result};
+use crate::{MergeError, Result, context::MergeContext, strategies::first};
 
 /// Version 3.0 - no glyph names stored
 const POST_VERSION_3: Version16Dot16 = Version16Dot16::new(3, 0);

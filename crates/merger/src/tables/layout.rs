@@ -4,10 +4,9 @@ use std::collections::HashMap;
 
 use font_types::{BigEndian, GlyphId16};
 use read_fonts::{
-    tables,
+    TableProvider, tables,
     tables::{gpos as read_gpos, layout},
     types::Tag,
-    TableProvider,
 };
 use write_fonts::tables::{
     gpos::{
@@ -31,6 +30,7 @@ use write_fonts::tables::{
 };
 
 use crate::{
+    Result,
     context::{GidRemap, GlyphOrder, MergeContext},
     convert::{MarkArrayExt, ToWrite},
     tables::{
@@ -39,7 +39,6 @@ use crate::{
             FeatureIndex, LangTag, LookupIndex, MergedFeatureList, ScriptLangFeatureMap, ScriptTag,
         },
     },
-    Result,
 };
 
 /// Merge GSUB tables from multiple fonts

@@ -5,7 +5,6 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 
-/// Result of a parallel batch operation.
 #[derive(Debug, Default)]
 pub struct BatchResult {
     pub succeeded: usize,
@@ -33,7 +32,6 @@ impl BatchResult {
     }
 }
 
-/// Process items in parallel with consistent error reporting.
 pub fn process_parallel_iter<T, R, F>(
     label: &str,
     items: impl IntoIterator<Item = T>,
@@ -61,7 +59,6 @@ where
     Ok(result)
 }
 
-/// Collect results from parallel operations without printing.
 pub fn collect_parallel<T, R, F>(items: &[T], op: F) -> Vec<Result<R>>
 where
     T: Sync,
@@ -71,7 +68,6 @@ where
     items.par_iter().map(op).collect()
 }
 
-/// Run an operation on multiple files in parallel with consistent error reporting.
 pub fn run_parallel<T, F>(label: &str, items: &[T], op: F) -> Result<BatchResult>
 where
     T: AsRef<Path> + Sync,

@@ -82,7 +82,10 @@ impl Source {
     ///
     /// The path accepts any type that can be converted to a `PathBuf`,
     /// including `&str`, `String`, `&Path`, or `PathBuf`.
-    pub fn new(path: impl Into<PathBuf>, location: impl IntoIterator<Item = (&'static str, f32)>) -> Self {
+    pub fn new(
+        path: impl Into<PathBuf>,
+        location: impl IntoIterator<Item = (&'static str, f32)>,
+    ) -> Self {
         Self {
             path: path.into(),
             location: location.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),

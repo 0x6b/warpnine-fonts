@@ -8,7 +8,6 @@ use std::{
 use anyhow::{Context, Result, bail};
 use glob::glob;
 
-/// A font file handle for I/O operations.
 #[derive(Debug, Clone)]
 pub struct FontFile {
     path: PathBuf,
@@ -23,25 +22,21 @@ impl FontFile {
         &self.path
     }
 
-    /// Read font data from the file.
     pub fn read(&self) -> Result<Vec<u8>> {
         read(&self.path).with_context(|| format!("Failed to read font: {}", self.path.display()))
     }
 
-    /// Write font data to the file.
     pub fn write(&self, data: impl AsRef<[u8]>) -> Result<()> {
         write(&self.path, data)
             .with_context(|| format!("Failed to write font: {}", self.path.display()))
     }
 
-    /// Read, transform, and write back to the same file.
     pub fn transform(&self, f: impl FnOnce(&[u8]) -> Result<Vec<u8>>) -> Result<()> {
         let data = self.read()?;
         let new_data = f(&data)?;
         self.write(new_data)
     }
 
-    /// Create parent directory if it doesn't exist.
     pub fn ensure_parent_dir(&self) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             if !parent.as_os_str().is_empty() {
@@ -59,7 +54,6 @@ impl AsRef<Path> for FontFile {
     }
 }
 
-/// Find fonts matching a glob pattern in a directory.
 pub fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
     let pattern = dir.join(pattern);
     let pattern_str = pattern.to_str().context("Invalid pattern path")?;
@@ -69,7 +63,6 @@ pub fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
         .collect())
 }
 
-/// Check batch operation results and report failures.
 pub fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
     let failed_count = results.iter().filter(|r| r.is_err()).count();
     if failed_count > 0 {
@@ -78,7 +71,6 @@ pub fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
     Ok(())
 }
 
-// Keep free functions as convenience wrappers for backward compatibility
 pub fn read_font(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     FontFile::new(path.as_ref()).read()
 }

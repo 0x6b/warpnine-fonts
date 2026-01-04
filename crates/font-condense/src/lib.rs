@@ -5,23 +5,23 @@
 
 use anyhow::Result;
 use read_fonts::{
+    FontRef, TableProvider,
     tables::{self, glyf::CurvePoint},
     types::{GlyphId, Tag},
-    FontRef, TableProvider,
 };
 use write_fonts::{
+    FontBuilder,
     from_obj::ToOwnedTable,
     tables::{
         glyf::{
-            Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyph,
-            GlyfLocaBuilder, SimpleGlyph, Transform,
+            Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, GlyfLocaBuilder,
+            Glyph, SimpleGlyph, Transform,
         },
         head::Head,
         hhea::Hhea,
         hmtx::{Hmtx, LongMetric},
         os2::Os2,
     },
-    FontBuilder,
 };
 
 const TAG_GLYF: Tag = Tag::new(b"glyf");
@@ -68,10 +68,7 @@ fn scale_composite_glyph(glyph: &tables::glyf::CompositeGlyph, scale_x: f32) -> 
 
     for c in glyph.components() {
         let new_anchor = match c.anchor {
-            Anchor::Offset { x, y } => Anchor::Offset {
-                x: (x as f32 * scale_x).round() as i16,
-                y,
-            },
+            Anchor::Offset { x, y } => Anchor::Offset { x: (x as f32 * scale_x).round() as i16, y },
             Anchor::Point { base, component } => Anchor::Point { base, component },
         };
 
@@ -92,12 +89,12 @@ fn scale_composite_glyph(glyph: &tables::glyf::CompositeGlyph, scale_x: f32) -> 
                 use_my_metrics: c
                     .flags
                     .contains(read_fonts::tables::glyf::CompositeGlyphFlags::USE_MY_METRICS),
-                scaled_component_offset: c
-                    .flags
-                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::SCALED_COMPONENT_OFFSET),
-                unscaled_component_offset: c
-                    .flags
-                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::UNSCALED_COMPONENT_OFFSET),
+                scaled_component_offset: c.flags.contains(
+                    read_fonts::tables::glyf::CompositeGlyphFlags::SCALED_COMPONENT_OFFSET,
+                ),
+                unscaled_component_offset: c.flags.contains(
+                    read_fonts::tables::glyf::CompositeGlyphFlags::UNSCALED_COMPONENT_OFFSET,
+                ),
                 overlap_compound: c
                     .flags
                     .contains(read_fonts::tables::glyf::CompositeGlyphFlags::OVERLAP_COMPOUND),

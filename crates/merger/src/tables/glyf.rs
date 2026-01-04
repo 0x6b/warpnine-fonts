@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use read_fonts::{tables::glyf::Glyph as ReadGlyph, TableProvider};
+use read_fonts::{TableProvider, tables::glyf::Glyph as ReadGlyph};
 use write_fonts::tables::{
     glyf::{
         Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyf, GlyfLocaBuilder,
@@ -21,10 +21,10 @@ use write_fonts::tables::{
 };
 
 use crate::{
+    Result,
     context::MergeContext,
     glyph_order::GlyphName,
     types::{GlyphId, MegaGlyphId},
-    Result,
 };
 
 /// Merge glyf tables from multiple fonts

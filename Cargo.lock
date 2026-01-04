@@ -2082,6 +2082,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "warpnine-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "glob",
+ "log",
+ "rayon",
+ "read-fonts",
+ "reqwest",
+ "warpnine-font-condense",
+ "warpnine-font-feature-freezer",
+ "warpnine-font-instancer",
+ "warpnine-font-merger",
+ "warpnine-font-metadata",
+ "warpnine-font-ops",
+ "warpnine-font-subsetter",
+ "warpnine-font-vf-builder",
+ "write-fonts",
+ "zip",
+]
+
+[[package]]
 name = "warpnine-font-condense"
 version = "0.1.0"
 dependencies = [
@@ -2175,25 +2198,12 @@ name = "warpnine-fonts-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
  "clap",
  "env_logger",
- "glob",
- "hb-subset",
  "log",
- "rayon",
  "read-fonts",
- "reqwest",
- "warpnine-font-condense",
- "warpnine-font-feature-freezer",
- "warpnine-font-instancer",
- "warpnine-font-merger",
- "warpnine-font-metadata",
+ "warpnine-core",
  "warpnine-font-ops",
- "warpnine-font-subsetter",
- "warpnine-font-vf-builder",
- "write-fonts",
- "zip",
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
 //! vhea table merging
 
-use read_fonts::{tables::vhea::Vhea as ReadVhea, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, tables::vhea::Vhea as ReadVhea};
 use write_fonts::tables::vhea::Vhea;
 
 use crate::{
-    strategies::{first, max, min},
     Result,
+    strategies::{first, max, min},
 };
 
 pub fn merge_vhea(fonts: &[FontRef], num_v_metrics: u16) -> Result<Option<Vhea>> {

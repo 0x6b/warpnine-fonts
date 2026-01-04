@@ -9,7 +9,6 @@ use warpnine_font_merger::Merger;
 
 use crate::io::{read_font, write_font};
 
-/// Font merger for combining multiple fonts.
 #[derive(Default)]
 pub struct FontMerger {
     fonts: Vec<Vec<u8>>,
@@ -20,27 +19,23 @@ impl FontMerger {
         Self::default()
     }
 
-    /// Add font data to merge.
     pub fn add_font(&mut self, data: Vec<u8>) -> &mut Self {
         self.fonts.push(data);
         self
     }
 
-    /// Add a font file to merge.
     pub fn add_file(&mut self, path: impl AsRef<Path>) -> Result<&mut Self> {
         let data = read_font(path.as_ref())?;
         self.fonts.push(data);
         Ok(self)
     }
 
-    /// Merge all added fonts and return the result.
     pub fn merge(&self) -> Result<Vec<u8>> {
         let font_refs: Vec<&[u8]> = self.fonts.iter().map(|v| v.as_slice()).collect();
         let merger = Merger::default();
         merger.merge(&font_refs).context("Failed to merge fonts")
     }
 
-    /// Merge all added fonts and write to a file.
     pub fn merge_to_file(&self, output: &Path) -> Result<()> {
         let merged_data = self.merge()?;
 
@@ -57,7 +52,6 @@ impl FontMerger {
     }
 }
 
-/// Batch merger for merging multiple base fonts with a fallback.
 pub struct BatchMerger<'a> {
     fallback_data: &'a [u8],
 }
@@ -67,13 +61,11 @@ impl<'a> BatchMerger<'a> {
         Self { fallback_data }
     }
 
-    /// Load a batch merger from a fallback font file.
     pub fn from_file(path: &Path) -> Result<OwnedBatchMerger> {
         let data = read_font(path)?;
         Ok(OwnedBatchMerger { fallback_data: data })
     }
 
-    /// Merge a base font with the fallback.
     pub fn merge_with_fallback(&self, base_data: &[u8]) -> Result<Vec<u8>> {
         let merger = Merger::default();
         merger
@@ -81,7 +73,6 @@ impl<'a> BatchMerger<'a> {
             .context("Failed to merge fonts")
     }
 
-    /// Merge multiple base fonts with the fallback in parallel.
     pub fn merge_batch(
         &self,
         base_fonts: &[impl AsRef<Path> + Sync],
@@ -110,7 +101,6 @@ impl<'a> BatchMerger<'a> {
     }
 }
 
-/// Owned version of BatchMerger.
 pub struct OwnedBatchMerger {
     fallback_data: Vec<u8>,
 }
@@ -128,8 +118,6 @@ impl OwnedBatchMerger {
         self.as_batch_merger().merge_batch(base_fonts, output_dir)
     }
 }
-
-// Convenience functions for backward compatibility
 
 pub fn merge_fonts(inputs: &[impl AsRef<Path>], output: &Path) -> Result<()> {
     info!("Merging {} fonts:", inputs.len());

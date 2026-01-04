@@ -23,7 +23,7 @@
 use log::{info, warn};
 use read_fonts::{FontRef, TableProvider};
 
-use crate::{context::MergeContext, Result};
+use crate::{Result, context::MergeContext};
 
 /// Check if any font has CFF outlines
 ///

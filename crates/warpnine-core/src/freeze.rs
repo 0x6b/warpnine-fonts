@@ -9,7 +9,6 @@ use rayon::prelude::*;
 
 use crate::io::{read_font, write_font};
 
-/// Whether to auto-prepend 'rvrn' feature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AutoRvrn {
     Enabled,
@@ -17,7 +16,6 @@ pub enum AutoRvrn {
     Disabled,
 }
 
-/// Feature freezer with configurable options.
 #[derive(Default)]
 pub struct Freezer {
     features: Vec<String>,
@@ -53,7 +51,6 @@ impl Freezer {
         }
     }
 
-    /// Freeze features in font data, returning the frozen data.
     pub fn freeze(&self, data: &[u8]) -> Result<(Vec<u8>, usize)> {
         let features = self.resolved_features();
         let (frozen_data, stats) =
@@ -61,7 +58,6 @@ impl Freezer {
         Ok((frozen_data, stats.substitutions_applied))
     }
 
-    /// Freeze features in a font file in-place.
     pub fn freeze_file(&self, path: &Path) -> Result<usize> {
         let data = read_font(path)?;
         let (frozen_data, subs) = self
@@ -78,7 +74,6 @@ impl Freezer {
         Ok(subs)
     }
 
-    /// Freeze features in multiple files in parallel.
     pub fn freeze_files(&self, files: &[impl AsRef<Path> + Sync]) -> Result<FreezeStats> {
         let features = self.resolved_features();
         if features.is_empty() {
@@ -114,7 +109,6 @@ impl Freezer {
     }
 }
 
-/// Statistics from a freeze operation.
 #[derive(Debug, Default)]
 pub struct FreezeStats {
     pub succeeded: usize,
@@ -122,7 +116,6 @@ pub struct FreezeStats {
     pub total_substitutions: usize,
 }
 
-/// Freeze features in multiple files (convenience function).
 pub fn freeze_features(
     files: &[impl AsRef<Path> + Sync],
     features: &[impl AsRef<str> + Sync],

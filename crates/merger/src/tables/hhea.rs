@@ -2,12 +2,12 @@
 
 use std::result;
 
-use read_fonts::{tables::hhea::Hhea as ReadHhea, FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, tables::hhea::Hhea as ReadHhea};
 use write_fonts::tables::hhea::Hhea;
 
 use crate::{
-    strategies::{first, max, min},
     MergeError, Result,
+    strategies::{first, max, min},
 };
 
 pub fn merge_hhea(fonts: &[FontRef], num_h_metrics: u16) -> Result<Hhea> {

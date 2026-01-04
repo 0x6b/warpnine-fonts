@@ -10,7 +10,6 @@ use rayon::prelude::*;
 
 use crate::io::{read_font, write_font};
 
-/// Instance definition for batch processing.
 pub struct InstanceDef {
     pub name: String,
     pub axes: Vec<AxisLocation>,
@@ -22,29 +21,24 @@ impl InstanceDef {
     }
 }
 
-/// Font instancer for creating static fonts from variable fonts.
 pub struct Instancer<'a> {
     data: &'a [u8],
 }
 
 impl<'a> Instancer<'a> {
-    /// Create an instancer from font data.
     pub fn new(data: &'a [u8]) -> Self {
         Self { data }
     }
 
-    /// Load an instancer from a font file.
     pub fn from_file(path: &Path) -> Result<OwnedInstancer> {
         let data = read_font(path)?;
         Ok(OwnedInstancer { data })
     }
 
-    /// Create a static instance with the given axis values.
     pub fn instantiate(&self, axes: &[AxisLocation]) -> Result<Vec<u8>> {
         instantiate(self.data, axes).context("Failed to instantiate font")
     }
 
-    /// Create a static instance and write to a file.
     pub fn instantiate_to_file(&self, output: &Path, axes: &[AxisLocation]) -> Result<()> {
         let axis_desc: Vec<String> =
             axes.iter().map(|loc| format!("{}={}", loc.tag, loc.value)).collect();
@@ -69,7 +63,6 @@ impl<'a> Instancer<'a> {
         Ok(())
     }
 
-    /// Create multiple instances in parallel.
     pub fn instantiate_batch(&self, output_dir: &Path, instances: &[InstanceDef]) -> Result<()> {
         info!("Creating {} instances", instances.len());
 
@@ -92,7 +85,6 @@ impl<'a> Instancer<'a> {
     }
 }
 
-/// Owned version of Instancer that holds its own data.
 pub struct OwnedInstancer {
     data: Vec<u8>,
 }
@@ -114,8 +106,6 @@ impl OwnedInstancer {
         self.as_instancer().instantiate_batch(output_dir, instances)
     }
 }
-
-// Convenience functions for backward compatibility
 
 pub fn create_instance(input: &Path, output: &Path, axes: &[AxisLocation]) -> Result<()> {
     let data = read_font(input)?;
