@@ -4,5 +4,6 @@
 //! The core build logic is in `warpnine-core`.
 
 pub mod cli;
+pub mod dev;
 
 pub use warpnine_core::*;
