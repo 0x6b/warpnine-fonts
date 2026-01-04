@@ -136,12 +136,13 @@ fn convert_gsub_lookup(
                             let mut subst_glyphs = Vec::new();
                             for gid in coverage.iter() {
                                 let old_gid = gid.to_u32() as u16;
-                                if let Some(new_gid) = gid_remap.get_u16(old_gid) {
+                                let subst_old = ((old_gid as i32 + delta as i32) & 0xFFFF) as u16;
+                                // Only include this substitution if BOTH source and target can be
+                                // remapped
+                                if let (Some(new_gid), Some(subst_new)) =
+                                    (gid_remap.get_u16(old_gid), gid_remap.get_u16(subst_old))
+                                {
                                     glyph_array.push(GlyphId16::new(new_gid));
-                                    let subst_old =
-                                        ((old_gid as i32 + delta as i32) & 0xFFFF) as u16;
-                                    let subst_new =
-                                        gid_remap.get_u16(subst_old).unwrap_or(subst_old);
                                     subst_glyphs.push(GlyphId16::new(subst_new));
                                 }
                             }
@@ -157,11 +158,13 @@ fn convert_gsub_lookup(
                             let mut subst_glyphs = Vec::new();
                             for (gid, subst_gid) in coverage.iter().zip(f2.substitute_glyph_ids()) {
                                 let old_gid = gid.to_u32() as u16;
-                                if let Some(new_gid) = gid_remap.get_u16(old_gid) {
+                                let subst_old = subst_gid.get().to_u32() as u16;
+                                // Only include this substitution if BOTH source and target can be
+                                // remapped
+                                if let (Some(new_gid), Some(subst_new)) =
+                                    (gid_remap.get_u16(old_gid), gid_remap.get_u16(subst_old))
+                                {
                                     glyph_array.push(GlyphId16::new(new_gid));
-                                    let subst_old = subst_gid.get().to_u32() as u16;
-                                    let subst_new =
-                                        gid_remap.get_u16(subst_old).unwrap_or(subst_old);
                                     subst_glyphs.push(GlyphId16::new(subst_new));
                                 }
                             }
@@ -187,16 +190,19 @@ fn convert_gsub_lookup(
                     for (gid, seq) in coverage.iter().zip(subtable.sequences().iter()) {
                         let old_gid = gid.to_u32() as u16;
                         if let (Some(new_gid), Ok(seq)) = (gid_remap.get_u16(old_gid), seq) {
-                            glyph_array.push(GlyphId16::new(new_gid));
-                            let subst_glyphs: Vec<GlyphId16> = seq
+                            // Remap all substitute glyphs; skip this entry if any can't be remapped
+                            let subst_glyphs: Option<Vec<GlyphId16>> = seq
                                 .substitute_glyph_ids()
                                 .iter()
                                 .map(|g| {
                                     let old = g.get().to_u32() as u16;
-                                    GlyphId16::new(gid_remap.get_u16(old).unwrap_or(old))
+                                    gid_remap.get_u16(old).map(GlyphId16::new)
                                 })
                                 .collect();
-                            sequences.push(Sequence::new(subst_glyphs));
+                            if let Some(subst_glyphs) = subst_glyphs {
+                                glyph_array.push(GlyphId16::new(new_gid));
+                                sequences.push(Sequence::new(subst_glyphs));
+                            }
                         }
                     }
                     if !glyph_array.is_empty() {
@@ -219,16 +225,19 @@ fn convert_gsub_lookup(
                     for (gid, alt) in coverage.iter().zip(subtable.alternate_sets().iter()) {
                         let old_gid = gid.to_u32() as u16;
                         if let (Some(new_gid), Ok(alt)) = (gid_remap.get_u16(old_gid), alt) {
-                            glyph_array.push(GlyphId16::new(new_gid));
-                            let alt_glyphs: Vec<GlyphId16> = alt
+                            // Remap all alternate glyphs; skip this entry if any can't be remapped
+                            let alt_glyphs: Option<Vec<GlyphId16>> = alt
                                 .alternate_glyph_ids()
                                 .iter()
                                 .map(|g| {
                                     let old = g.get().to_u32() as u16;
-                                    GlyphId16::new(gid_remap.get_u16(old).unwrap_or(old))
+                                    gid_remap.get_u16(old).map(GlyphId16::new)
                                 })
                                 .collect();
-                            alt_sets.push(AlternateSet::new(alt_glyphs));
+                            if let Some(alt_glyphs) = alt_glyphs {
+                                glyph_array.push(GlyphId16::new(new_gid));
+                                alt_sets.push(AlternateSet::new(alt_glyphs));
+                            }
                         }
                     }
                     if !glyph_array.is_empty() {
@@ -252,27 +261,29 @@ fn convert_gsub_lookup(
                         let old_gid = gid.to_u32() as u16;
                         if let (Some(new_gid), Ok(lig_set)) = (gid_remap.get_u16(old_gid), lig_set)
                         {
-                            glyph_array.push(GlyphId16::new(new_gid));
+                            // Filter ligatures to only include those where all GIDs can be remapped
                             let ligatures: Vec<Ligature> = lig_set
                                 .ligatures()
                                 .iter()
                                 .filter_map(|lig| lig.ok())
-                                .map(|lig| {
+                                .filter_map(|lig| {
                                     let lig_glyph_old = lig.ligature_glyph().to_u32() as u16;
-                                    let lig_glyph =
-                                        gid_remap.get_u16(lig_glyph_old).unwrap_or(lig_glyph_old);
-                                    let components: Vec<GlyphId16> = lig
+                                    let lig_glyph = gid_remap.get_u16(lig_glyph_old)?;
+                                    let components: Option<Vec<GlyphId16>> = lig
                                         .component_glyph_ids()
                                         .iter()
                                         .map(|g| {
                                             let old = g.get().to_u32() as u16;
-                                            GlyphId16::new(gid_remap.get_u16(old).unwrap_or(old))
+                                            gid_remap.get_u16(old).map(GlyphId16::new)
                                         })
                                         .collect();
-                                    Ligature::new(GlyphId16::new(lig_glyph), components)
+                                    components.map(|c| Ligature::new(GlyphId16::new(lig_glyph), c))
                                 })
                                 .collect();
-                            lig_sets.push(LigatureSet::new(ligatures));
+                            if !ligatures.is_empty() {
+                                glyph_array.push(GlyphId16::new(new_gid));
+                                lig_sets.push(LigatureSet::new(ligatures));
+                            }
                         }
                     }
                     if !glyph_array.is_empty() {
@@ -338,21 +349,24 @@ fn convert_gsub_lookup(
                         .map(|c| remap_coverage(&c, gid_remap))
                         .collect();
 
-                    let subst_glyphs: Vec<GlyphId16> = subtable
+                    // Remap substitute glyphs; skip any that can't be remapped
+                    let subst_glyphs: Option<Vec<GlyphId16>> = subtable
                         .substitute_glyph_ids()
                         .iter()
                         .map(|g| {
                             let old = g.get().to_u32() as u16;
-                            GlyphId16::new(gid_remap.get_u16(old).unwrap_or(old))
+                            gid_remap.get_u16(old).map(GlyphId16::new)
                         })
                         .collect();
 
-                    subtables.push(ReverseChainSingleSubstFormat1::new(
-                        remapped_cov,
-                        backtrack,
-                        lookahead,
-                        subst_glyphs,
-                    ));
+                    if let Some(subst_glyphs) = subst_glyphs {
+                        subtables.push(ReverseChainSingleSubstFormat1::new(
+                            remapped_cov,
+                            backtrack,
+                            lookahead,
+                            subst_glyphs,
+                        ));
+                    }
                 }
             }
             if subtables.is_empty() {
@@ -480,19 +494,20 @@ fn convert_gpos_lookup(
                                 .iter()
                                 .filter_map(|ps| ps.ok())
                                 .map(|ps| {
+                                    // Filter to only include records where second glyph can be
+                                    // remapped
                                     let records: Vec<PairValueRecord> = ps
                                         .pair_value_records()
                                         .iter()
                                         .filter_map(|pvr| pvr.ok())
-                                        .map(|pvr| {
+                                        .filter_map(|pvr| {
                                             let second_old = pvr.second_glyph().to_u32() as u16;
-                                            let second_new =
-                                                gid_remap.get_u16(second_old).unwrap_or(second_old);
-                                            PairValueRecord::new(
+                                            let second_new = gid_remap.get_u16(second_old)?;
+                                            Some(PairValueRecord::new(
                                                 GlyphId16::new(second_new),
                                                 pvr.value_record1().to_write(),
                                                 pvr.value_record2().to_write(),
-                                            )
+                                            ))
                                         })
                                         .collect();
                                     PairSet::new(records)
@@ -793,13 +808,16 @@ fn remap_class_def(
     ClassDef::from_iter(mappings)
 }
 
-/// Remap a glyph ID array
-fn remap_glyph_array(glyphs: &[BigEndian<GlyphId16>], gid_remap: &GidRemap) -> Vec<GlyphId16> {
+/// Remap a glyph ID array, returning None if any glyph can't be remapped
+fn remap_glyph_array(
+    glyphs: &[BigEndian<GlyphId16>],
+    gid_remap: &GidRemap,
+) -> Option<Vec<GlyphId16>> {
     glyphs
         .iter()
         .map(|g| {
             let old = g.get().to_u32() as u16;
-            GlyphId16::new(gid_remap.get_u16(old).unwrap_or(old))
+            gid_remap.get_u16(old).map(GlyphId16::new)
         })
         .collect()
 }
@@ -835,17 +853,19 @@ fn convert_gsub_sequence_context(
                 .iter()
                 .map(|opt_result| {
                     opt_result.and_then(|r| r.ok()).map(|srs| {
+                        // Filter rules where all glyphs can be remapped
                         let seq_rules: Vec<SequenceRule> = srs
                             .seq_rules()
                             .iter()
                             .filter_map(|r| r.ok())
-                            .map(|rule| {
-                                let input_seq = remap_glyph_array(rule.input_sequence(), gid_remap);
+                            .filter_map(|rule| {
+                                let input_seq =
+                                    remap_glyph_array(rule.input_sequence(), gid_remap)?;
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
                                 );
-                                SequenceRule::new(input_seq, seq_lookups)
+                                Some(SequenceRule::new(input_seq, seq_lookups))
                             })
                             .collect();
                         SequenceRuleSet::new(seq_rules)
@@ -926,21 +946,27 @@ fn convert_gsub_chained_context(
                 .iter()
                 .map(|opt_result| {
                     opt_result.and_then(|r| r.ok()).map(|csrs| {
+                        // Filter rules where all glyphs can be remapped
                         let chained_seq_rules: Vec<ChainedSequenceRule> = csrs
                             .chained_seq_rules()
                             .iter()
                             .filter_map(|r| r.ok())
-                            .map(|rule| {
+                            .filter_map(|rule| {
                                 let backtrack =
-                                    remap_glyph_array(rule.backtrack_sequence(), gid_remap);
-                                let input = remap_glyph_array(rule.input_sequence(), gid_remap);
+                                    remap_glyph_array(rule.backtrack_sequence(), gid_remap)?;
+                                let input = remap_glyph_array(rule.input_sequence(), gid_remap)?;
                                 let lookahead =
-                                    remap_glyph_array(rule.lookahead_sequence(), gid_remap);
+                                    remap_glyph_array(rule.lookahead_sequence(), gid_remap)?;
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
                                 );
-                                ChainedSequenceRule::new(backtrack, input, lookahead, seq_lookups)
+                                Some(ChainedSequenceRule::new(
+                                    backtrack,
+                                    input,
+                                    lookahead,
+                                    seq_lookups,
+                                ))
                             })
                             .collect();
                         ChainedSequenceRuleSet::new(chained_seq_rules)
@@ -1060,17 +1086,19 @@ fn convert_gpos_sequence_context(
                 .iter()
                 .map(|opt_result| {
                     opt_result.and_then(|r| r.ok()).map(|srs| {
+                        // Filter rules where all glyphs can be remapped
                         let seq_rules: Vec<SequenceRule> = srs
                             .seq_rules()
                             .iter()
                             .filter_map(|r| r.ok())
-                            .map(|rule| {
-                                let input_seq = remap_glyph_array(rule.input_sequence(), gid_remap);
+                            .filter_map(|rule| {
+                                let input_seq =
+                                    remap_glyph_array(rule.input_sequence(), gid_remap)?;
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
                                 );
-                                SequenceRule::new(input_seq, seq_lookups)
+                                Some(SequenceRule::new(input_seq, seq_lookups))
                             })
                             .collect();
                         SequenceRuleSet::new(seq_rules)
@@ -1151,21 +1179,27 @@ fn convert_gpos_chained_context(
                 .iter()
                 .map(|opt_result| {
                     opt_result.and_then(|r| r.ok()).map(|csrs| {
+                        // Filter rules where all glyphs can be remapped
                         let chained_seq_rules: Vec<ChainedSequenceRule> = csrs
                             .chained_seq_rules()
                             .iter()
                             .filter_map(|r| r.ok())
-                            .map(|rule| {
+                            .filter_map(|rule| {
                                 let backtrack =
-                                    remap_glyph_array(rule.backtrack_sequence(), gid_remap);
-                                let input = remap_glyph_array(rule.input_sequence(), gid_remap);
+                                    remap_glyph_array(rule.backtrack_sequence(), gid_remap)?;
+                                let input = remap_glyph_array(rule.input_sequence(), gid_remap)?;
                                 let lookahead =
-                                    remap_glyph_array(rule.lookahead_sequence(), gid_remap);
+                                    remap_glyph_array(rule.lookahead_sequence(), gid_remap)?;
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
                                 );
-                                ChainedSequenceRule::new(backtrack, input, lookahead, seq_lookups)
+                                Some(ChainedSequenceRule::new(
+                                    backtrack,
+                                    input,
+                                    lookahead,
+                                    seq_lookups,
+                                ))
                             })
                             .collect();
                         ChainedSequenceRuleSet::new(chained_seq_rules)

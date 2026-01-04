@@ -1130,16 +1130,8 @@ class TestFeatureFreezing:
     alternate glyph names (e.g., 'a' maps to single-story 'a.ss01').
     """
 
-    @pytest.mark.xfail(
-        reason="GSUB glyph names corrupted during merge - freezer can't find substitutions"
-    )
     def test_mono_ss01_frozen(self):
-        """Verify ss01 (single-story a) is frozen in WarpnineMono.
-
-        Known issue: The font merger corrupts GSUB substitution mappings when
-        merging fonts with different glyph naming schemes (Recursive uses
-        'a.simple', merged font has 'glyph00250 -> a' instead of 'a -> a.simple').
-        """
+        """Verify ss01 (single-story a) is frozen in WarpnineMono."""
         font_path = DIST_DIR / "WarpnineMono-Regular.ttf"
         if not font_path.exists():
             pytest.skip("Font not built")
@@ -1157,14 +1149,8 @@ class TestFeatureFreezing:
             f"Expected 'a' to be substituted (ss01 frozen), got '{glyph}'"
         )
 
-    @pytest.mark.xfail(
-        reason="GSUB glyph names corrupted during merge - freezer can't find substitutions"
-    )
     def test_mono_ss10_frozen(self):
-        """Verify ss10 (dotted zero) is frozen in WarpnineMono.
-
-        Known issue: See test_mono_ss01_frozen.
-        """
+        """Verify ss10 (dotted zero) is frozen in WarpnineMono."""
         font_path = DIST_DIR / "WarpnineMono-Regular.ttf"
         if not font_path.exists():
             pytest.skip("Font not built")
@@ -1209,14 +1195,8 @@ class TestFeatureFreezing:
             f"Expected 'a' to be substituted (ss01 frozen), got '{glyph}'"
         )
 
-    @pytest.mark.xfail(
-        reason="GSUB glyph names corrupted during merge - freezer can't find substitutions"
-    )
     def test_mono_vf_ss01_frozen(self):
-        """Verify ss01 (single-story a) is frozen in WarpnineMono VF.
-
-        Known issue: See test_mono_ss01_frozen.
-        """
+        """Verify ss01 (single-story a) is frozen in WarpnineMono VF."""
         font_path = DIST_DIR / "WarpnineMono-VF.ttf"
         if not font_path.exists():
             pytest.skip("VF not built")
