@@ -1,13 +1,12 @@
 # Warpnine Fonts
 
+Custom fonts based on [Recursive](https://github.com/arrowtype/recursive) [1.085](https://github.com/arrowtype/recursive/releases/tag/v1.085) and [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) [`f8d15753`](https://github.com/notofonts/noto-cjk/tree/f8d157532fbfaeda587e826d4cd5b21a49186f7c).
+
+- **WarpnineMono**: Monospace font using Recursive Mono Duotone (Linear for Light/Regular, Casual for Medium+) merged with Noto CJK for Japanese characters.
+- **WarpnineSans**: Proportional sans-serif using Recursive Sans Linear (Latin only).
+- **WarpnineSansCondensed**: Condensed variant of WarpnineSans (90% width, Latin only).
+
 [![Warpnine Fonts Sample](docs/sample.png)](docs/sample.pdf)
-
-Custom monospace font combining:
-
-- [Recursive Mono Duotone](https://github.com/arrowtype/recursive) 1.085 (Linear for Light/Regular, Casual for Medium+)
-- [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) commit f8d15753 for Japanese characters
-
-And proportional sans-serif variants based on Recursive Sans Linear.
 
 ## Download
 
@@ -19,7 +18,7 @@ Pre-built fonts are available from [GitHub Releases](https://github.com/0x6b/war
 - Condensed Fonts: `WarpnineSansCondensed-*.ttf` (proportional sans-serif, 90% width, Latin only)
 - License file: `OFL`
 
-Releases are automatically built and published via GitHub Actions when a tag matching the pattern `v[YYYY-MM-DD]` or `[YYYY-MM-DD]` is pushed.
+Releases are automatically built and published via GitHub Actions when a tag matching the pattern `v[YYYY-MM-DD]`, `[YYYY-MM-DD]`, or with patch suffix (e.g. `v2025-01-15.1`) is pushed, or manually triggered.
 
 ## Features
 
@@ -43,8 +42,8 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 
 ```console
 $ cargo build --release
-$ warpnine-fonts build
-$ warpnine-fonts build --version 2025-01-15  # with explicit version date
+$ ./target/release/warpnine-fonts build
+$ ./target/release/warpnine-fonts build --version 2025-01-15  # with explicit version date
 ```
 
 That will generate the following fonts:
@@ -63,12 +62,13 @@ That will generate the following fonts:
 ### Other Commands
 
 ```console
-$ warpnine-fonts build-mono       # build only WarpnineMono
-$ warpnine-fonts build-sans       # build only WarpnineSans
-$ warpnine-fonts build-condensed  # build only WarpnineSansCondensed
-$ warpnine-fonts download         # download source fonts only
-$ warpnine-fonts clean            # remove build artifacts
-$ warpnine-fonts --help           # list all commands
+$ ./target/release/warpnine-fonts build-mono       # build only WarpnineMono
+$ ./target/release/warpnine-fonts build-sans       # build only WarpnineSans
+$ ./target/release/warpnine-fonts build-condensed  # build only WarpnineSansCondensed
+$ ./target/release/warpnine-fonts download         # download source fonts only
+$ ./target/release/warpnine-fonts clean            # remove build artifacts
+$ ./target/release/warpnine-fonts dev              # hidden commands for development
+$ ./target/release/warpnine-fonts --help           # list all commands
 ```
 
 ## Technical Details
@@ -158,9 +158,7 @@ $ uv run pytest tests/ -v
 
 ## License
 
-The build tools and source code are licensed under the [MIT License](./LICENSE).
-
-The fonts are licensed under the SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
-
-- Recursive Mono: [SIL Open Font License](https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt)
-- Noto Sans Mono CJK JP: [SIL Open Font License](https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE)
+- The build tools and source code are licensed under the MIT. See [License](./LICENSE).
+- The fonts are licensed under the SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
+  - Recursive Mono: [SIL Open Font License](https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt)
+  - Noto Sans Mono CJK JP: [SIL Open Font License](https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE)
