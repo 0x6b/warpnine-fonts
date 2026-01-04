@@ -174,6 +174,9 @@ pub enum DevCommands {
         /// Watch for changes and recompile
         #[arg(long, short)]
         watch: bool,
+        /// Also export first page as PNG for README
+        #[arg(long)]
+        png: bool,
     },
 }
 
@@ -271,15 +274,15 @@ impl DevCommands {
             DevCommands::BuildVf { dist_dir, output } => {
                 build_warpnine_mono_vf(&dist_dir, &output)?;
             }
-            DevCommands::GenerateSample { font_dir, output, watch } => {
-                generate_sample(&font_dir, &output, watch)?;
+            DevCommands::GenerateSample { font_dir, output, watch, png } => {
+                generate_sample(&font_dir, &output, watch, png)?;
             }
         }
         Ok(())
     }
 }
 
-fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool) -> Result<()> {
+fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool, png: bool) -> Result<()> {
     use std::process::Command;
 
     let docs_dir = PathBuf::from("docs");
@@ -302,5 +305,27 @@ fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool) -> Result<
     if !watch {
         println!("Generated: {}", output.display());
     }
+
+    if png && !watch {
+        let png_output = docs_dir.join("sample.png");
+        let status = Command::new("typst")
+            .arg("compile")
+            .arg("--ignore-system-fonts")
+            .arg("--font-path")
+            .arg(font_dir)
+            .arg("--pages")
+            .arg("1")
+            .arg("--ppi")
+            .arg("288")
+            .arg(&sample_typ)
+            .arg(&png_output)
+            .status()?;
+
+        if !status.success() {
+            anyhow::bail!("typst compile (PNG) failed with exit code: {:?}", status.code());
+        }
+        println!("Generated: {}", png_output.display());
+    }
+
     Ok(())
 }

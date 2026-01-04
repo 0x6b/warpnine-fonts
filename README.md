@@ -1,5 +1,7 @@
 # Warpnine Fonts
 
+[![Warpnine Fonts Sample](docs/sample.png)](docs/sample.pdf)
+
 Custom monospace font combining:
 
 - [Recursive Mono Duotone](https://github.com/arrowtype/recursive) 1.085 (Linear for Light/Regular, Casual for Medium+)
@@ -41,8 +43,8 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 
 ```console
 $ cargo build --release
-$ ./target/release/warpnine-fonts build
-$ ./target/release/warpnine-fonts build --version 2025-01-15  # with explicit version date
+$ warpnine-fonts build
+$ warpnine-fonts build --version 2025-01-15  # with explicit version date
 ```
 
 That will generate the following fonts:
@@ -61,19 +63,12 @@ That will generate the following fonts:
 ### Other Commands
 
 ```console
-$ ./target/release/warpnine-fonts build-mono       # build only WarpnineMono
-$ ./target/release/warpnine-fonts build-sans       # build only WarpnineSans
-$ ./target/release/warpnine-fonts build-condensed  # build only WarpnineSansCondensed
-$ ./target/release/warpnine-fonts download         # download source fonts only
-$ ./target/release/warpnine-fonts clean            # remove build artifacts
-$ ./target/release/warpnine-fonts --help           # list all commands
-```
-
-Preview fonts locally:
-
-```console
-$ python -m http.server 8000
-# Open http://localhost:8000/preview.html
+$ warpnine-fonts build-mono       # build only WarpnineMono
+$ warpnine-fonts build-sans       # build only WarpnineSans
+$ warpnine-fonts build-condensed  # build only WarpnineSansCondensed
+$ warpnine-fonts download         # download source fonts only
+$ warpnine-fonts clean            # remove build artifacts
+$ warpnine-fonts --help           # list all commands
 ```
 
 ## Technical Details
