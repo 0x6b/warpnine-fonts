@@ -14,7 +14,7 @@ use crate::{
     instance::{AxisLocation, InstanceDef, create_instances_batch},
     io::{check_results, glob_fonts, read_font, write_font},
     merge::merge_batch,
-    styles::{MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
+    styles::{FeatureTag, MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
     warpnine::{
         condense::create_condensed,
         ligatures::remove_grave_ligature,
@@ -316,22 +316,28 @@ fn step_set_names_condensed_only(ctx: &PipelineContext) -> Result<()> {
     Ok(())
 }
 
-fn step_freeze_sans(ctx: &PipelineContext) -> Result<()> {
-    let sans_fonts = ctx.dist_fonts("WarpnineSans-*.ttf")?;
-    if !sans_fonts.is_empty() {
-        println!("  Freezing features in {} Sans fonts...", sans_fonts.len());
-        freeze_features(&sans_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
+/// Freeze features in fonts matching a pattern.
+/// Returns Ok(()) if pattern matches no fonts (silent skip).
+fn freeze_matching(
+    ctx: &PipelineContext,
+    pattern: &str,
+    features: &[FeatureTag],
+    label: &str,
+) -> Result<()> {
+    let fonts = ctx.dist_fonts(pattern)?;
+    if !fonts.is_empty() {
+        println!("  Freezing features in {} {} fonts...", fonts.len(), label);
+        freeze_features(&fonts, features, AutoRvrn::Enabled)?;
     }
     Ok(())
 }
 
+fn step_freeze_sans(ctx: &PipelineContext) -> Result<()> {
+    freeze_matching(ctx, "WarpnineSans-*.ttf", SANS_FEATURES, "Sans")
+}
+
 fn step_freeze_condensed(ctx: &PipelineContext) -> Result<()> {
-    let condensed_fonts = ctx.dist_fonts("WarpnineSansCondensed-*.ttf")?;
-    if !condensed_fonts.is_empty() {
-        println!("  Freezing features in {} Condensed fonts...", condensed_fonts.len());
-        freeze_features(&condensed_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
-    }
-    Ok(())
+    freeze_matching(ctx, "WarpnineSansCondensed-*.ttf", SANS_FEATURES, "Condensed")
 }
 
 fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
@@ -361,17 +367,8 @@ fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
         freeze_features(&[vf], MONO_FEATURES, AutoRvrn::Enabled)?;
     }
 
-    let sans_fonts = ctx.dist_fonts("WarpnineSans-*.ttf")?;
-    if !sans_fonts.is_empty() {
-        println!("  Freezing features in {} Sans fonts...", sans_fonts.len());
-        freeze_features(&sans_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
-    }
-
-    let condensed_fonts = ctx.dist_fonts("WarpnineSansCondensed-*.ttf")?;
-    if !condensed_fonts.is_empty() {
-        println!("  Freezing features in {} Condensed fonts...", condensed_fonts.len());
-        freeze_features(&condensed_fonts, SANS_FEATURES, AutoRvrn::Enabled)?;
-    }
+    freeze_matching(ctx, "WarpnineSans-*.ttf", SANS_FEATURES, "Sans")?;
+    freeze_matching(ctx, "WarpnineSansCondensed-*.ttf", SANS_FEATURES, "Condensed")?;
 
     Ok(())
 }
