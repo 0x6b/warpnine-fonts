@@ -171,6 +171,9 @@ pub enum DevCommands {
         /// Output PDF path
         #[arg(long, default_value = "docs/sample.pdf")]
         output: PathBuf,
+        /// Watch for changes and recompile
+        #[arg(long, short)]
+        watch: bool,
     },
 }
 
@@ -268,22 +271,23 @@ impl DevCommands {
             DevCommands::BuildVf { dist_dir, output } => {
                 build_warpnine_mono_vf(&dist_dir, &output)?;
             }
-            DevCommands::GenerateSample { font_dir, output } => {
-                generate_sample(&font_dir, &output)?;
+            DevCommands::GenerateSample { font_dir, output, watch } => {
+                generate_sample(&font_dir, &output, watch)?;
             }
         }
         Ok(())
     }
 }
 
-fn generate_sample(font_dir: &PathBuf, output: &PathBuf) -> Result<()> {
+fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool) -> Result<()> {
     use std::process::Command;
 
     let docs_dir = PathBuf::from("docs");
     let sample_typ = docs_dir.join("sample.typ");
+    let subcommand = if watch { "watch" } else { "compile" };
 
     let status = Command::new("typst")
-        .arg("compile")
+        .arg(subcommand)
         .arg("--ignore-system-fonts")
         .arg("--font-path")
         .arg(font_dir)
@@ -292,9 +296,11 @@ fn generate_sample(font_dir: &PathBuf, output: &PathBuf) -> Result<()> {
         .status()?;
 
     if !status.success() {
-        anyhow::bail!("typst compile failed with exit code: {:?}", status.code());
+        anyhow::bail!("typst {subcommand} failed with exit code: {:?}", status.code());
     }
 
-    println!("Generated: {}", output.display());
+    if !watch {
+        println!("Generated: {}", output.display());
+    }
     Ok(())
 }
