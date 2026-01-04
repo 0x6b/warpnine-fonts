@@ -4,12 +4,15 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use warpnine_core::{
+    build_all, build_condensed, build_mono, build_sans,
+    pipeline::{clean, download},
+};
 
-use warpnine_core::{build_all, build_condensed, build_mono, build_sans, pipeline::{clean, download}};
+use crate::dev::DevCommands;
 
 #[derive(Parser)]
-#[command(name = "warpnine-fonts")]
-#[command(about = "Build Warpnine fonts from Recursive and Noto CJK sources")]
+#[command(about, version)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -54,32 +57,25 @@ pub enum Commands {
         dist_dir: PathBuf,
     },
     #[command(subcommand, hide = true)]
-    Dev(crate::dev::DevCommands),
+    Dev(DevCommands),
 }
 
 impl Commands {
     pub fn run(self) -> Result<()> {
         match self {
-            Commands::Build { args } => {
-                build_all(&args.build_dir, &args.dist_dir, args.version)?;
-            }
+            Commands::Build { args } => build_all(&args.build_dir, &args.dist_dir, args.version),
             Commands::BuildMono { args } => {
-                build_mono(&args.build_dir, &args.dist_dir, args.version)?;
+                build_mono(&args.build_dir, &args.dist_dir, args.version)
             }
             Commands::BuildSans { args } => {
-                build_sans(&args.build_dir, &args.dist_dir, args.version)?;
+                build_sans(&args.build_dir, &args.dist_dir, args.version)
             }
             Commands::BuildCondensed { args } => {
-                build_condensed(&args.build_dir, &args.dist_dir, args.version)?;
+                build_condensed(&args.build_dir, &args.dist_dir, args.version)
             }
-            Commands::Download { build_dir } => {
-                download(&build_dir)?;
-            }
-            Commands::Clean { build_dir, dist_dir } => {
-                clean(&build_dir, &dist_dir)?;
-            }
-            Commands::Dev(dev) => dev.run()?,
+            Commands::Download { build_dir } => download(&build_dir),
+            Commands::Clean { build_dir, dist_dir } => clean(&build_dir, &dist_dir),
+            Commands::Dev(dev) => dev.run(),
         }
-        Ok(())
     }
 }

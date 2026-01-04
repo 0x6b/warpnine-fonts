@@ -1,6 +1,6 @@
 //! OpenType feature freezing.
 
-use std::path::Path;
+use std::{iter::once, path::Path};
 
 use anyhow::{Context, Result};
 use font_feature_freezer::freeze_features_with_stats;
@@ -43,7 +43,7 @@ impl Freezer {
             self.auto_rvrn == AutoRvrn::Enabled && !self.features.iter().any(|f| f == "rvrn");
 
         if needs_rvrn {
-            std::iter::once("rvrn".to_string())
+            once("rvrn".to_string())
                 .chain(self.features.iter().cloned())
                 .collect()
         } else {
@@ -66,9 +66,8 @@ impl Freezer {
         write_font(path, frozen_data)?;
 
         info!(
-            "{}: {} substitutions applied",
-            path.file_name().unwrap_or_default().to_string_lossy(),
-            subs
+            "{}: {subs} substitutions applied",
+            path.file_name().unwrap_or_default().to_string_lossy()
         );
 
         Ok(subs)

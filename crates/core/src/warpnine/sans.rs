@@ -2,9 +2,8 @@ use std::path::Path;
 
 use anyhow::Result;
 use read_fonts::{FontRef, TableProvider};
-use write_fonts::{FontBuilder, from_obj::ToOwnedTable, tables::os2::Os2};
-
 use warpnine_font_ops::{apply_family_style_names, rewrite_font};
+use write_fonts::{FontBuilder, from_obj::ToOwnedTable, tables::os2::Os2};
 
 use crate::styles::{SANS_STYLES, Style, build_style_instances};
 
@@ -27,6 +26,6 @@ fn transform_sans(font_data: &[u8], style: &Style) -> Result<Vec<u8>> {
 pub fn create_sans(input: &Path, output_dir: &Path) -> Result<()> {
     let count =
         build_style_instances(input, output_dir, SANS_STYLES, "WarpnineSans-", transform_sans)?;
-    println!("Created {} sans fonts in {}/", count, output_dir.display());
+    println!("Created {count} sans fonts in {}/", output_dir.display());
     Ok(())
 }

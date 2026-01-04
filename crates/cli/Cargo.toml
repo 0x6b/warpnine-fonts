@@ -3,8 +3,12 @@ name = "warpnine-fonts-cli"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
-description = "Fast font metadata operations for Warpnine fonts"
+description = "Build Warpnine fonts from Recursive and Noto CJK sources"
 repository = "https://github.com/0x6b/warpnine-fonts"
+
+[[bin]]
+name = "warpnine-fonts"
+path = "src/main.rs"
 
 [lib]
 name = "warpnine_fonts_cli"
@@ -20,7 +24,3 @@ read-fonts.workspace = true
 # Core functionality
 warpnine-core.workspace = true
 warpnine-font-ops.workspace = true
-
-[[bin]]
-name = "warpnine-fonts"
-path = "src/main.rs"

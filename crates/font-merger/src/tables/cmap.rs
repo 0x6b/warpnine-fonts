@@ -82,27 +82,23 @@ fn find_best_subtable<'a>(cmap: &'a ReadCmap<'a>) -> Option<CmapSubtable<'a>> {
 
     // Try to find format 12 first (Unicode full)
     for record in records {
-        if record.platform_id() == PlatformId::Unicode
-            || (record.platform_id() == PlatformId::Windows && record.encoding_id() == 10)
+        if (record.platform_id() == PlatformId::Unicode
+            || (record.platform_id() == PlatformId::Windows && record.encoding_id() == 10))
+            && let Ok(subtable) = record.subtable(cmap.offset_data())
+            && matches!(subtable, CmapSubtable::Format12(_))
         {
-            if let Ok(subtable) = record.subtable(cmap.offset_data()) {
-                if matches!(subtable, CmapSubtable::Format12(_)) {
-                    return Some(subtable);
-                }
-            }
+            return Some(subtable);
         }
     }
 
     // Fall back to format 4 (BMP)
     for record in records {
-        if record.platform_id() == PlatformId::Unicode
-            || (record.platform_id() == PlatformId::Windows && record.encoding_id() == 1)
+        if (record.platform_id() == PlatformId::Unicode
+            || (record.platform_id() == PlatformId::Windows && record.encoding_id() == 1))
+            && let Ok(subtable) = record.subtable(cmap.offset_data())
+            && matches!(subtable, CmapSubtable::Format4(_))
         {
-            if let Ok(subtable) = record.subtable(cmap.offset_data()) {
-                if matches!(subtable, CmapSubtable::Format4(_)) {
-                    return Some(subtable);
-                }
-            }
+            return Some(subtable);
         }
     }
 

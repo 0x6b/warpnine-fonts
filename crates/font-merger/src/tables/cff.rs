@@ -75,11 +75,11 @@ pub fn merge_cff(ctx: &MergeContext) -> Result<Option<Vec<u8>>> {
     }
 
     // Return the first font's CFF table
-    if let Some(font) = cff_fonts.first() {
-        if let Some(data) = font.table_data(read_fonts::types::Tag::new(b"CFF ")) {
-            info!("Copying CFF table from first font ({} bytes)", data.len());
-            return Ok(Some(data.as_bytes().to_vec()));
-        }
+    if let Some(font) = cff_fonts.first()
+        && let Some(data) = font.table_data(read_fonts::types::Tag::new(b"CFF "))
+    {
+        info!("Copying CFF table from first font ({} bytes)", data.len());
+        return Ok(Some(data.as_bytes().to_vec()));
     }
 
     Ok(None)
@@ -105,11 +105,11 @@ pub fn merge_cff2(ctx: &MergeContext) -> Result<Option<Vec<u8>>> {
         );
     }
 
-    if let Some(font) = cff2_fonts.first() {
-        if let Some(data) = font.table_data(read_fonts::types::Tag::new(b"CFF2")) {
-            info!("Copying CFF2 table from first font ({} bytes)", data.len());
-            return Ok(Some(data.as_bytes().to_vec()));
-        }
+    if let Some(font) = cff2_fonts.first()
+        && let Some(data) = font.table_data(read_fonts::types::Tag::new(b"CFF2"))
+    {
+        info!("Copying CFF2 table from first font ({} bytes)", data.len());
+        return Ok(Some(data.as_bytes().to_vec()));
     }
 
     Ok(None)

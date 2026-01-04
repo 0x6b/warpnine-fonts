@@ -5,22 +5,24 @@ mod download;
 mod steps;
 mod vf;
 
-pub use clean::clean;
-pub use download::download;
-
 use std::{
     path::{Path, PathBuf},
     time::Instant,
 };
 
 use anyhow::Result;
-
-use crate::config::{NOTO_CJK_VF_FILENAME, RECURSIVE_VF_FILENAME};
-use crate::{FontVersion, io::glob_fonts};
+pub use clean::clean;
+pub use download::download;
 pub use steps::{
     CONDENSED_ONLY_STEPS, FINAL_STEPS, MONO_STEPS, PipelineStep, SANS_ONLY_STEPS, SANS_STEPS,
 };
 pub use vf::{build_warpnine_mono_vf, warpnine_mono_designspace};
+
+use crate::{
+    FontVersion,
+    config::{NOTO_CJK_VF_FILENAME, RECURSIVE_VF_FILENAME},
+    io::glob_fonts,
+};
 
 pub struct PipelineContext {
     pub build_dir: PathBuf,

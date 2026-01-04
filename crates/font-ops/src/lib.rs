@@ -96,7 +96,7 @@ pub fn copy_table(source_data: &[u8], target_data: &[u8], tag: Tag) -> Result<Ve
 
     let table_data = source_font
         .table_data(tag)
-        .with_context(|| format!("Source font has no {} table", tag))?;
+        .with_context(|| format!("Source font has no {tag} table"))?;
 
     let target_font = FontRef::new(target_data).context("Failed to parse target font")?;
 

@@ -62,10 +62,10 @@ pub fn merge_gsub(ctx: &MergeContext) -> Result<Option<Gsub>> {
         let lookup_offset = LookupIndex::new(lookups.len() as u16);
         if let Ok(lookup_list) = gsub.lookup_list() {
             for lookup_idx in 0..lookup_list.lookup_count() {
-                if let Ok(lookup) = lookup_list.lookups().get(lookup_idx as usize) {
-                    if let Some(converted) = convert_gsub_lookup(&lookup, remap, lookup_offset) {
-                        lookups.push(converted);
-                    }
+                if let Ok(lookup) = lookup_list.lookups().get(lookup_idx as usize)
+                    && let Some(converted) = convert_gsub_lookup(&lookup, remap, lookup_offset)
+                {
+                    lookups.push(converted);
                 }
             }
         }
@@ -74,16 +74,16 @@ pub fn merge_gsub(ctx: &MergeContext) -> Result<Option<Gsub>> {
         if let Ok(feature_list) = gsub.feature_list() {
             let records = feature_list.feature_records();
             for i in 0..feature_list.feature_count() as usize {
-                if let Some(record) = records.get(i) {
-                    if let Ok(feature) = record.feature(feature_list.offset_data()) {
-                        let tag = record.feature_tag();
-                        let lookup_indices: Vec<LookupIndex> = feature
-                            .lookup_list_indices()
-                            .iter()
-                            .map(|idx| LookupIndex::new(idx.get() + lookup_offset.as_u16()))
-                            .collect();
-                        features.add(tag, lookup_indices);
-                    }
+                if let Some(record) = records.get(i)
+                    && let Ok(feature) = record.feature(feature_list.offset_data())
+                {
+                    let tag = record.feature_tag();
+                    let lookup_indices: Vec<LookupIndex> = feature
+                        .lookup_list_indices()
+                        .iter()
+                        .map(|idx| LookupIndex::new(idx.get() + lookup_offset.as_u16()))
+                        .collect();
+                    features.add(tag, lookup_indices);
                 }
             }
         }
@@ -384,10 +384,10 @@ pub fn merge_gpos(ctx: &MergeContext) -> Result<Option<Gpos>> {
         let lookup_offset = LookupIndex::new(lookups.len() as u16);
         if let Ok(lookup_list) = gpos.lookup_list() {
             for lookup_idx in 0..lookup_list.lookup_count() {
-                if let Ok(lookup) = lookup_list.lookups().get(lookup_idx as usize) {
-                    if let Some(converted) = convert_gpos_lookup(&lookup, remap, lookup_offset) {
-                        lookups.push(converted);
-                    }
+                if let Ok(lookup) = lookup_list.lookups().get(lookup_idx as usize)
+                    && let Some(converted) = convert_gpos_lookup(&lookup, remap, lookup_offset)
+                {
+                    lookups.push(converted);
                 }
             }
         }
@@ -396,16 +396,16 @@ pub fn merge_gpos(ctx: &MergeContext) -> Result<Option<Gpos>> {
         if let Ok(feature_list) = gpos.feature_list() {
             let records = feature_list.feature_records();
             for i in 0..feature_list.feature_count() as usize {
-                if let Some(record) = records.get(i) {
-                    if let Ok(feature) = record.feature(feature_list.offset_data()) {
-                        let tag = record.feature_tag();
-                        let lookup_indices: Vec<LookupIndex> = feature
-                            .lookup_list_indices()
-                            .iter()
-                            .map(|idx| LookupIndex::new(idx.get() + lookup_offset.as_u16()))
-                            .collect();
-                        features.add(tag, lookup_indices);
-                    }
+                if let Some(record) = records.get(i)
+                    && let Ok(feature) = record.feature(feature_list.offset_data())
+                {
+                    let tag = record.feature_tag();
+                    let lookup_indices: Vec<LookupIndex> = feature
+                        .lookup_list_indices()
+                        .iter()
+                        .map(|idx| LookupIndex::new(idx.get() + lookup_offset.as_u16()))
+                        .collect();
+                    features.add(tag, lookup_indices);
                 }
             }
         }

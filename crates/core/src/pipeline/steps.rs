@@ -2,7 +2,7 @@
 
 use std::fs::{copy, create_dir_all, rename};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use rayon::prelude::*;
 use read_fonts::types::Tag;
 use warpnine_font_ops::copy_table;
@@ -147,7 +147,7 @@ fn step_merge(ctx: &PipelineContext) -> Result<()> {
         let new_name = font
             .file_name()
             .and_then(|s| s.to_str())
-            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", font.display()))?
+            .ok_or_else(|| anyhow!("Invalid filename: {}", font.display()))?
             .replace("RecMonoDuotone-", "WarpnineMono-");
         let new_path = ctx.dist_dir.join(new_name);
         rename(&font, &new_path)?;
@@ -203,7 +203,7 @@ fn step_backup_frozen(ctx: &PipelineContext) -> Result<()> {
     for font in &fonts {
         let file_name = font
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", font.display()))?;
+            .ok_or_else(|| anyhow!("Invalid filename: {}", font.display()))?;
         copy(font, backup_dir.join(file_name))?;
     }
     Ok(())
@@ -239,7 +239,7 @@ fn step_restore_frozen(ctx: &PipelineContext) -> Result<()> {
     for backup in &backups {
         let file_name = backup
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", backup.display()))?;
+            .ok_or_else(|| anyhow!("Invalid filename: {}", backup.display()))?;
         copy(backup, ctx.dist_dir.join(file_name))?;
     }
     Ok(())
@@ -326,7 +326,7 @@ fn freeze_matching(
 ) -> Result<()> {
     let fonts = ctx.dist_fonts(pattern)?;
     if !fonts.is_empty() {
-        println!("  Freezing features in {} {} fonts...", fonts.len(), label);
+        println!("  Freezing features in {} {label} fonts...", fonts.len());
         freeze_features(&fonts, features, AutoRvrn::Enabled)?;
     }
     Ok(())

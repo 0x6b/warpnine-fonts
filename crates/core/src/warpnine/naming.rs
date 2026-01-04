@@ -88,7 +88,7 @@ pub fn set_names_for_pattern(
         return Ok(0);
     }
 
-    println!("  Setting names for {} fonts ({})...", fonts.len(), pattern);
+    println!("  Setting names for {} fonts ({pattern})...", fonts.len());
     let results: Vec<_> = fonts
         .par_iter()
         .map(|path| {
@@ -110,6 +110,6 @@ pub fn set_names_for_pattern(
         })
         .collect();
 
-    check_results(&results, &format!("set names ({})", pattern))?;
+    check_results(&results, &format!("set names ({pattern})"))?;
     Ok(fonts.len())
 }

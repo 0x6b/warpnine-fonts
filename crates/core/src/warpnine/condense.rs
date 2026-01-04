@@ -28,6 +28,6 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         },
     )?;
 
-    println!("Created {} condensed fonts in {}/", count, output_dir.display());
+    println!("Created {count} condensed fonts in {}/", output_dir.display());
     Ok(())
 }
