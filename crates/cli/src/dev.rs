@@ -7,7 +7,7 @@ use clap::Subcommand;
 use read_fonts::types::Tag;
 use warpnine_core::{
     FontVersion, MonospaceSettings, Subsetter, build_warpnine_mono_vf,
-    freeze::{AutoRvrn, freeze_features},
+    freeze_batch::{AutoRvrn, freeze_features},
     instance::{AxisLocation, InstanceDef, create_instance, create_instances_batch},
     io::{read_font, transform_font_in_place, write_font},
     merge::{merge_batch, merge_fonts},

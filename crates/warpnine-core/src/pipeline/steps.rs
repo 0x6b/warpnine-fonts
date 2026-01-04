@@ -10,7 +10,7 @@ use warpnine_font_ops::copy_table;
 use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
 use crate::{
     MonospaceSettings, Subsetter,
-    freeze::{AutoRvrn, freeze_features},
+    freeze_batch::{AutoRvrn, freeze_features},
     instance::{AxisLocation, InstanceDef, create_instances_batch},
     io::{check_results, glob_fonts, read_font, write_font},
     merge::merge_batch,

@@ -1,6 +1,6 @@
 //! Warpnine Core - reusable build pipeline logic for Warpnine fonts.
 
-pub mod freeze;
+pub mod freeze_batch;
 pub mod instance;
 pub mod io;
 pub mod merge;
