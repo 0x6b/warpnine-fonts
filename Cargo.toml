@@ -2,15 +2,15 @@
 resolver = "3"
 members = [
     "crates/cli",
-    "crates/feature-freezer",
+    "crates/core",
     "crates/font-condense",
+    "crates/font-freezer",
+    "crates/font-instancer",
+    "crates/font-merger",
     "crates/font-metadata",
     "crates/font-ops",
     "crates/font-subsetter",
-    "crates/instancer",
-    "crates/merger",
-    "crates/vf-builder",
-    "crates/warpnine-core",
+    "crates/font-vf-builder",
 ]
 
 [workspace.package]
@@ -49,12 +49,12 @@ zip = "2"
 font-test-data = "0.6"
 
 # Workspace crates
-warpnine-font-feature-freezer = { path = "crates/feature-freezer", default-features = false }
-warpnine-font-instancer = { path = "crates/instancer", default-features = false }
-warpnine-font-merger = { path = "crates/merger" }
-warpnine-font-vf-builder = { path = "crates/vf-builder" }
+warpnine-core = { path = "crates/core" }
+warpnine-font-condense = { path = "crates/font-condense" }
+warpnine-font-feature-freezer = { path = "crates/font-freezer", default-features = false }
+warpnine-font-instancer = { path = "crates/font-instancer", default-features = false }
+warpnine-font-merger = { path = "crates/font-merger" }
+warpnine-font-metadata = { path = "crates/font-metadata" }
 warpnine-font-ops = { path = "crates/font-ops" }
 warpnine-font-subsetter = { path = "crates/font-subsetter" }
-warpnine-font-condense = { path = "crates/font-condense" }
-warpnine-font-metadata = { path = "crates/font-metadata" }
-warpnine-core = { path = "crates/warpnine-core" }
+warpnine-font-vf-builder = { path = "crates/font-vf-builder" }
