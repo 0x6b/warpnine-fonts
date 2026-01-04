@@ -9,37 +9,37 @@ impl AsRef<str> for FeatureTag {
     }
 }
 
-const BASE_FEATURES: &[FeatureTag] = &[
-    FeatureTag("dlig"),
-    FeatureTag("ss01"),
-    FeatureTag("ss02"),
-    FeatureTag("ss03"),
-    FeatureTag("ss04"),
-    FeatureTag("ss05"),
-    FeatureTag("ss06"),
-    FeatureTag("ss07"),
-    FeatureTag("ss08"),
-    FeatureTag("ss10"),
-    FeatureTag("ss11"),
-    FeatureTag("ss12"),
-    FeatureTag("liga"),
-];
-
+/// Features to freeze for WarpnineMono (static and variable).
 pub const MONO_FEATURES: &[FeatureTag] = &[
-    FeatureTag("dlig"),
-    FeatureTag("ss01"),
-    FeatureTag("ss02"),
-    FeatureTag("ss03"),
-    FeatureTag("ss04"),
-    FeatureTag("ss05"),
-    FeatureTag("ss06"),
-    FeatureTag("ss07"),
-    FeatureTag("ss08"),
-    FeatureTag("ss10"),
-    FeatureTag("ss11"),
-    FeatureTag("ss12"),
-    FeatureTag("pnum"),
-    FeatureTag("liga"),
+    FeatureTag("dlig"),  // Discretionary ligatures (programming ligatures)
+    FeatureTag("ss01"),  // Single-story a
+    FeatureTag("ss02"),  // Single-story g
+    FeatureTag("ss03"),  // Simplified f
+    FeatureTag("ss04"),  // Simplified i
+    FeatureTag("ss05"),  // Simplified l
+    FeatureTag("ss06"),  // Simplified r
+    FeatureTag("ss07"),  // Simplified italic diagonals / Serifless I
+    FeatureTag("ss08"),  // No-serif L and Z
+    FeatureTag("ss10"),  // Dotted zero
+    FeatureTag("ss11"),  // Simplified 1
+    FeatureTag("ss12"),  // Simplified @
+    FeatureTag("pnum"),  // Proportional numerals
+    FeatureTag("liga"),  // Standard ligatures
 ];
 
-pub const SANS_FEATURES: &[FeatureTag] = BASE_FEATURES;
+/// Features to freeze for WarpnineSans and WarpnineSansCondensed.
+pub const SANS_FEATURES: &[FeatureTag] = &[
+    FeatureTag("ss01"),  // Single-story a
+    FeatureTag("ss02"),  // Single-story g
+    FeatureTag("ss03"),  // Simplified f
+    FeatureTag("ss04"),  // Simplified i
+    FeatureTag("ss05"),  // Simplified l
+    FeatureTag("ss06"),  // Simplified r
+    FeatureTag("ss07"),  // Simplified italic diagonals / Serifless I
+    FeatureTag("ss08"),  // No-serif L and Z
+    FeatureTag("ss10"),  // Dotted zero
+    FeatureTag("ss12"),  // Simplified @
+    FeatureTag("case"),  // Case-sensitive forms
+    FeatureTag("pnum"),  // Proportional numerals
+    FeatureTag("liga"),  // Standard ligatures
+];

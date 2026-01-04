@@ -61,9 +61,12 @@ That will generate the following fonts:
 ### Other Commands
 
 ```console
-$ ./target/release/warpnine-fonts build-mono   # build only WarpnineMono
-$ ./target/release/warpnine-fonts clean        # remove build artifacts
-$ ./target/release/warpnine-fonts --help       # list all commands
+$ ./target/release/warpnine-fonts build-mono       # build only WarpnineMono
+$ ./target/release/warpnine-fonts build-sans       # build only WarpnineSans
+$ ./target/release/warpnine-fonts build-condensed  # build only WarpnineSansCondensed
+$ ./target/release/warpnine-fonts download         # download source fonts only
+$ ./target/release/warpnine-fonts clean            # remove build artifacts
+$ ./target/release/warpnine-fonts --help           # list all commands
 ```
 
 Preview fonts locally:
@@ -118,9 +121,6 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 
 #### WarpnineSans and WarpnineSansCondensed (Frozen at Build)
 
-- `case`: Case-sensitive forms
-- `liga`: Standard ligatures
-- `pnum`: Proportional figures
 - `ss01`: Single-story a
 - `ss02`: Single-story g
 - `ss03`: Simplified f
@@ -131,6 +131,9 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 - `ss08`: Serifless L and Z
 - `ss10`: Dotted 0
 - `ss12`: Simplified @
+- `case`: Case-sensitive forms
+- `pnum`: Proportional figures
+- `liga`: Standard ligatures
 
 #### Additional Features (Variable Font)
 
