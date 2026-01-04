@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use glob::glob;
+use log::error;
 
 #[derive(Debug, Clone)]
 pub struct FontFile {
@@ -63,10 +64,36 @@ pub fn glob_fonts(dir: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
         .collect())
 }
 
+/// Check batch operation results, log failures, and bail if any failed.
+///
+/// For operations that don't have associated paths, use this simpler version.
 pub fn check_results<T>(results: &[Result<T>], operation: &str) -> Result<()> {
-    let failed_count = results.iter().filter(|r| r.is_err()).count();
-    if failed_count > 0 {
-        bail!("{operation} failed for {} files", failed_count);
+    let errors: Vec<_> = results.iter().filter_map(|r| r.as_ref().err()).collect();
+
+    if !errors.is_empty() {
+        for err in &errors {
+            error!("{operation}: {err:#}");
+        }
+        bail!("{operation} failed for {} files", errors.len());
+    }
+    Ok(())
+}
+
+/// Check batch operation results with paths, log failures with file names, and bail if any failed.
+pub fn check_results_with_paths<T, P: AsRef<Path>>(
+    results: &[(P, Result<T>)],
+    operation: &str,
+) -> Result<()> {
+    let errors: Vec<_> = results
+        .iter()
+        .filter_map(|(path, r)| r.as_ref().err().map(|e| (path.as_ref(), e)))
+        .collect();
+
+    if !errors.is_empty() {
+        for (path, err) in &errors {
+            error!("{}: {err:#}", path.display());
+        }
+        bail!("{operation} failed for {} files", errors.len());
     }
     Ok(())
 }
