@@ -10,6 +10,11 @@ use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use reqwest::blocking::get;
 
+use crate::config::{
+    NOTO_CJK_LICENSE_URL, NOTO_CJK_VF_FILENAME, NOTO_CJK_VF_URL, RECURSIVE_LICENSE_URL,
+    RECURSIVE_VF_FILENAME, RECURSIVE_ZIP_PATH, RECURSIVE_ZIP_URL,
+};
+
 struct DownloadItem {
     url: &'static str,
     output_name: &'static str,
@@ -18,27 +23,21 @@ struct DownloadItem {
 
 const DOWNLOADS: &[DownloadItem] = &[
     DownloadItem {
-        url: "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/Mono/NotoSansMonoCJKjp-VF.ttf",
-        output_name: "NotoSansMonoCJKjp-VF.ttf",
+        url: NOTO_CJK_VF_URL,
+        output_name: NOTO_CJK_VF_FILENAME,
         description: "Noto Sans Mono CJK JP (Variable)",
     },
     DownloadItem {
-        url: "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE",
+        url: NOTO_CJK_LICENSE_URL,
         output_name: "LICENSE-NotoSansCJK.txt",
         description: "Noto CJK License",
     },
     DownloadItem {
-        url: "https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt",
+        url: RECURSIVE_LICENSE_URL,
         output_name: "LICENSE-Recursive.txt",
         description: "Recursive License (OFL)",
     },
 ];
-
-const RECURSIVE_ZIP_URL: &str =
-    "https://github.com/arrowtype/recursive/releases/download/v1.085/ArrowType-Recursive-1.085.zip";
-const RECURSIVE_ZIP_PATH: &str =
-    "ArrowType-Recursive-1.085/Recursive_Desktop/Recursive_VF_1.085.ttf";
-const RECURSIVE_OUTPUT: &str = "Recursive_VF_1.085.ttf";
 
 fn download_file(item: &DownloadItem, output_dir: &Path) -> Result<()> {
     let target = output_dir.join(item.output_name);
@@ -60,9 +59,9 @@ fn download_file(item: &DownloadItem, output_dir: &Path) -> Result<()> {
 }
 
 fn download_recursive_vf(output_dir: &Path) -> Result<()> {
-    let target = output_dir.join(RECURSIVE_OUTPUT);
+    let target = output_dir.join(RECURSIVE_VF_FILENAME);
     println!("Downloading Recursive VF");
-    println!("  {RECURSIVE_OUTPUT}");
+    println!("  {RECURSIVE_VF_FILENAME}");
 
     let response =
         get(RECURSIVE_ZIP_URL).with_context(|| format!("Failed to fetch {RECURSIVE_ZIP_URL}"))?;

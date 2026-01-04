@@ -15,6 +15,7 @@ use std::{
 
 use anyhow::Result;
 
+use crate::config::{NOTO_CJK_VF_FILENAME, RECURSIVE_VF_FILENAME};
 use crate::{FontVersion, io::glob_fonts};
 pub use steps::{
     CONDENSED_ONLY_STEPS, FINAL_STEPS, MONO_STEPS, PipelineStep, SANS_ONLY_STEPS, SANS_STEPS,
@@ -32,8 +33,8 @@ pub struct PipelineContext {
 impl PipelineContext {
     pub fn new(build_dir: PathBuf, dist_dir: PathBuf, version: Option<String>) -> Result<Self> {
         let version = FontVersion::parse(version.as_deref())?;
-        let recursive_vf = build_dir.join("Recursive_VF_1.085.ttf");
-        let noto_vf = build_dir.join("NotoSansMonoCJKjp-VF.ttf");
+        let recursive_vf = build_dir.join(RECURSIVE_VF_FILENAME);
+        let noto_vf = build_dir.join(NOTO_CJK_VF_FILENAME);
         Ok(Self {
             build_dir,
             dist_dir,
