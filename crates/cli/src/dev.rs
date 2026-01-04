@@ -24,41 +24,54 @@ use warpnine_font_ops::copy_table;
 
 #[derive(Subcommand)]
 pub enum DevCommands {
+    /// Copy GSUB table from one font to another
     CopyGsub {
+        /// Source font to copy GSUB table from
         #[arg(long)]
         from: PathBuf,
+        /// Target font to copy GSUB table to
         #[arg(long)]
         to: PathBuf,
     },
+    /// Remove triple-backtick ligature from fonts
     RemoveLigatures {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
+    /// Set monospace flags (post.isFixedPitch, OS/2 panose)
     SetMonospace {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
+    /// Set font version date in name and head tables
     SetVersion {
+        /// Version string (YYYY-MM-DD or YYYY-MM-DD.N format)
         #[arg(short, long)]
         version: Option<String>,
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
+    /// Subset font to Japanese Unicode ranges
     SubsetJapanese {
         #[arg(required = true)]
         input: PathBuf,
         #[arg(required = true)]
         output: PathBuf,
     },
+    /// Freeze OpenType features into fonts permanently
     Freeze {
+        /// Comma-separated list of features to freeze (e.g., ss01,ss02)
         #[arg(short, long, value_delimiter = ',')]
         features: Vec<String>,
+        /// Automatically enable rvrn feature for variable fonts
         #[arg(long)]
         auto_rvrn: bool,
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
+    /// Create static instance from variable font
     Instance {
+        /// Axis location in TAG=VALUE format (e.g., wght=700)
         #[arg(short, long = "axis", value_parser = parse_axis)]
         axes: Vec<AxisLocation>,
         #[arg(required = true)]
@@ -66,61 +79,87 @@ pub enum DevCommands {
         #[arg(required = true)]
         output: PathBuf,
     },
+    /// Create multiple static instances from variable font
     InstanceBatch {
+        /// Input variable font
         #[arg(long)]
         input: PathBuf,
+        /// Output directory for generated instances
         #[arg(long, default_value = "dist")]
         output_dir: PathBuf,
+        /// Instance definition in NAME:TAG=VAL,TAG=VAL format
         #[arg(short, long = "instance", value_parser = parse_instance_def)]
         instances: Vec<(String, Vec<AxisLocation>)>,
     },
+    /// Merge multiple fonts into one
     Merge {
+        /// Input fonts (first is base, rest are merged in order)
         #[arg(required = true, num_args = 2..)]
         inputs: Vec<PathBuf>,
         #[arg(short, long)]
         output: PathBuf,
     },
+    /// Merge multiple base fonts with a fallback font
     MergeBatch {
+        /// Base fonts to merge fallback into
         #[arg(required = true)]
         base_fonts: Vec<PathBuf>,
+        /// Fallback font to merge into each base font
         #[arg(short, long)]
         fallback: PathBuf,
+        /// Output directory for merged fonts
         #[arg(short, long, default_value = "dist")]
         output_dir: PathBuf,
     },
+    /// Create WarpnineSans fonts from Recursive VF
     CreateSans {
+        /// Input Recursive variable font
         #[arg(long)]
         input: PathBuf,
+        /// Output directory for generated fonts
         #[arg(long, default_value = "dist")]
         output_dir: PathBuf,
     },
+    /// Create WarpnineSansCondensed fonts from Recursive VF
     CreateCondensed {
+        /// Input Recursive variable font
         #[arg(long)]
         input: PathBuf,
+        /// Output directory for generated fonts
         #[arg(long, default_value = "dist")]
         output_dir: PathBuf,
+        /// Horizontal scale factor (0.90 = 90% width)
         #[arg(long, default_value = "0.90")]
         scale: f32,
     },
+    /// Set name table entries (family, style, copyright)
     SetName {
+        /// Font family name
         #[arg(long)]
         family: String,
+        /// Font style name (e.g., Regular, Bold)
         #[arg(long)]
         style: String,
+        /// PostScript family name (defaults to family with spaces removed)
         #[arg(long)]
         postscript_family: Option<String>,
+        /// Additional copyright text to append
         #[arg(long)]
         copyright_extra: Option<String>,
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
+    /// Fix calt/rclt feature registration across all scripts
     FixCalt {
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
+    /// Build WarpnineMono variable font from static masters
     BuildVf {
+        /// Directory containing static master fonts
         #[arg(long, default_value = "dist")]
         dist_dir: PathBuf,
+        /// Output path for variable font
         #[arg(long, default_value = "dist/WarpnineMono-VF.ttf")]
         output: PathBuf,
     },
