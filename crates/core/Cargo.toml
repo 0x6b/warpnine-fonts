@@ -35,3 +35,4 @@ warpnine-font-metadata.workspace = true
 warpnine-font-ops.workspace = true
 warpnine-font-subsetter.workspace = true
 warpnine-font-vf-builder.workspace = true
+warpnine-font-woff2.workspace = true

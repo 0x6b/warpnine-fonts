@@ -83,6 +83,7 @@ pub const LAYOUT_FEATURES: &[&[u8; 4]] = &[
 #[derive(Default)]
 pub struct Subsetter {
     unicode_ranges: Vec<(u32, u32)>,
+    exclude_codepoints: Vec<u32>,
     drop_vf_tables: bool,
     retain_glyph_names: bool,
     layout_features: Vec<[u8; 4]>,
@@ -110,6 +111,7 @@ impl Subsetter {
     pub fn japanese() -> Self {
         Self {
             unicode_ranges: JAPANESE_RANGES.to_vec(),
+            exclude_codepoints: Vec::new(),
             drop_vf_tables: true,
             retain_glyph_names: true,
             layout_features: LAYOUT_FEATURES.iter().map(|f| **f).collect(),
@@ -121,6 +123,16 @@ impl Subsetter {
     /// Each range is a tuple of (start, end) Unicode code points, inclusive.
     pub fn with_unicode_ranges(mut self, ranges: impl IntoIterator<Item = (u32, u32)>) -> Self {
         self.unicode_ranges.extend(ranges);
+        self
+    }
+
+    /// Adds codepoints to exclude from the subset.
+    ///
+    /// These codepoints will be removed even if they fall within the Unicode ranges.
+    /// Useful for excluding problematic glyphs like U+F8FF (Apple logo) that reference
+    /// `.notdef` and cause WOFF2 validation errors.
+    pub fn exclude_codepoints(mut self, codepoints: impl IntoIterator<Item = u32>) -> Self {
+        self.exclude_codepoints.extend(codepoints);
         self
     }
 
@@ -176,6 +188,9 @@ impl Subsetter {
             let mut unicode_set = input.unicode_set();
             for (start, end) in &self.unicode_ranges {
                 for cp in *start..=*end {
+                    if self.exclude_codepoints.contains(&cp) {
+                        continue;
+                    }
                     if let Some(c) = char::from_u32(cp) {
                         unicode_set.insert(c);
                     }

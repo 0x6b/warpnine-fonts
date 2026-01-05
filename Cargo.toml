@@ -11,6 +11,7 @@ members = [
     "crates/font-ops",
     "crates/font-subsetter",
     "crates/font-vf-builder",
+    "crates/font-woff2",
 ]
 
 [workspace.package]
@@ -58,3 +59,4 @@ warpnine-font-metadata = { path = "crates/font-metadata" }
 warpnine-font-ops = { path = "crates/font-ops" }
 warpnine-font-subsetter = { path = "crates/font-subsetter" }
 warpnine-font-vf-builder = { path = "crates/font-vf-builder" }
+warpnine-font-woff2 = { path = "crates/font-woff2" }

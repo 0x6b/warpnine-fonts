@@ -7,7 +7,7 @@ use rayon::prelude::*;
 
 use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
 use crate::{
-    MonospaceSettings, Subsetter,
+    MonospaceSettings, Subsetter, convert_to_woff2,
     freeze_batch::{AutoRvrn, freeze_features},
     instance::{AxisLocation, InstanceDef, create_instances_batch},
     io::{check_results, glob_fonts, read_font, write_font},
@@ -39,6 +39,7 @@ pub const MONO_STEPS: &[PipelineStep] = &[
     ("restore-frozen", step_restore_frozen),
     ("set-names-vf", step_set_names_vf),
     ("set-monospace", step_set_monospace),
+    ("generate-woff2", step_generate_woff2),
 ];
 
 pub const SANS_STEPS: &[PipelineStep] = &[
@@ -391,4 +392,32 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
         .collect();
 
     check_results(&results, "set version")
+}
+
+fn step_generate_woff2(ctx: &PipelineContext) -> Result<()> {
+    let vf = ctx.vf_output();
+    if !vf.exists() {
+        println!("  VF not found, skipping WOFF2 generation");
+        return Ok(());
+    }
+
+    println!("  Generating WOFF2 from VF (excluding problematic codepoints)...");
+    let ttf_data = read_font(&vf)?;
+    let woff2_data = convert_to_woff2(&ttf_data)?;
+
+    let woff2_path = vf.with_extension("woff2");
+    std::fs::write(&woff2_path, &woff2_data)?;
+
+    let ttf_size = ttf_data.len() as f64 / 1024.0;
+    let woff2_size = woff2_data.len() as f64 / 1024.0;
+    let ratio = woff2_size / ttf_size * 100.0;
+    println!(
+        "  Output: {} ({:.1} KB -> {:.1} KB, {:.1}%)",
+        woff2_path.display(),
+        ttf_size,
+        woff2_size,
+        ratio
+    );
+
+    Ok(())
 }
