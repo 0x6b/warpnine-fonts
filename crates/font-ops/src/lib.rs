@@ -116,3 +116,40 @@ pub fn copy_table(source_data: &[u8], target_data: &[u8], tag: Tag) -> Result<Ve
 
     Ok(builder.build())
 }
+
+/// Copy GSUB table from source font to target font, removing FeatureVariations.
+///
+/// FeatureVariations may reference axis indices that don't exist in the target
+/// font (e.g., source has 5 axes, target has 2). This causes OTS validation errors.
+pub fn copy_gsub_without_feature_variations(
+    source_data: &[u8],
+    target_data: &[u8],
+) -> Result<Vec<u8>> {
+    use write_fonts::{from_obj::ToOwnedTable, tables::gsub::Gsub};
+
+    let source_font = FontRef::new(source_data).context("Failed to parse source font")?;
+    let gsub = source_font.gsub().context("Source font has no GSUB table")?;
+
+    let script_list = gsub.script_list().unwrap().to_owned_table();
+    let feature_list = gsub.feature_list().unwrap().to_owned_table();
+    let lookup_list = gsub.lookup_list().unwrap().to_owned_table();
+
+    let new_gsub = Gsub::new(script_list, feature_list, lookup_list);
+
+    let target_font = FontRef::new(target_data).context("Failed to parse target font")?;
+    let mut builder = FontBuilder::new();
+
+    for record in target_font.table_directory.table_records() {
+        let record_tag = record.tag();
+        if record_tag == Tag::new(b"GSUB") {
+            continue;
+        }
+        if let Some(data) = target_font.table_data(record_tag) {
+            builder.add_raw(record_tag, data);
+        }
+    }
+
+    builder.add_table(&new_gsub)?;
+
+    Ok(builder.build())
+}

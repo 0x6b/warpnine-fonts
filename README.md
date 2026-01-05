@@ -91,7 +91,10 @@ The variable font includes:
   - Weight axis values with "Regular" as elidable default
   - Italic axis values with "Upright" as elidable default
 
-Note: HVAR (Horizontal Metrics Variations) and MVAR (Metrics Variations) are not included. For a monospace font with fixed advance widths, HVAR provides minimal benefit. MVAR is optional and omitted for simplicity.
+Note: The following tables are intentionally excluded:
+
+- **HVAR/MVAR**: For a monospace font with fixed advance widths, HVAR provides minimal benefit. MVAR is optional and omitted for simplicity.
+- **vhea/vmtx**: Vertical metrics tables are excluded due to browser compatibility issues (OTS validation errors in Chrome/Firefox). This means vertical text layout (`writing-mode: vertical-rl`) is not supported.
 
 ### OpenType Features
 
@@ -137,6 +140,10 @@ The variable font retains additional OpenType features from Recursive:
 - Other: `zero`, `frac`, `locl`, `calt`, and more
 
 ## Known Limitations
+
+### No Vertical Text Support
+
+The variable font does not support vertical text layout (CSS `writing-mode: vertical-rl`). The vertical metrics tables (vhea/vmtx) are excluded due to OTS validation issues in browsers. Static fonts retain vertical metrics if present in the source fonts.
 
 ### Typst: ExtraBlack Weight Not Accessible
 

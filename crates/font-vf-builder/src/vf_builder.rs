@@ -41,6 +41,10 @@ const SKIP_TABLES: &[Tag] = &[
     Tag::new(b"MVAR"),
     Tag::new(b"DSIG"),
     Tag::new(b"name"),
+    Tag::new(b"GDEF"),
+    Tag::new(b"GSUB"),
+    Tag::new(b"vhea"),
+    Tag::new(b"vmtx"),
 ];
 
 /// Starting name ID for instance names (256+ are user-defined)
@@ -129,6 +133,18 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     builder.add_table(&head)?;
     builder.add_table(&name)?;
     builder.add_table(&stat)?;
+
+    // Copy GDEF without VarStore (source VarStore has wrong axis count)
+    if let Ok(gdef) = default_font.gdef() {
+        let new_gdef = build_gdef_without_varstore(&gdef);
+        builder.add_table(&new_gdef)?;
+    }
+
+    // Copy GSUB without FeatureVariations (source uses wrong axis indices)
+    if let Ok(gsub) = default_font.gsub() {
+        let new_gsub = build_gsub_without_feature_variations(&gsub);
+        builder.add_table(&new_gsub)?;
+    }
 
     // Copy tables from default master
     let skip_set: HashSet<Tag> = SKIP_TABLES.iter().copied().collect();
@@ -833,4 +849,60 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
 
     // Use "Regular" (name ID 281) as the elided fallback name
     Ok(Stat::new(axis_records, axis_values, NameId::new(281)))
+}
+
+/// Build a GDEF table without VarStore.
+///
+/// The source font's GDEF may contain a VarStore with axis counts that don't
+/// match our output VF (e.g., Recursive has 5 axes but we only use 2).
+/// We copy everything except the VarStore to avoid OTS validation errors.
+fn build_gdef_without_varstore(
+    gdef: &read_fonts::tables::gdef::Gdef,
+) -> write_fonts::tables::gdef::Gdef {
+    use write_fonts::{from_obj::ToOwnedTable, tables::gdef::Gdef};
+
+    let glyph_class_def = gdef
+        .glyph_class_def()
+        .transpose()
+        .ok()
+        .flatten()
+        .map(|g| g.to_owned_table());
+    let attach_list = gdef
+        .attach_list()
+        .transpose()
+        .ok()
+        .flatten()
+        .map(|a| a.to_owned_table());
+    let lig_caret_list = gdef
+        .lig_caret_list()
+        .transpose()
+        .ok()
+        .flatten()
+        .map(|l| l.to_owned_table());
+    let mark_attach_class_def = gdef
+        .mark_attach_class_def()
+        .transpose()
+        .ok()
+        .flatten()
+        .map(|m| m.to_owned_table());
+
+    Gdef::new(glyph_class_def, attach_list, lig_caret_list, mark_attach_class_def)
+}
+
+/// Build a GSUB table without FeatureVariations.
+///
+/// The source font's GSUB may contain FeatureVariations with axis indices that
+/// reference axes not present in our output VF (e.g., Recursive has 5 axes but
+/// we only use 2). We copy everything except FeatureVariations to avoid OTS
+/// validation errors.
+fn build_gsub_without_feature_variations(
+    gsub: &read_fonts::tables::gsub::Gsub,
+) -> write_fonts::tables::gsub::Gsub {
+    use write_fonts::{from_obj::ToOwnedTable, tables::gsub::Gsub};
+
+    let script_list = gsub.script_list().unwrap().to_owned_table();
+    let feature_list = gsub.feature_list().unwrap().to_owned_table();
+    let lookup_list = gsub.lookup_list().unwrap().to_owned_table();
+
+    Gsub::new(script_list, feature_list, lookup_list)
 }
