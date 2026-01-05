@@ -9,3 +9,7 @@ description = "WOFF2 conversion with automatic problematic glyph handling"
 anyhow.workspace = true
 read-fonts.workspace = true
 hb-subset.workspace = true
+ttf2woff2 = { git = "https://github.com/0x6b/ttf2woff2", tag = "v0.10.1" }
+
+[dev-dependencies]
+anyhow.workspace = true

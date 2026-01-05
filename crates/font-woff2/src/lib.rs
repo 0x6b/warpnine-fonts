@@ -6,16 +6,16 @@
 //! # Example
 //!
 //! ```no_run
-//! use warpnine_font_woff2::{subset_for_woff2, PROBLEMATIC_CODEPOINTS};
+//! use warpnine_font_woff2::convert_to_woff2;
 //!
 //! let ttf_data: &[u8] = &[];
-//! let subset_data = subset_for_woff2(ttf_data).unwrap();
-//! // Then use woff2_compress to convert to WOFF2
+//! let woff2_data = convert_to_woff2(ttf_data).unwrap();
 //! ```
 
 use anyhow::{Context, Result, bail};
 use hb_subset::{Blob, FontFace, SubsetInput, Tag};
 use read_fonts::{FontRef, TableProvider, tables::cmap::CmapSubtable};
+use ttf2woff2::{BrotliQuality, encode};
 
 /// Codepoints known to cause WOFF2 OTS validation errors.
 ///
@@ -31,6 +31,24 @@ const LAYOUT_FEATURES: &[&[u8; 4]] = &[
     b"ss09", b"ss10", b"ss11", b"ss12", b"ss20", b"dnom", b"numr", b"frac", b"ordn", b"sups",
     b"subs", b"sinf", b"case", b"zero",
 ];
+
+/// Converts TTF font data to WOFF2 format.
+///
+/// This function:
+/// 1. Subsets the font to exclude problematic codepoints (U+F8FF)
+/// 2. Compresses the result to WOFF2 format
+///
+/// # Arguments
+///
+/// * `data` - Raw TTF font data
+///
+/// # Returns
+///
+/// WOFF2 compressed font data, or an error if conversion fails.
+pub fn convert_to_woff2(data: &[u8]) -> Result<Vec<u8>> {
+    let subset_data = subset_for_woff2(data)?;
+    encode(&subset_data, BrotliQuality::default()).context("Failed to convert to WOFF2")
+}
 
 /// Subsets font data excluding problematic codepoints for WOFF2 conversion.
 ///

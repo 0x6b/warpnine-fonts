@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WarpnineMono WOFF2 Test</title>
+  <style>
+    @font-face {
+      font-family: 'WarpnineMono';
+      src: url('../dist/WarpnineMono-VF.woff2') format('woff2');
+      font-weight: 300 900;
+      font-style: normal;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #1a1a1a;
+      color: #e0e0e0;
+    }
+
+    h1 { color: #fff; }
+    h2 { color: #aaa; margin-top: 2rem; }
+
+    .sample {
+      font-family: 'WarpnineMono', monospace;
+      background: #252525;
+      padding: 1rem;
+      border-radius: 4px;
+      margin: 0.5rem 0;
+      line-height: 1.6;
+    }
+
+    .weight-300 { font-weight: 300; }
+    .weight-400 { font-weight: 400; }
+    .weight-500 { font-weight: 500; }
+    .weight-600 { font-weight: 600; }
+    .weight-700 { font-weight: 700; }
+    .weight-800 { font-weight: 800; }
+    .weight-900 { font-weight: 900; }
+
+    .size-sm { font-size: 12px; }
+    .size-md { font-size: 16px; }
+    .size-lg { font-size: 24px; }
+    .size-xl { font-size: 32px; }
+
+    label { display: inline-block; min-width: 100px; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>WarpnineMono WOFF2 Test</h1>
+
+  <h2>Weights</h2>
+  <div class="sample weight-300"><label>300:</label> The quick brown fox jumps over the lazy dog</div>
+  <div class="sample weight-400"><label>400:</label> The quick brown fox jumps over the lazy dog</div>
+  <div class="sample weight-500"><label>500:</label> The quick brown fox jumps over the lazy dog</div>
+  <div class="sample weight-600"><label>600:</label> The quick brown fox jumps over the lazy dog</div>
+  <div class="sample weight-700"><label>700:</label> The quick brown fox jumps over the lazy dog</div>
+  <div class="sample weight-800"><label>800:</label> The quick brown fox jumps over the lazy dog</div>
+  <div class="sample weight-900"><label>900:</label> The quick brown fox jumps over the lazy dog</div>
+
+  <h2>Sizes</h2>
+  <div class="sample size-sm">12px: ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+  <div class="sample size-md">16px: ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+  <div class="sample size-lg">24px: ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+  <div class="sample size-xl">32px: ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+
+  <h2>Code Sample</h2>
+  <pre class="sample size-md">fn main() {
+    let greeting = "Hello, World!";
+    println!("{}", greeting);
+    
+    for i in 0..10 {
+        if i % 2 == 0 {
+            println!("Even: {}", i);
+        }
+    }
+}</pre>
+
+  <h2>Japanese</h2>
+  <div class="sample size-md">日本語テスト: あいうえお カキクケコ 漢字 0123456789</div>
+  <div class="sample size-lg">吾輩は猫である。名前はまだ無い。</div>
+
+  <h2>Programming Ligatures & Symbols</h2>
+  <div class="sample size-lg">-> => != == <= >= :: && || |> <| ++ -- ** // /* */</div>
+  <div class="sample size-lg">[ ] { } ( ) < > @ # $ % ^ & * ~ ` ' " ; : , . ? / \ |</div>
+</body>
+</html>
