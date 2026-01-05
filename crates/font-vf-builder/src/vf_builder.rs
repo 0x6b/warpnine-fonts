@@ -43,6 +43,8 @@ const SKIP_TABLES: &[Tag] = &[
     Tag::new(b"name"),
     Tag::new(b"GDEF"),
     Tag::new(b"GSUB"),
+    Tag::new(b"vhea"),
+    Tag::new(b"vmtx"),
 ];
 
 /// Starting name ID for instance names (256+ are user-defined)

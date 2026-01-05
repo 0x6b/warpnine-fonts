@@ -67,7 +67,10 @@ impl<'a> BatchMerger<'a> {
     }
 
     pub fn merge_with_fallback(&self, base_data: &[u8]) -> Result<Vec<u8>> {
-        let merger = Merger::default();
+        use warpnine_font_merger::Options as MergeOptions;
+
+        let options = MergeOptions::default().drop_table("vhea").drop_table("vmtx");
+        let merger = Merger::new(options);
         merger
             .merge(&[base_data, self.fallback_data])
             .context("Failed to merge fonts")
