@@ -2,7 +2,7 @@
 
 use std::fs::{copy, create_dir_all, rename};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use rayon::prelude::*;
 
 use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
@@ -13,6 +13,7 @@ use crate::{
     io::{check_results, glob_fonts, read_font, write_font},
     merge::merge_batch,
     styles::{FeatureTag, MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
+    subset_for_woff2,
     warpnine::{
         condense::create_condensed,
         ligatures::remove_grave_ligature,
@@ -39,6 +40,7 @@ pub const MONO_STEPS: &[PipelineStep] = &[
     ("restore-frozen", step_restore_frozen),
     ("set-names-vf", step_set_names_vf),
     ("set-monospace", step_set_monospace),
+    ("generate-woff2", step_generate_woff2),
 ];
 
 pub const SANS_STEPS: &[PipelineStep] = &[
@@ -391,4 +393,45 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
         .collect();
 
     check_results(&results, "set version")
+}
+
+fn step_generate_woff2(ctx: &PipelineContext) -> Result<()> {
+    let vf = ctx.vf_output();
+    if !vf.exists() {
+        println!("  VF not found, skipping WOFF2 generation");
+        return Ok(());
+    }
+
+    println!("  Generating WOFF2 from VF (excluding problematic codepoints)...");
+    let ttf_data = read_font(&vf)?;
+    let subset_data = subset_for_woff2(&ttf_data)?;
+
+    let subset_path = vf.with_extension("subset.ttf");
+    std::fs::write(&subset_path, &subset_data)?;
+
+    let woff2_path = vf.with_extension("woff2");
+    let status = std::process::Command::new("woff2_compress")
+        .arg(&subset_path)
+        .status()
+        .context("Failed to run woff2_compress. Install with: brew install woff2")?;
+
+    std::fs::remove_file(&subset_path)?;
+
+    if !status.success() {
+        bail!("woff2_compress failed with status: {status}");
+    }
+
+    let woff2_data = std::fs::read(&woff2_path)?;
+    let ttf_size = ttf_data.len() as f64 / 1024.0;
+    let woff2_size = woff2_data.len() as f64 / 1024.0;
+    let ratio = woff2_size / ttf_size * 100.0;
+    println!(
+        "  Output: {} ({:.1} KB -> {:.1} KB, {:.1}%)",
+        woff2_path.display(),
+        ttf_size,
+        woff2_size,
+        ratio
+    );
+
+    Ok(())
 }

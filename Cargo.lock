@@ -2100,6 +2100,7 @@ dependencies = [
  "warpnine-font-ops",
  "warpnine-font-subsetter",
  "warpnine-font-vf-builder",
+ "warpnine-font-woff2",
  "write-fonts",
  "zip",
 ]
@@ -2191,6 +2192,15 @@ dependencies = [
  "read-fonts",
  "thiserror 2.0.17",
  "write-fonts",
+]
+
+[[package]]
+name = "warpnine-font-woff2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hb-subset",
+ "read-fonts",
 ]
 
 [[package]]
