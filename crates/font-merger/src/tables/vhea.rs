@@ -15,11 +15,6 @@ pub fn merge_vhea(fonts: &[FontRef], num_v_metrics: u16) -> Result<Option<Vhea>>
         return Ok(None);
     }
 
-    // Only merge if all fonts have vhea
-    if tables.len() != fonts.len() {
-        return Ok(None);
-    }
-
     let ascenders: Vec<i16> = tables.iter().map(|t| t.ascender().to_i16()).collect();
     let descenders: Vec<i16> = tables.iter().map(|t| t.descender().to_i16()).collect();
     let line_gaps: Vec<i16> = tables.iter().map(|t| t.line_gap().to_i16()).collect();
