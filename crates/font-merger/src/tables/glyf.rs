@@ -92,6 +92,32 @@ pub fn merge_glyf(ctx: &MergeContext) -> Result<Option<(Glyf, Loca, LocaFormat)>
         }
     }
 
+    // Build set of empty glyph GIDs for composite validation
+    // OTS (used by Firefox) rejects composites referencing empty glyphs
+    let empty_glyph_gids: std::collections::HashSet<u16> = ctx
+        .mega()
+        .iter()
+        .enumerate()
+        .filter_map(|(gid, name)| {
+            glyph_map
+                .get(name)
+                .and_then(|g| matches!(g, Glyph::Empty).then_some(gid as u16))
+        })
+        .collect();
+
+    // Convert composites that reference empty glyphs to empty glyphs
+    for glyph in glyph_map.values_mut() {
+        if let Glyph::Composite(composite) = glyph {
+            let references_empty = composite
+                .components()
+                .iter()
+                .any(|comp| empty_glyph_gids.contains(&comp.glyph.to_u16()));
+            if references_empty {
+                *glyph = Glyph::Empty;
+            }
+        }
+    }
+
     // Build the glyf and loca tables using GlyfLocaBuilder
     let mut builder = GlyfLocaBuilder::new();
 
