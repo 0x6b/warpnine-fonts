@@ -599,9 +599,37 @@ class TestWarpnineMonoVF:
         failures = validate_variable_font(font_path, MONO_VF_SPEC)
         assert not failures, "\n".join(failures)
 
-    @pytest.mark.skip(
-        reason="GSUB FeatureVariations from Recursive use 5-axis coordinates incompatible with 2-axis VF"
-    )
+    def test_vf_gdef_no_varstore(self):
+        """Test VF GDEF table has no VarStore (incompatible axis count removed)."""
+        font_path = DIST_DIR / "WarpnineMono-VF.ttf"
+        if not font_path.exists():
+            pytest.skip("VF not built")
+
+        font = TTFont(font_path)
+        gdef = font["GDEF"]
+        has_varstore = (
+            hasattr(gdef.table, "VarStore") and gdef.table.VarStore is not None
+        )
+        assert not has_varstore, (
+            "GDEF should not have VarStore (incompatible axis count)"
+        )
+
+    def test_vf_gsub_no_feature_variations(self):
+        """Test VF GSUB table has no FeatureVariations (incompatible axis indices removed)."""
+        font_path = DIST_DIR / "WarpnineMono-VF.ttf"
+        if not font_path.exists():
+            pytest.skip("VF not built")
+
+        font = TTFont(font_path)
+        gsub = font["GSUB"]
+        has_fv = (
+            hasattr(gsub.table, "FeatureVariations")
+            and gsub.table.FeatureVariations is not None
+        )
+        assert not has_fv, (
+            "GSUB should not have FeatureVariations (incompatible axis indices)"
+        )
+
     def test_vf_instantiation_weights(self):
         """Test VF can be instantiated at all master weights."""
         font_path = DIST_DIR / "WarpnineMono-VF.ttf"
@@ -622,9 +650,6 @@ class TestWarpnineMonoVF:
         failures = validate_vf_instantiation(font_path, test_locations)
         assert not failures, "\n".join(failures)
 
-    @pytest.mark.skip(
-        reason="GSUB FeatureVariations from Recursive use 5-axis coordinates incompatible with 2-axis VF"
-    )
     def test_vf_instantiation_italics(self):
         """Test VF can be instantiated at italic locations."""
         font_path = DIST_DIR / "WarpnineMono-VF.ttf"
@@ -641,9 +666,6 @@ class TestWarpnineMonoVF:
         failures = validate_vf_instantiation(font_path, test_locations)
         assert not failures, "\n".join(failures)
 
-    @pytest.mark.skip(
-        reason="GSUB FeatureVariations from Recursive use 5-axis coordinates incompatible with 2-axis VF"
-    )
     def test_vf_instantiation_intermediate(self):
         """Test VF can be instantiated at intermediate (non-master) locations."""
         font_path = DIST_DIR / "WarpnineMono-VF.ttf"

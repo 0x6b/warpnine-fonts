@@ -4,8 +4,6 @@ use std::fs::{copy, create_dir_all, rename};
 
 use anyhow::{Result, anyhow};
 use rayon::prelude::*;
-use read_fonts::types::Tag;
-use warpnine_font_ops::copy_table;
 
 use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
 use crate::{
@@ -219,9 +217,14 @@ fn step_copy_gsub(ctx: &PipelineContext) -> Result<()> {
     let target = &ctx.vf_output();
     let source_data = read_font(source)?;
     let target_data = read_font(target)?;
-    let new_data = copy_table(&source_data, &target_data, Tag::new(b"GSUB"))?;
+    let new_data =
+        warpnine_font_ops::copy_gsub_without_feature_variations(&source_data, &target_data)?;
     write_font(target, new_data)?;
-    println!("Copied GSUB table from {} to {}", source.display(), target.display());
+    println!(
+        "Copied GSUB table (without FeatureVariations) from {} to {}",
+        source.display(),
+        target.display()
+    );
     Ok(())
 }
 
