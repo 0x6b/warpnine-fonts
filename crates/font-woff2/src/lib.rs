@@ -14,7 +14,10 @@
 
 use anyhow::{Context, Result, bail};
 use hb_subset::{Blob, FontFace, SubsetInput, Tag};
-use read_fonts::{FontRef, TableProvider, tables::cmap::CmapSubtable};
+use read_fonts::{
+    FontRef, TableProvider,
+    tables::cmap::{Cmap, Cmap4, Cmap12, CmapSubtable},
+};
 use ttf2woff2::{BrotliQuality, encode};
 
 /// Codepoints known to cause WOFF2 OTS validation errors.
@@ -101,7 +104,7 @@ pub fn subset_for_woff2(data: &[u8]) -> Result<Vec<u8>> {
     Ok(subset_font.underlying_blob().to_vec())
 }
 
-fn extract_codepoints(cmap: &read_fonts::tables::cmap::Cmap) -> Vec<u32> {
+fn extract_codepoints(cmap: &Cmap) -> Vec<u32> {
     let records = cmap.encoding_records();
 
     // Try format 12 first (full Unicode)
@@ -121,7 +124,7 @@ fn extract_codepoints(cmap: &read_fonts::tables::cmap::Cmap) -> Vec<u32> {
     Vec::new()
 }
 
-fn extract_from_format12(f12: &read_fonts::tables::cmap::Cmap12) -> Vec<u32> {
+fn extract_from_format12(f12: &Cmap12) -> Vec<u32> {
     let mut codepoints = Vec::new();
     for group in f12.groups() {
         let start = group.start_char_code();
@@ -137,7 +140,7 @@ fn extract_from_format12(f12: &read_fonts::tables::cmap::Cmap12) -> Vec<u32> {
     codepoints
 }
 
-fn extract_from_format4(f4: &read_fonts::tables::cmap::Cmap4) -> Vec<u32> {
+fn extract_from_format4(f4: &Cmap4) -> Vec<u32> {
     let mut codepoints = Vec::new();
 
     let end_codes = f4.end_code();

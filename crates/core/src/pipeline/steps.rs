@@ -1,9 +1,10 @@
 //! Pipeline step definitions.
 
-use std::fs::{copy, create_dir_all, rename};
+use std::fs::{copy, create_dir_all, rename, write};
 
 use anyhow::{Result, anyhow};
 use rayon::prelude::*;
+use warpnine_font_ops::copy_gsub_without_feature_variations;
 
 use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
 use crate::{
@@ -218,8 +219,7 @@ fn step_copy_gsub(ctx: &PipelineContext) -> Result<()> {
     let target = &ctx.vf_output();
     let source_data = read_font(source)?;
     let target_data = read_font(target)?;
-    let new_data =
-        warpnine_font_ops::copy_gsub_without_feature_variations(&source_data, &target_data)?;
+    let new_data = copy_gsub_without_feature_variations(&source_data, &target_data)?;
     write_font(target, new_data)?;
     println!(
         "Copied GSUB table (without FeatureVariations) from {} to {}",
@@ -406,17 +406,14 @@ fn step_generate_woff2(ctx: &PipelineContext) -> Result<()> {
     let woff2_data = convert_to_woff2(&ttf_data)?;
 
     let woff2_path = vf.with_extension("woff2");
-    std::fs::write(&woff2_path, &woff2_data)?;
+    write(&woff2_path, &woff2_data)?;
 
     let ttf_size = ttf_data.len() as f64 / 1024.0;
     let woff2_size = woff2_data.len() as f64 / 1024.0;
     let ratio = woff2_size / ttf_size * 100.0;
     println!(
-        "  Output: {} ({:.1} KB -> {:.1} KB, {:.1}%)",
-        woff2_path.display(),
-        ttf_size,
-        woff2_size,
-        ratio
+        "  Output: {} ({ttf_size:.1} KB -> {woff2_size:.1} KB, {ratio:.1}%)",
+        woff2_path.display()
     );
 
     Ok(())
