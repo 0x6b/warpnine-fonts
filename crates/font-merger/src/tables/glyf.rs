@@ -9,7 +9,7 @@
 //! instructions that reference incompatible function numbers or CVT indices
 //! could cause rendering errors or crashes.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use read_fonts::{TableProvider, tables::glyf::Glyph as ReadGlyph};
 use write_fonts::tables::{
@@ -94,7 +94,7 @@ pub fn merge_glyf(ctx: &MergeContext) -> Result<Option<(Glyf, Loca, LocaFormat)>
 
     // Build set of empty glyph GIDs for composite validation
     // OTS (used by Firefox) rejects composites referencing empty glyphs
-    let empty_glyph_gids: std::collections::HashSet<u16> = ctx
+    let empty_glyph_gids: HashSet<u16> = ctx
         .mega()
         .iter()
         .enumerate()
