@@ -2056,8 +2056,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ttf2woff2"
-version = "0.10.1"
-source = "git+https://github.com/0x6b/ttf2woff2?tag=v0.10.1#2dc74ca4552553080a2e75f02240960eea43eaa6"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8b30042fc1ab16de6346cbaa1a9eaddcb0798ebb0df586f7e46c87c215311a6"
 dependencies = [
  "brotli",
  "byteorder",
