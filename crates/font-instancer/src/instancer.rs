@@ -1,6 +1,9 @@
 //! Variable font instantiation.
 
-use std::{collections::HashMap, iter::repeat_n};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::repeat_n,
+};
 
 pub use read_fonts::tables::glyf::CurvePoint;
 use read_fonts::{
@@ -159,6 +162,26 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
 
     // Pass 2: Recompute composite glyph bboxes from component bboxes
     recompute_composite_bboxes(&mut glyphs, &mut glyph_bboxes);
+
+    // Pass 2.5: Convert composites that reference empty glyphs to empty glyphs
+    // OTS (used by Firefox) warns about composites referencing empty glyphs
+    let empty_glyph_gids: HashSet<u16> = glyphs
+        .iter()
+        .enumerate()
+        .filter_map(|(gid, g)| matches!(g, WriteGlyph::Empty).then_some(gid as u16))
+        .collect();
+
+    for glyph in &mut glyphs {
+        if let WriteGlyph::Composite(composite) = glyph {
+            let references_empty = composite
+                .components()
+                .iter()
+                .any(|comp| empty_glyph_gids.contains(&comp.glyph.to_u16()));
+            if references_empty {
+                *glyph = WriteGlyph::Empty;
+            }
+        }
+    }
 
     // Pass 3: Build glyf table, compute font bounds, and collect new LSBs
     let mut glyf_builder = GlyfLocaBuilder::new();
