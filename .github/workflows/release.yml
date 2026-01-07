@@ -57,6 +57,7 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           files: |
             dist/*.ttf
+            dist/*.woff2
             OFL
           generate_release_notes: true
           draft: false
