@@ -51,14 +51,16 @@ jobs:
       - name: Build fonts
         run: ./target/release/warpnine-fonts build --version ${{ steps.version.outputs.version }}
 
+      - name: Create zip archive
+        run: |
+          cd dist
+          zip -r ../warpnine-fonts-${{ steps.version.outputs.version }}.zip *.ttf *.woff2 ../OFL
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          files: |
-            dist/*.ttf
-            dist/*.woff2
-            OFL
+          files: warpnine-fonts-${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
           draft: false
           prerelease: false
