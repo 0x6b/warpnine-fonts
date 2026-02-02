@@ -2,7 +2,7 @@
 
 use std::{
     collections::{BTreeSet, HashSet},
-    fmt::{self, Formatter, Result},
+    fmt::{Display, Formatter, Result},
 };
 
 use read_fonts::types::Tag;
@@ -208,7 +208,7 @@ pub struct FreezeStats {
     pub substitutions_applied: usize,
 }
 
-impl fmt::Display for FreezeStats {
+impl Display for FreezeStats {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(
             f,
@@ -225,7 +225,7 @@ pub struct FontReport {
     pub features: Vec<String>,
 }
 
-impl fmt::Display for FontReport {
+impl Display for FontReport {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(f, "# Scripts and languages:")?;
         for sl in &self.scripts_langs {

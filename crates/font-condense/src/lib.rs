@@ -6,7 +6,7 @@
 use anyhow::Result;
 use read_fonts::{
     FontRef, TableProvider,
-    tables::{self, glyf::CurvePoint},
+    tables::{self, glyf, glyf::CurvePoint},
     types::{GlyphId, Tag},
 };
 use write_fonts::{
@@ -63,7 +63,7 @@ fn scale_simple_glyph(glyph: &tables::glyf::SimpleGlyph, scale_x: f32) -> Simple
 }
 
 /// Scales a composite glyph's component offsets by the given factor.
-fn scale_composite_glyph(glyph: &tables::glyf::CompositeGlyph, scale_x: f32) -> CompositeGlyph {
+fn scale_composite_glyph(glyph: &glyf::CompositeGlyph, scale_x: f32) -> CompositeGlyph {
     let mut components = Vec::new();
 
     for c in glyph.components() {

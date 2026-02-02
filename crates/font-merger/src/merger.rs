@@ -1,6 +1,6 @@
 //! Main Merger implementation
 
-use std::collections::HashSet;
+use std::{collections::HashSet, result};
 
 use log::info;
 use read_fonts::{FontRef, TableProvider, types::Tag};
@@ -55,7 +55,7 @@ impl Merger {
         let fonts: Vec<_> = font_data
             .iter()
             .map(|data| FontRef::new(data))
-            .collect::<std::result::Result<_, _>>()?;
+            .collect::<result::Result<_, _>>()?;
 
         self.merge_fonts(&fonts)
     }

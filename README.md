@@ -1,8 +1,8 @@
 # Warpnine Fonts
 
-Custom fonts based on [Recursive](https://github.com/arrowtype/recursive) [1.085](https://github.com/arrowtype/recursive/releases/tag/v1.085) and [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) [`f8d15753`](https://github.com/notofonts/noto-cjk/tree/f8d157532fbfaeda587e826d4cd5b21a49186f7c).
+Custom fonts based on [Recursive](https://github.com/arrowtype/recursive) [1.085](https://github.com/arrowtype/recursive/releases/tag/v1.085), [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) [2.304](https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304), and [Noto Sans Mono CJK JP](https://github.com/notofonts/noto-cjk) [`f8d15753`](https://github.com/notofonts/noto-cjk/tree/f8d157532fbfaeda587e826d4cd5b21a49186f7c).
 
-- **WarpnineMono**: Monospace font using Recursive Mono Duotone (Linear for Light/Regular, Casual for Medium+) merged with Noto CJK for Japanese characters.
+- **WarpnineMono**: Monospace font using Recursive Mono Duotone (Linear for Light/Regular, Casual for Medium+) with JetBrains Mono box drawing characters and Noto CJK for Japanese characters.
 - **WarpnineSans**: Proportional sans-serif using Recursive Sans Linear (Latin only).
 - **WarpnineSansCondensed**: Condensed variant of WarpnineSans (90% width, Latin only).
 
@@ -30,6 +30,7 @@ Releases are automatically built and published via GitHub Actions when a tag mat
   - `dlig`, `liga`, `pnum`
   - `ss01` through `ss08`, `ss10`, `ss11`, `ss12`
   - See [OpenType Features](#opentype-features) for details
+- Box Drawing: Full-height box drawing characters (U+2500-U+257F) from JetBrains Mono for seamless terminal UI
 - CJK Support: Full Japanese character coverage (99% Kanji, 98% Hiragana/Katakana)
 - Static Fonts: Light through ExtraBlack, both upright and italic
 - Mixed CASL Style: Light/Regular use Linear (traditional), Medium+ use Casual (rounder)
@@ -168,5 +169,6 @@ $ uv run pytest tests/ -v
 - The build tools and source code are licensed under the MIT. See [License](./LICENSE).
 - The fonts are licensed under the SIL Open Font License. See [OFL](./OFL) for detail. This project combines fonts with the following licenses:
   - Recursive Mono: [SIL Open Font License](https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt)
+  - JetBrains Mono: [SIL Open Font License](https://raw.githubusercontent.com/JetBrains/JetBrainsMono/v2.304/OFL.txt)
   - Noto Sans Mono CJK JP: [SIL Open Font License](https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE)
 - The sample text in the [PDF](docs/sample.pdf) is an excerpt from "[Mathematical Games](https://www.scientificamerican.com/article/mathematical-games-1970-10/)" by Martin Gardner, published in *Scientific American* Vol. 223 No. 4 (October 1970), p. 120. [doi:10.1038/scientificamerican1070-120](https://doi.org/10.1038/scientificamerican1070-120)

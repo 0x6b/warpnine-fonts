@@ -5,8 +5,7 @@
 
 use std::{
     borrow::Borrow,
-    fmt,
-    fmt::{Formatter, Result},
+    fmt::{Display, Formatter, Result},
     ops::Deref,
 };
 
@@ -69,7 +68,7 @@ impl PartialEq<String> for GlyphName {
     }
 }
 
-impl fmt::Display for GlyphName {
+impl Display for GlyphName {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str(&self.0)
     }

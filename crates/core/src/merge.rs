@@ -145,3 +145,45 @@ pub fn merge_batch(
     let batch_merger = BatchMerger::from_file(fallback)?;
     batch_merger.merge_batch(base_fonts, output_dir)
 }
+
+/// Merge base fonts with multiple fallback fonts in priority order.
+///
+/// Each base font is merged with all fallback fonts, where earlier fallbacks
+/// take priority for glyphs present in multiple fonts.
+pub fn merge_with_fallbacks(
+    base_fonts: &[impl AsRef<Path> + Sync],
+    fallbacks: &[&Path],
+    output_dir: &Path,
+) -> Result<()> {
+    use warpnine_font_merger::Options as MergeOptions;
+
+    info!("Merging {} fonts with {} fallbacks", base_fonts.len(), fallbacks.len());
+
+    let fallback_data: Vec<Vec<u8>> = fallbacks.iter().map(read_font).collect::<Result<_>>()?;
+
+    create_dir_all(output_dir)?;
+
+    let options = MergeOptions::default().drop_table("vhea").drop_table("vmtx");
+
+    base_fonts.par_iter().try_for_each(|base_path| -> Result<()> {
+        let base_path = base_path.as_ref();
+        let base_data = read_font(base_path)?;
+
+        let mut font_slices: Vec<&[u8]> = vec![&base_data];
+        font_slices.extend(fallback_data.iter().map(|v| v.as_slice()));
+
+        let merger = Merger::new(options.clone());
+        let merged_data = merger
+            .merge(&font_slices)
+            .with_context(|| format!("Failed to merge {}", base_path.display()))?;
+
+        let output = output_dir.join(base_path.file_name().unwrap());
+        write_font(&output, &merged_data)?;
+
+        info!("Merged: {}", output.display());
+        Ok(())
+    })?;
+
+    info!("Merged {} fonts", base_fonts.len());
+    Ok(())
+}
