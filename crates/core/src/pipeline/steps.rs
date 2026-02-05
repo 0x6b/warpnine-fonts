@@ -366,18 +366,25 @@ fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
     const MONO_COPYRIGHT: &str =
         "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP.";
 
-    let count = set_names_for_pattern(
-        &ctx.dist_dir,
-        "WarpnineMono-VF.ttf",
-        "Warpnine Mono",
-        "WarpnineMono",
-        MONO_COPYRIGHT,
-        "WarpnineMono-",
-    )?;
-
-    if count == 0 {
+    let vf_path = ctx.vf_output();
+    if !vf_path.exists() {
         println!("  VF not found, skipping name setting");
+        return Ok(());
     }
+
+    println!("  Setting names for 1 fonts ({})...", vf_path.file_name().unwrap().to_string_lossy());
+
+    // Variable fonts should have:
+    // - ID 1 (Family): Just the family name, not "Family VF"
+    // - ID 17 (Typographic Subfamily): "Regular" as the default instance
+    let naming = FontNaming {
+        family: "Warpnine Mono".to_string(),
+        style: "Regular".to_string(),
+        postscript_family: Some("WarpnineMono".to_string()),
+        copyright_extra: Some(MONO_COPYRIGHT.to_string()),
+    };
+
+    set_name(&vf_path, &naming)?;
 
     Ok(())
 }
