@@ -2,7 +2,7 @@
 
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
-    fmt::Formatter,
+    fmt::{Debug, Formatter},
     iter::once,
     result,
 };
@@ -25,7 +25,7 @@ pub struct Font<'a> {
     inner: FontRef<'a>,
 }
 
-impl std::fmt::Debug for Font<'_> {
+impl Debug for Font<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Font")
             .field("data_len", &self.data.len())

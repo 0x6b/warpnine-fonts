@@ -859,7 +859,7 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
 fn build_gdef_without_varstore(
     gdef: &read_fonts::tables::gdef::Gdef,
 ) -> write_fonts::tables::gdef::Gdef {
-    use write_fonts::{from_obj::ToOwnedTable, tables::gdef::Gdef};
+    use write_fonts::from_obj::ToOwnedTable;
 
     let glyph_class_def = gdef
         .glyph_class_def()
@@ -886,7 +886,12 @@ fn build_gdef_without_varstore(
         .flatten()
         .map(|m| m.to_owned_table());
 
-    Gdef::new(glyph_class_def, attach_list, lig_caret_list, mark_attach_class_def)
+    write_fonts::tables::gdef::Gdef::new(
+        glyph_class_def,
+        attach_list,
+        lig_caret_list,
+        mark_attach_class_def,
+    )
 }
 
 /// Build a GSUB table without FeatureVariations.
@@ -898,11 +903,11 @@ fn build_gdef_without_varstore(
 fn build_gsub_without_feature_variations(
     gsub: &read_fonts::tables::gsub::Gsub,
 ) -> write_fonts::tables::gsub::Gsub {
-    use write_fonts::{from_obj::ToOwnedTable, tables::gsub::Gsub};
+    use write_fonts::from_obj::ToOwnedTable;
 
     let script_list = gsub.script_list().unwrap().to_owned_table();
     let feature_list = gsub.feature_list().unwrap().to_owned_table();
     let lookup_list = gsub.lookup_list().unwrap().to_owned_table();
 
-    Gsub::new(script_list, feature_list, lookup_list)
+    write_fonts::tables::gsub::Gsub::new(script_list, feature_list, lookup_list)
 }

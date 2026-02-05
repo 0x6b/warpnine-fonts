@@ -67,6 +67,36 @@ pub const JAPANESE_RANGES: &[(u32, u32)] = &[
     (0x2F800, 0x2FA1F),
 ];
 
+/// Symbol ranges useful for terminal/programming applications.
+///
+/// These ranges contain characters commonly used in terminal UIs, mathematical
+/// notation, and programming documentation. They are included in the Japanese
+/// preset to preserve useful symbols from the Noto CJK font.
+///
+/// Includes:
+/// - Arrows (U+2190-U+21FF): ← ↑ → ↓ ⇐ ⇒ ⇔
+/// - Mathematical Operators (U+2200-U+22FF): ∀ ∃ ∈ ∧ ∨ ∩ ∪ ∞ ≠ ≤ ≥
+/// - Miscellaneous Technical (U+2300-U+23FF): ⌘ ⏎
+/// - Control Pictures (U+2400-U+243F): ␣
+/// - Enclosed Alphanumerics (U+2460-U+24FF): ① ② ③ Ⓐ Ⓑ
+/// - Box Drawing (U+2500-U+257F): ┌ ─ ┐ │ └ ┘ ═ ║
+/// - Block Elements (U+2580-U+259F): █ ▀ ▄ ░ ▒ ▓
+/// - Geometric Shapes (U+25A0-U+25FF): ■ □ ▲ △ ● ○ ◆ ◇
+/// - Miscellaneous Symbols (U+2600-U+26FF): ★ ☆ ♠ ♥ ⚠
+/// - Dingbats (U+2700-U+27BF): ✓ ✂ ❶ ❷ ➡
+pub const SYMBOL_RANGES: &[(u32, u32)] = &[
+    (0x2190, 0x21FF), // Arrows
+    (0x2200, 0x22FF), // Mathematical Operators
+    (0x2300, 0x23FF), // Miscellaneous Technical
+    (0x2400, 0x243F), // Control Pictures
+    (0x2460, 0x24FF), // Enclosed Alphanumerics
+    (0x2500, 0x257F), // Box Drawing
+    (0x2580, 0x259F), // Block Elements
+    (0x25A0, 0x25FF), // Geometric Shapes
+    (0x2600, 0x26FF), // Miscellaneous Symbols
+    (0x2700, 0x27BF), // Dingbats
+];
+
 /// Layout features to retain during subsetting.
 ///
 /// These OpenType features are commonly used for proper text rendering
@@ -104,16 +134,35 @@ impl Subsetter {
     /// Creates a subsetter pre-configured for Japanese font subsetting.
     ///
     /// This preset:
-    /// - Uses [`JAPANESE_RANGES`] for Unicode coverage
+    /// - Uses [`JAPANESE_RANGES`] and [`SYMBOL_RANGES`] for Unicode coverage
     /// - Drops variable font tables
     /// - Retains glyph names
     /// - Uses standard [`LAYOUT_FEATURES`]
     pub fn japanese() -> Self {
+        let mut ranges = JAPANESE_RANGES.to_vec();
+        ranges.extend_from_slice(SYMBOL_RANGES);
         Self {
-            unicode_ranges: JAPANESE_RANGES.to_vec(),
+            unicode_ranges: ranges,
             exclude_codepoints: Vec::new(),
             drop_vf_tables: true,
             retain_glyph_names: true,
+            layout_features: LAYOUT_FEATURES.iter().map(|f| **f).collect(),
+        }
+    }
+
+    /// Creates a subsetter pre-configured for box drawing characters only.
+    ///
+    /// This preset:
+    /// - Uses only box drawing range (U+2500-U+257F)
+    /// - Does not drop variable font tables (source is static)
+    /// - Does not retain glyph names
+    /// - Uses standard [`LAYOUT_FEATURES`]
+    pub fn box_drawing() -> Self {
+        Self {
+            unicode_ranges: vec![(0x2500, 0x257F)],
+            exclude_codepoints: Vec::new(),
+            drop_vf_tables: false,
+            retain_glyph_names: false,
             layout_features: LAYOUT_FEATURES.iter().map(|f| **f).collect(),
         }
     }
@@ -236,6 +285,11 @@ mod tests {
     }
 
     #[test]
+    fn test_symbol_ranges_count() {
+        assert_eq!(SYMBOL_RANGES.len(), 10);
+    }
+
+    #[test]
     fn test_layout_features_count() {
         assert_eq!(LAYOUT_FEATURES.len(), 20);
     }
@@ -264,6 +318,7 @@ mod tests {
         let subsetter = Subsetter::japanese();
         assert!(subsetter.drop_vf_tables);
         assert!(subsetter.retain_glyph_names);
-        assert_eq!(subsetter.unicode_ranges.len(), 21);
+        // 21 Japanese ranges + 10 symbol ranges
+        assert_eq!(subsetter.unicode_ranges.len(), JAPANESE_RANGES.len() + SYMBOL_RANGES.len());
     }
 }

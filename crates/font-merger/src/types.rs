@@ -5,7 +5,7 @@
 
 use std::{
     fmt,
-    fmt::{Formatter, Result},
+    fmt::{Display, Formatter, Result},
 };
 
 use read_fonts::types::Tag;
@@ -78,7 +78,7 @@ impl From<FontIndex> for usize {
     }
 }
 
-impl fmt::Display for FontIndex {
+impl Display for FontIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "Font[{}]", self.0)
     }
@@ -128,7 +128,7 @@ impl From<Codepoint> for u32 {
     }
 }
 
-impl fmt::Display for Codepoint {
+impl Display for Codepoint {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "U+{:04X}", self.0)
     }
@@ -182,7 +182,7 @@ impl From<&TableTag> for Tag {
     }
 }
 
-impl fmt::Display for TableTag {
+impl Display for TableTag {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.0)
     }

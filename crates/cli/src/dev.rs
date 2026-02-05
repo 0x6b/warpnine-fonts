@@ -228,7 +228,12 @@ impl DevCommands {
             }
             DevCommands::SubsetJapanese { input, output } => {
                 let data = read_font(&input)?;
-                let subset_data = Subsetter::japanese().subset(&data)?;
+                let subset_data = Subsetter::japanese()
+                    .exclude_codepoints([
+                        0x25CB, // ○ WHITE CIRCLE
+                        0x25CF, // ● BLACK CIRCLE
+                    ])
+                    .subset(&data)?;
                 write_font(&output, subset_data)?;
                 println!("Subset {} -> {}", input.display(), output.display());
             }

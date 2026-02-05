@@ -12,7 +12,7 @@ use crate::{
     freeze_batch::{AutoRvrn, freeze_features},
     instance::{AxisLocation, InstanceDef, create_instances_batch},
     io::{check_results, glob_fonts, read_font, write_font},
-    merge::merge_batch,
+    merge::merge_with_fallbacks,
     styles::{FeatureTag, MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
     warpnine::{
         condense::create_condensed,
@@ -31,6 +31,7 @@ pub const MONO_STEPS: &[PipelineStep] = &[
     ("remove-ligatures", step_remove_ligatures),
     ("extract-noto-weights", step_extract_noto_weights),
     ("subset-noto", step_subset_noto),
+    ("subset-jetbrains-box", step_subset_jetbrains_box),
     ("merge", step_merge),
     ("set-names-mono", step_set_names_mono),
     ("freeze-static-mono", step_freeze_static_mono),
@@ -128,20 +129,37 @@ fn step_subset_noto(ctx: &PipelineContext) -> Result<()> {
         let input = ctx.build_dir.join(format!("Noto-{weight}.ttf"));
         let output = ctx.build_dir.join(format!("Noto-{weight}-subset.ttf"));
         let data = read_font(&input)?;
-        let subset_data = Subsetter::japanese().subset(&data)?;
+        let subset_data = Subsetter::japanese()
+            .exclude_codepoints([
+                0x25CB, // ○ WHITE CIRCLE
+                0x25CF, // ● BLACK CIRCLE
+            ])
+            .subset(&data)?;
         write_font(&output, subset_data)?;
     }
     Ok(())
 }
 
+fn step_subset_jetbrains_box(ctx: &PipelineContext) -> Result<()> {
+    println!("  Subsetting JetBrains Mono to box drawing characters...");
+
+    let input = &ctx.jetbrains_mono;
+    let output = ctx.build_dir.join("JetBrainsMono-BoxDrawing.ttf");
+    let data = read_font(input)?;
+    let subset_data = Subsetter::box_drawing().subset(&data)?;
+    write_font(&output, subset_data)?;
+    Ok(())
+}
+
 fn step_merge(ctx: &PipelineContext) -> Result<()> {
-    println!("  Merging Duotone + Noto CJK into WarpnineMono...");
+    println!("  Merging Duotone + JetBrains (box) + Noto CJK into WarpnineMono...");
 
     let duotone_fonts = ctx.build_fonts("RecMonoDuotone-*.ttf")?;
-    let fallback = ctx.build_dir.join("Noto-400-subset.ttf");
+    let jetbrains_box = ctx.build_dir.join("JetBrainsMono-BoxDrawing.ttf");
+    let noto_subset = ctx.build_dir.join("Noto-400-subset.ttf");
 
     create_dir_all(&ctx.dist_dir)?;
-    merge_batch(&duotone_fonts, &fallback, &ctx.dist_dir)?;
+    merge_with_fallbacks(&duotone_fonts, &[&jetbrains_box, &noto_subset], &ctx.dist_dir)?;
 
     for font in ctx.dist_fonts("RecMonoDuotone-*.ttf")? {
         let new_name = font

@@ -20,7 +20,7 @@ pub use vf::{build_warpnine_mono_vf, warpnine_mono_designspace};
 
 use crate::{
     FontVersion,
-    config::{NOTO_CJK_VF_FILENAME, RECURSIVE_VF_FILENAME},
+    config::{JETBRAINS_MONO_FILENAME, NOTO_CJK_VF_FILENAME, RECURSIVE_VF_FILENAME},
     io::glob_fonts,
 };
 
@@ -29,6 +29,7 @@ pub struct PipelineContext {
     pub dist_dir: PathBuf,
     pub recursive_vf: PathBuf,
     pub noto_vf: PathBuf,
+    pub jetbrains_mono: PathBuf,
     pub version: FontVersion,
 }
 
@@ -37,11 +38,13 @@ impl PipelineContext {
         let version = FontVersion::parse(version.as_deref())?;
         let recursive_vf = build_dir.join(RECURSIVE_VF_FILENAME);
         let noto_vf = build_dir.join(NOTO_CJK_VF_FILENAME);
+        let jetbrains_mono = build_dir.join(JETBRAINS_MONO_FILENAME);
         Ok(Self {
             build_dir,
             dist_dir,
             recursive_vf,
             noto_vf,
+            jetbrains_mono,
             version,
         })
     }

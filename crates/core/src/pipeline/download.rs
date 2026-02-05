@@ -11,8 +11,9 @@ use rayon::prelude::*;
 use reqwest::blocking::get;
 
 use crate::config::{
-    NOTO_CJK_LICENSE_URL, NOTO_CJK_VF_FILENAME, NOTO_CJK_VF_URL, RECURSIVE_LICENSE_URL,
-    RECURSIVE_VF_FILENAME, RECURSIVE_ZIP_PATH, RECURSIVE_ZIP_URL,
+    JETBRAINS_MONO_FILENAME, JETBRAINS_MONO_LICENSE_URL, JETBRAINS_MONO_ZIP_PATH,
+    JETBRAINS_MONO_ZIP_URL, NOTO_CJK_LICENSE_URL, NOTO_CJK_VF_FILENAME, NOTO_CJK_VF_URL,
+    RECURSIVE_LICENSE_URL, RECURSIVE_VF_FILENAME, RECURSIVE_ZIP_PATH, RECURSIVE_ZIP_URL,
 };
 
 struct DownloadItem {
@@ -36,6 +37,11 @@ const DOWNLOADS: &[DownloadItem] = &[
         url: RECURSIVE_LICENSE_URL,
         output_name: "LICENSE-Recursive.txt",
         description: "Recursive License (OFL)",
+    },
+    DownloadItem {
+        url: JETBRAINS_MONO_LICENSE_URL,
+        output_name: "LICENSE-JetBrainsMono.txt",
+        description: "JetBrains Mono License (OFL)",
     },
 ];
 
@@ -87,23 +93,70 @@ fn download_recursive_vf(output_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+fn download_jetbrains_mono(output_dir: &Path) -> Result<()> {
+    let target = output_dir.join(JETBRAINS_MONO_FILENAME);
+    println!("Downloading JetBrains Mono");
+    println!("  {JETBRAINS_MONO_FILENAME}");
+
+    let response = get(JETBRAINS_MONO_ZIP_URL)
+        .with_context(|| format!("Failed to fetch {JETBRAINS_MONO_ZIP_URL}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        bail!("HTTP {status} for {JETBRAINS_MONO_ZIP_URL}");
+    }
+
+    let bytes = response.bytes()?;
+    let cursor = Cursor::new(bytes.as_ref());
+    let mut archive = zip::ZipArchive::new(cursor).context("Failed to open zip archive")?;
+
+    let mut file = archive
+        .by_name(JETBRAINS_MONO_ZIP_PATH)
+        .with_context(|| format!("File {JETBRAINS_MONO_ZIP_PATH} not found in zip"))?;
+
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    write(&target, &buffer)?;
+
+    let size_mb = buffer.len() as f64 / 1024.0 / 1024.0;
+    println!("  Downloaded ({size_mb:.2} MB)");
+    Ok(())
+}
+
+/// Download task type for parallel processing.
+enum DownloadTask<'a> {
+    File(&'a DownloadItem),
+    RecursiveVf,
+    JetBrainsMono,
+}
+
 pub fn download(build_dir: &Path) -> Result<()> {
     create_dir_all(build_dir)?;
     println!("Downloading fonts to {}", build_dir.display());
 
     let failure_count = AtomicUsize::new(0);
-    let total_count = DOWNLOADS.len() + 1;
 
-    let all_items: Vec<Option<&DownloadItem>> =
-        DOWNLOADS.iter().map(Some).chain(once(None)).collect();
+    // Build list of all download tasks
+    let tasks: Vec<DownloadTask> = DOWNLOADS
+        .iter()
+        .map(DownloadTask::File)
+        .chain(once(DownloadTask::RecursiveVf))
+        .chain(once(DownloadTask::JetBrainsMono))
+        .collect();
 
-    all_items.par_iter().for_each(|item| {
-        let result = match item {
-            Some(dl) => download_file(dl, build_dir),
-            None => download_recursive_vf(build_dir),
+    let total_count = tasks.len();
+
+    tasks.par_iter().for_each(|task| {
+        let result = match task {
+            DownloadTask::File(dl) => download_file(dl, build_dir),
+            DownloadTask::RecursiveVf => download_recursive_vf(build_dir),
+            DownloadTask::JetBrainsMono => download_jetbrains_mono(build_dir),
         };
         if let Err(e) = result {
-            let name = item.map_or("Recursive VF", |i| i.description);
+            let name = match task {
+                DownloadTask::File(dl) => dl.description,
+                DownloadTask::RecursiveVf => "Recursive VF",
+                DownloadTask::JetBrainsMono => "JetBrains Mono",
+            };
             eprintln!("Error downloading {name}: {e:?}");
             failure_count.fetch_add(1, Ordering::Relaxed);
         }
