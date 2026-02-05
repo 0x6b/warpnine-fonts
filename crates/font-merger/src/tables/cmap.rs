@@ -6,12 +6,14 @@ use indexmap::{IndexMap, map::Entry};
 use read_fonts::{
     FontRef, TableProvider,
     tables::cmap::{Cmap as ReadCmap, CmapSubtable, PlatformId},
-    types,
 };
-use write_fonts::tables::cmap::Cmap;
+use write_fonts::tables::cmap::{
+    Cmap, Cmap12, CmapSubtable as WriteCmapSubtable, EncodingRecord, PlatformId as WritePlatformId,
+    SequentialMapGroup,
+};
 
 use crate::{
-    MergeError, Result,
+    Result,
     context::GlyphOrder,
     glyph_order::GlyphName,
     types::{Codepoint, GlyphId},
@@ -59,21 +61,84 @@ pub fn merge_cmap(
         }
     }
 
-    // Build the cmap
-    let mut mappings: Vec<(char, types::GlyphId)> = codepoint_to_glyph
+    // Build the cmap using format 12 only to avoid format 4 overflow with large character sets
+    let mut mappings: Vec<(u32, u32)> = codepoint_to_glyph
         .iter()
         .filter_map(|(cp, name)| {
             let mega_gid = glyph_order.mega_id(name)?;
-            let ch = cp.to_char()?;
-            Some((ch, read_fonts::types::GlyphId::new(mega_gid.to_u32())))
+            Some((cp.to_u32(), mega_gid.to_u32()))
         })
         .collect();
 
-    mappings.sort_by_key(|(ch, _)| *ch);
+    mappings.sort_by_key(|(cp, _)| *cp);
 
-    let cmap = Cmap::from_mappings(mappings).map_err(|_| MergeError::CmapBuildError)?;
+    let cmap = build_cmap_format12(&mappings);
 
     Ok((cmap, duplicate_info))
+}
+
+/// Build a cmap table using only format 12 subtables.
+///
+/// This avoids the format 4 overflow issue that occurs with large character sets
+/// (format 4 uses u16 for segment counts and can overflow with >32k entries).
+fn build_cmap_format12(mappings: &[(u32, u32)]) -> Cmap {
+    // Build sequential map groups by finding contiguous runs
+    let groups = build_sequential_groups(mappings);
+
+    let cmap12 = Cmap12 { language: 0, groups };
+
+    // Create encoding records for Unicode platform (required for cross-platform support)
+    // Platform 0 (Unicode), Encoding 4 (Unicode full repertoire)
+    // Platform 3 (Windows), Encoding 10 (Unicode full repertoire)
+    let encoding_records = vec![
+        EncodingRecord::new(
+            WritePlatformId::Unicode,
+            4, // Full Unicode
+            WriteCmapSubtable::Format12(cmap12.clone()),
+        ),
+        EncodingRecord::new(
+            WritePlatformId::Windows,
+            10, // Full Unicode
+            WriteCmapSubtable::Format12(cmap12),
+        ),
+    ];
+
+    Cmap::new(encoding_records)
+}
+
+/// Build sequential map groups from sorted (codepoint, glyph_id) pairs.
+///
+/// Groups consecutive codepoints that map to consecutive glyph IDs.
+fn build_sequential_groups(mappings: &[(u32, u32)]) -> Vec<SequentialMapGroup> {
+    if mappings.is_empty() {
+        return Vec::new();
+    }
+
+    let mut groups = Vec::new();
+    let mut group_start_cp = mappings[0].0;
+    let mut group_start_gid = mappings[0].1;
+    let mut prev_cp = group_start_cp;
+    let mut prev_gid = group_start_gid;
+
+    for &(cp, gid) in &mappings[1..] {
+        // Check if this continues the current group (consecutive codepoint AND glyph ID)
+        if cp == prev_cp + 1 && gid == prev_gid + 1 {
+            prev_cp = cp;
+            prev_gid = gid;
+        } else {
+            // End the current group and start a new one
+            groups.push(SequentialMapGroup::new(group_start_cp, prev_cp, group_start_gid));
+            group_start_cp = cp;
+            group_start_gid = gid;
+            prev_cp = cp;
+            prev_gid = gid;
+        }
+    }
+
+    // Don't forget the last group
+    groups.push(SequentialMapGroup::new(group_start_cp, prev_cp, group_start_gid));
+
+    groups
 }
 
 fn find_best_subtable<'a>(cmap: &'a ReadCmap<'a>) -> Option<CmapSubtable<'a>> {
