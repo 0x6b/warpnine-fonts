@@ -51,7 +51,7 @@ class VariableFontSpec:
 
 # WarpnineMono: 16 static fonts merged with Noto Sans Mono CJK
 MONO_SPEC = FontSpec(
-    glyph_count=51544,  # Rust pipeline with all layout features (dlig, liga, etc.)
+    glyph_count=52231,  # Rust pipeline with all layout features (dlig, liga, etc.)
     is_monospace=True,
 )
 
@@ -68,7 +68,7 @@ MONO_WEIGHTS = {
 
 # WarpnineMono Variable Font
 MONO_VF_SPEC = VariableFontSpec(
-    glyph_count=51544,  # Rust pipeline with all layout features
+    glyph_count=52231,  # Rust pipeline with all layout features
     axes={
         "wght": (300.0, 400.0, 1000.0),
         "ital": (0.0, 0.0, 1.0),

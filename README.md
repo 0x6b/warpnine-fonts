@@ -32,6 +32,7 @@ Releases are automatically built and published via GitHub Actions when a tag mat
   - See [OpenType Features](#opentype-features) for details
 - Box Drawing: Full-height box drawing characters (U+2500-U+257F) from JetBrains Mono for seamless terminal UI
 - CJK Support: Full Japanese character coverage (99% Kanji, 98% Hiragana/Katakana)
+- CJK Weight Range: Japanese glyphs interpolate across wght 400-700 (Noto CJK source range); Light=Regular and ExtraBold/Black/ExtraBlack=Bold for CJK shapes
 - Static Fonts: Light through ExtraBlack, both upright and italic
 - Mixed CASL Style: Light/Regular use Linear (traditional), Medium+ use Casual (rounder)
 
