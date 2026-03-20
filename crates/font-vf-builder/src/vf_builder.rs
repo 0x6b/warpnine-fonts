@@ -142,7 +142,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
 
     // Copy GSUB without FeatureVariations (source uses wrong axis indices)
     if let Ok(gsub) = default_font.gsub() {
-        let new_gsub = build_gsub_without_feature_variations(&gsub);
+        let new_gsub = build_gsub_without_feature_variations(&gsub)?;
         builder.add_table(&new_gsub)?;
     }
 
@@ -161,7 +161,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
 }
 
 fn verify_glyph_compatibility(designspace: &DesignSpace, masters: &[FontRef]) -> Result<()> {
-    let default_idx = designspace.default_source_index().unwrap();
+    let default_idx = designspace.default_source_index().ok_or(Error::NoDefaultSource)?;
     let default_font = &masters[default_idx];
     let expected_glyphs = default_font.maxp()?.num_glyphs();
 
@@ -902,12 +902,12 @@ fn build_gdef_without_varstore(
 /// validation errors.
 fn build_gsub_without_feature_variations(
     gsub: &read_fonts::tables::gsub::Gsub,
-) -> write_fonts::tables::gsub::Gsub {
+) -> Result<write_fonts::tables::gsub::Gsub> {
     use write_fonts::from_obj::ToOwnedTable;
 
-    let script_list = gsub.script_list().unwrap().to_owned_table();
-    let feature_list = gsub.feature_list().unwrap().to_owned_table();
-    let lookup_list = gsub.lookup_list().unwrap().to_owned_table();
+    let script_list = gsub.script_list()?.to_owned_table();
+    let feature_list = gsub.feature_list()?.to_owned_table();
+    let lookup_list = gsub.lookup_list()?.to_owned_table();
 
-    write_fonts::tables::gsub::Gsub::new(script_list, feature_list, lookup_list)
+    Ok(write_fonts::tables::gsub::Gsub::new(script_list, feature_list, lookup_list))
 }

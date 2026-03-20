@@ -89,7 +89,7 @@ impl Region {
     /// Create a region from a peak location (simple case for corner masters only).
     ///
     /// DEPRECATED: Use from_peak_with_neighbors for proper intermediate master support.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn from_peak(peak: &[f32]) -> Self {
         let axes = peak
             .iter()
@@ -139,7 +139,7 @@ impl Region {
     }
 
     /// Check if this region is the default (all peaks at 0).
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn is_default(&self) -> bool {
         self.axes.iter().all(|(_, peak, _)| *peak == 0.0)
     }
@@ -218,7 +218,7 @@ impl VariationModel {
     /// # Returns
     ///
     /// A tuple of (default_value, deltas) where deltas correspond to `self.regions`.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn compute_deltas(&self, master_values: &[i16]) -> (i16, Vec<i16>) {
         let default_value = master_values[self.default_idx];
         let mut deltas = Vec::with_capacity(self.regions.len());

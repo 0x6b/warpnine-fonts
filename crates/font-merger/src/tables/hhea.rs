@@ -29,8 +29,6 @@ pub fn merge_hhea(fonts: &[FontRef], num_h_metrics: u16) -> Result<Hhea> {
     let min_rsbs: Vec<i16> = tables.iter().map(|t| t.min_right_side_bearing().to_i16()).collect();
     let x_max_extents: Vec<i16> = tables.iter().map(|t| t.x_max_extent().to_i16()).collect();
 
-    let _first_table = &tables[0];
-
     Ok(Hhea {
         ascender: font_types::FWord::new(max(&ascenders)?),
         descender: font_types::FWord::new(min(&descenders)?),

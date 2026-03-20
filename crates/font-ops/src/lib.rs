@@ -130,9 +130,9 @@ pub fn copy_gsub_without_feature_variations(
     let source_font = FontRef::new(source_data).context("Failed to parse source font")?;
     let gsub = source_font.gsub().context("Source font has no GSUB table")?;
 
-    let script_list = gsub.script_list().unwrap().to_owned_table();
-    let feature_list = gsub.feature_list().unwrap().to_owned_table();
-    let lookup_list = gsub.lookup_list().unwrap().to_owned_table();
+    let script_list = gsub.script_list()?.to_owned_table();
+    let feature_list = gsub.feature_list()?.to_owned_table();
+    let lookup_list = gsub.lookup_list()?.to_owned_table();
 
     let new_gsub = Gsub::new(script_list, feature_list, lookup_list);
 

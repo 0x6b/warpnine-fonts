@@ -45,7 +45,7 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let gsub_data = font.table_data(read_fonts::types::Tag::new(b"GSUB")).unwrap();
+    let gsub_data = font.table_data(read_fonts::types::Tag::new(b"GSUB")).context("GSUB table data not found")?;
     let mut gsub_bytes = gsub_data.as_bytes().to_vec();
 
     let modifications =

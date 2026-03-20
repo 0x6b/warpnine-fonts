@@ -372,7 +372,7 @@ fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
         return Ok(());
     }
 
-    println!("  Setting names for 1 fonts ({})...", vf_path.file_name().unwrap().to_string_lossy());
+    println!("  Setting names for 1 fonts ({})...", vf_path.file_name().unwrap_or_default().to_string_lossy());
 
     // Variable fonts should have:
     // - ID 1 (Family): Just the family name, not "Family VF"

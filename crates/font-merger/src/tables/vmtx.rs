@@ -38,11 +38,11 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
             let gid = *gid_val as usize;
 
             let (advance, tsb) = if gid < num_v_metrics {
-                let lm = vmtx.v_metrics().get(gid).unwrap();
+                let lm = vmtx.v_metrics().get(gid).expect("gid within num_v_metrics");
                 (lm.advance.get(), lm.side_bearing.get())
             } else {
                 let last_advance = if num_v_metrics > 0 {
-                    vmtx.v_metrics().get(num_v_metrics - 1).unwrap().advance.get()
+                    vmtx.v_metrics().get(num_v_metrics - 1).expect("num_v_metrics > 0").advance.get()
                 } else {
                     0
                 };

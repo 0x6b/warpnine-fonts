@@ -102,7 +102,7 @@ impl FontVersion {
     /// Compute font revision as YYYY.MMDD.
     pub fn revision(&self) -> Fixed {
         let year = self.date.year() as f64;
-        let month_day = self.date.format("%m%d").to_string().parse::<f64>().unwrap() / 10000.0;
+        let month_day = self.date.format("%m%d").to_string().parse::<f64>().expect("month-day format is always numeric") / 10000.0;
         Fixed::from_f64(year + month_day)
     }
 

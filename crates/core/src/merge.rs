@@ -92,7 +92,7 @@ impl<'a> BatchMerger<'a> {
                 .merge_with_fallback(&base_data)
                 .with_context(|| format!("Failed to merge {}", base_path.display()))?;
 
-            let output = output_dir.join(base_path.file_name().unwrap());
+            let output = output_dir.join(base_path.file_name().context("path has no filename")?);
             write_font(&output, &merged_data)?;
 
             info!("Merged: {}", output.display());
@@ -177,7 +177,7 @@ pub fn merge_with_fallbacks(
             .merge(&font_slices)
             .with_context(|| format!("Failed to merge {}", base_path.display()))?;
 
-        let output = output_dir.join(base_path.file_name().unwrap());
+        let output = output_dir.join(base_path.file_name().context("path has no filename")?);
         write_font(&output, &merged_data)?;
 
         info!("Merged: {}", output.display());

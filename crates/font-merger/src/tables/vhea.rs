@@ -24,8 +24,6 @@ pub fn merge_vhea(fonts: &[FontRef], num_v_metrics: u16) -> Result<Option<Vhea>>
     let min_bsbs: Vec<i16> = tables.iter().map(|t| t.min_bottom_side_bearing().to_i16()).collect();
     let y_max_extents: Vec<i16> = tables.iter().map(|t| t.y_max_extent().to_i16()).collect();
 
-    let _first_table = &tables[0];
-
     Ok(Some(Vhea {
         ascender: font_types::FWord::new(max(&ascenders)?),
         descender: font_types::FWord::new(min(&descenders)?),
