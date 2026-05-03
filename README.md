@@ -7,6 +7,7 @@ Custom fonts based on [Recursive](https://github.com/arrowtype/recursive) [1.085
 - **WarpnineSansCondensed**: Condensed variant of WarpnineSans (90% width, Latin only).
 
 [![Warpnine Fonts Sample](docs/sample.png)](docs/sample.pdf)
+[![Warpnine Fonts Sample (Japanese)](docs/sample-jp.png)](docs/sample.pdf)
 
 ## Download
 
@@ -172,4 +173,4 @@ $ uv run pytest tests/ -v
   - Recursive Mono: [SIL Open Font License](https://raw.githubusercontent.com/arrowtype/recursive/refs/tags/v1.085/OFL.txt)
   - JetBrains Mono: [SIL Open Font License](https://raw.githubusercontent.com/JetBrains/JetBrainsMono/v2.304/OFL.txt)
   - Noto Sans Mono CJK JP: [SIL Open Font License](https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE)
-- The sample text in the [PDF](docs/sample.pdf) is an excerpt from "[Mathematical Games](https://www.scientificamerican.com/article/mathematical-games-1970-10/)" by Martin Gardner, published in *Scientific American* Vol. 223 No. 4 (October 1970), p. 120. [doi:10.1038/scientificamerican1070-120](https://doi.org/10.1038/scientificamerican1070-120)
+- The sample text in the [PDF](docs/sample.pdf) is an excerpt from "[Mathematical Games](https://www.scientificamerican.com/article/mathematical-games-1970-10/)" by Martin Gardner, published in _Scientific American_ Vol. 223 No. 4 (October 1970), p. 120. [doi:10.1038/scientificamerican1070-120](https://doi.org/10.1038/scientificamerican1070-120)

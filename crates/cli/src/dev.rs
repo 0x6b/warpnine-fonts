@@ -312,24 +312,27 @@ fn generate_sample(font_dir: &PathBuf, output: &PathBuf, watch: bool, png: bool)
     }
 
     if png && !watch {
-        let png_output = docs_dir.join("sample.png");
-        let status = Command::new("typst")
-            .arg("compile")
-            .arg("--ignore-system-fonts")
-            .arg("--font-path")
-            .arg(font_dir)
-            .arg("--pages")
-            .arg("1")
-            .arg("--ppi")
-            .arg("288")
-            .arg(&sample_typ)
-            .arg(&png_output)
-            .status()?;
+        // Page 1 → sample.png (Latin overview), page 2 → sample-jp.png (Japanese specimen).
+        for (page, name) in [("1", "sample.png"), ("2", "sample-jp.png")] {
+            let png_output = docs_dir.join(name);
+            let status = Command::new("typst")
+                .arg("compile")
+                .arg("--ignore-system-fonts")
+                .arg("--font-path")
+                .arg(font_dir)
+                .arg("--pages")
+                .arg(page)
+                .arg("--ppi")
+                .arg("288")
+                .arg(&sample_typ)
+                .arg(&png_output)
+                .status()?;
 
-        if !status.success() {
-            bail!("typst compile (PNG) failed with exit code: {:?}", status.code());
+            if !status.success() {
+                bail!("typst compile (PNG) failed with exit code: {:?}", status.code());
+            }
+            println!("Generated: {}", png_output.display());
         }
-        println!("Generated: {}", png_output.display());
     }
 
     Ok(())
