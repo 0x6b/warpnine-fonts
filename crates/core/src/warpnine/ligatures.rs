@@ -5,11 +5,8 @@ use std::{
 
 use anyhow::{Context, Result};
 use read_fonts::{
-    FontRef, TableProvider, TableRef,
-    tables::{
-        gsub::{ChainedSequenceContext, SubstitutionSubtables},
-        layout::ChainedSequenceRuleMarker,
-    },
+    FontRef, TableProvider,
+    tables::gsub::{ChainedSequenceContext, SubstitutionSubtables},
     types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16},
 };
 
@@ -96,7 +93,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             };
 
             for rule_result in rule_set.chained_seq_rules().iter() {
-                let rule: TableRef<'_, ChainedSequenceRuleMarker> = match rule_result {
+                let rule = match rule_result {
                     Ok(r) => r,
                     Err(_) => continue,
                 };
