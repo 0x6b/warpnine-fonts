@@ -14,8 +14,10 @@ use write_fonts::{
     from_obj::ToOwnedTable,
     tables::{
         glyf::{
-            Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, GlyfLocaBuilder,
-            Glyph, SimpleGlyph, Transform,
+            Anchor,
+            Anchor::{Offset, Point},
+            Bbox, Component, ComponentFlags, CompositeGlyph, Contour, GlyfLocaBuilder, Glyph,
+            SimpleGlyph, Transform,
         },
         head::Head,
         hhea::Hhea,
@@ -68,8 +70,8 @@ fn scale_composite_glyph(glyph: &glyf::CompositeGlyph, scale_x: f32) -> Composit
 
     for c in glyph.components() {
         let new_anchor = match c.anchor {
-            Anchor::Offset { x, y } => Anchor::Offset { x: (x as f32 * scale_x).round() as i16, y },
-            Anchor::Point { base, component } => Anchor::Point { base, component },
+            Anchor::Offset { x, y } => Offset { x: (x as f32 * scale_x).round() as i16, y },
+            Anchor::Point { base, component } => Point { base, component },
         };
 
         let new_transform = Transform {

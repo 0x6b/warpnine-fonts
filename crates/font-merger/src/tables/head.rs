@@ -2,8 +2,9 @@
 
 use std::result;
 
+use font_types::Fixed;
 use read_fonts::{FontRef, TableProvider, tables::head::Head as ReadHead};
-use write_fonts::tables::head::Head;
+use write_fonts::tables::head::{Flags, Head, MacStyle};
 
 use crate::{
     MergeError, Result,
@@ -87,10 +88,10 @@ pub fn merge_head(fonts: &[FontRef]) -> Result<Head> {
     let first = &tables[0];
 
     Ok(Head {
-        font_revision: font_types::Fixed::from_bits(font_revision),
+        font_revision: Fixed::from_bits(font_revision),
         checksum_adjustment: 0, // Will be recomputed on write
         magic_number: 0x5F0F3CF5,
-        flags: write_fonts::tables::head::Flags::from_bits_truncate(flags),
+        flags: Flags::from_bits_truncate(flags),
         units_per_em,
         created: first.created(),
         modified: first.modified(),
@@ -98,7 +99,7 @@ pub fn merge_head(fonts: &[FontRef]) -> Result<Head> {
         y_min,
         x_max,
         y_max,
-        mac_style: write_fonts::tables::head::MacStyle::from_bits_truncate(mac_style),
+        mac_style: MacStyle::from_bits_truncate(mac_style),
         lowest_rec_ppem,
         font_direction_hint: first.font_direction_hint(),
         index_to_loc_format: first.index_to_loc_format(),

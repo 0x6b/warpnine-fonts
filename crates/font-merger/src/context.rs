@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 
 use indexmap::{IndexMap, map::Entry};
-use read_fonts::{FontRef, TableProvider, tables::post::Post};
+use read_fonts::{FontRef, TableProvider, tables::post::Post, types::GlyphId16};
 
 use crate::{
     glyph_order::GlyphName,
@@ -132,8 +132,7 @@ fn get_glyph_order(font: &FontRef) -> Vec<GlyphName> {
 }
 
 fn get_glyph_name_from_post(post: &Post, gid: u16) -> Option<String> {
-    post.glyph_name(read_fonts::types::GlyphId16::new(gid))
-        .map(|s| s.to_string())
+    post.glyph_name(GlyphId16::new(gid)).map(|s| s.to_string())
 }
 
 /// Mapping from source font GIDs to merged mega GIDs
@@ -268,15 +267,20 @@ impl<'a> MergeContext<'a> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(test)]
+    use std::collections;
+
     use super::*;
+    #[cfg(test)]
+    use crate::types;
 
     #[test]
     fn test_gid_remap() {
         let mut mapping = IndexMap::new();
-        mapping.insert(GlyphId::new(0), GlyphName::new(".notdef"));
-        mapping.insert(GlyphId::new(1), GlyphName::new("A"));
+        mapping.insert(types::GlyphId::new(0), GlyphName::new(".notdef"));
+        mapping.insert(types::GlyphId::new(1), GlyphName::new("A"));
 
-        let mut name_to_mega = HashMap::new();
+        let mut name_to_mega = collections::HashMap::new();
         name_to_mega.insert(GlyphName::new(".notdef"), MegaGlyphId::new(0));
         name_to_mega.insert(GlyphName::new("A"), MegaGlyphId::new(1));
 

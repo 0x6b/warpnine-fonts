@@ -2,7 +2,7 @@
 
 use indexmap::IndexMap;
 use read_fonts::TableProvider;
-use write_fonts::tables::vmtx::Vmtx;
+use write_fonts::tables::vmtx::{LongMetric, Vmtx};
 
 use crate::{Result, context::MergeContext, glyph_order::GlyphName, types::GlyphId};
 
@@ -42,7 +42,11 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
                 (lm.advance.get(), lm.side_bearing.get())
             } else {
                 let last_advance = if num_v_metrics > 0 {
-                    vmtx.v_metrics().get(num_v_metrics - 1).expect("num_v_metrics > 0").advance.get()
+                    vmtx.v_metrics()
+                        .get(num_v_metrics - 1)
+                        .expect("num_v_metrics > 0")
+                        .advance
+                        .get()
                 } else {
                     0
                 };
@@ -65,7 +69,7 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
             .cloned()
             .unwrap_or(VerticalGlyphMetrics { advance_height: 0, tsb: 0 });
 
-        v_metrics.push(write_fonts::tables::vmtx::LongMetric {
+        v_metrics.push(LongMetric {
             advance: metrics.advance_height,
             side_bearing: metrics.tsb,
         });

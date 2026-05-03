@@ -10,14 +10,17 @@ use read_fonts::{
 };
 use write_fonts::tables::{
     gpos::{
-        self, AnchorTable, BaseArray, BaseRecord, Class1Record, Class2Record, ComponentRecord,
+        AnchorTable, BaseArray, BaseRecord, Class1Record, Class2Record, ComponentRecord,
         CursivePosFormat1, EntryExitRecord, Gpos, LigatureArray, LigatureAttach, Mark2Array,
         Mark2Record, MarkArray, MarkBasePosFormat1, MarkLigPosFormat1, MarkMarkPosFormat1, PairPos,
         PairPosFormat1, PairPosFormat2, PairSet, PairValueRecord, PositionChainContext,
-        PositionLookup, PositionSequenceContext, SinglePos, SinglePosFormat1, SinglePosFormat2,
-        ValueRecord,
+        PositionLookup, PositionLookupList, PositionSequenceContext, SinglePos, SinglePosFormat1,
+        SinglePosFormat2, ValueRecord,
     },
-    gsub::{Gsub, SingleSubst, SubstitutionChainContext, SubstitutionSequenceContext},
+    gsub::{
+        Gsub, SingleSubst, SubstitutionChainContext, SubstitutionLookupList,
+        SubstitutionSequenceContext,
+    },
     layout::{
         ChainedClassSequenceRule, ChainedClassSequenceRuleSet, ChainedSequenceContext,
         ChainedSequenceContextFormat1, ChainedSequenceContextFormat2,
@@ -1433,7 +1436,7 @@ fn build_gsub(
     let feature_list = FeatureList::new(feature_records);
 
     // Build lookup list
-    let lookup_list = write_fonts::tables::gsub::SubstitutionLookupList::new(lookups);
+    let lookup_list = SubstitutionLookupList::new(lookups);
 
     Ok(Gsub::new(script_list, feature_list, lookup_list))
 }
@@ -1488,7 +1491,7 @@ fn build_gpos(
     let feature_list = FeatureList::new(feature_records);
 
     // Build lookup list
-    let lookup_list = gpos::PositionLookupList::new(lookups);
+    let lookup_list = PositionLookupList::new(lookups);
 
     Ok(Gpos::new(script_list, feature_list, lookup_list))
 }

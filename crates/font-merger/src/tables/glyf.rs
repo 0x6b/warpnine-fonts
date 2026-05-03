@@ -11,11 +11,17 @@
 
 use std::collections::{HashMap, HashSet};
 
-use read_fonts::{TableProvider, tables::glyf::Glyph as ReadGlyph};
+use font_types::GlyphId16;
+use read_fonts::{
+    TableProvider,
+    tables::glyf::{CurvePoint, Glyph as ReadGlyph},
+    types,
+};
 use write_fonts::tables::{
     glyf::{
-        Anchor, Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyf, GlyfLocaBuilder,
-        Glyph, SimpleGlyph, Transform,
+        Anchor::{Offset, Point},
+        Bbox, Component, ComponentFlags, CompositeGlyph, Contour, Glyf, GlyfLocaBuilder, Glyph,
+        SimpleGlyph, Transform,
     },
     loca::{Loca, LocaFormat},
 };
@@ -76,7 +82,7 @@ pub fn merge_glyf(ctx: &MergeContext) -> Result<Option<(Glyf, Loca, LocaFormat)>
                 continue;
             }
 
-            let glyph = match loca.get_glyf(read_fonts::types::GlyphId::new(gid.to_u32()), &glyf) {
+            let glyph = match loca.get_glyf(types::GlyphId::new(gid.to_u32()), &glyf) {
                 Ok(Some(g)) => g,
                 _ => {
                     glyph_map.insert(glyph_name.clone(), Glyph::Empty);
@@ -158,11 +164,7 @@ fn convert_glyph(
 
                 while current_point <= end {
                     if let Some(pt) = points_iter.next() {
-                        contour_points.push(read_fonts::tables::glyf::CurvePoint {
-                            x: pt.x,
-                            y: pt.y,
-                            on_curve: pt.on_curve,
-                        });
+                        contour_points.push(CurvePoint { x: pt.x, y: pt.y, on_curve: pt.on_curve });
                     }
                     current_point += 1;
                 }
@@ -200,9 +202,9 @@ fn convert_glyph(
                     .unwrap_or(0);
 
                 let anchor = match comp.anchor {
-                    read_fonts::tables::glyf::Anchor::Offset { x, y } => Anchor::Offset { x, y },
+                    read_fonts::tables::glyf::Anchor::Offset { x, y } => Offset { x, y },
                     read_fonts::tables::glyf::Anchor::Point { base, component } => {
-                        Anchor::Point { base, component }
+                        Point { base, component }
                     }
                 };
 
@@ -217,7 +219,7 @@ fn convert_glyph(
                 let flags: ComponentFlags = comp.flags.into();
 
                 let new_component = Component {
-                    glyph: font_types::GlyphId16::new(new_gid),
+                    glyph: GlyphId16::new(new_gid),
                     anchor,
                     transform,
                     flags,

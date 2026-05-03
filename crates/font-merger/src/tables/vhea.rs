@@ -1,5 +1,6 @@
 //! vhea table merging
 
+use font_types::{FWord, UfWord};
 use read_fonts::{FontRef, TableProvider, tables::vhea::Vhea as ReadVhea};
 use write_fonts::tables::vhea::Vhea;
 
@@ -25,13 +26,13 @@ pub fn merge_vhea(fonts: &[FontRef], num_v_metrics: u16) -> Result<Option<Vhea>>
     let y_max_extents: Vec<i16> = tables.iter().map(|t| t.y_max_extent().to_i16()).collect();
 
     Ok(Some(Vhea {
-        ascender: font_types::FWord::new(max(&ascenders)?),
-        descender: font_types::FWord::new(min(&descenders)?),
-        line_gap: font_types::FWord::new(max(&line_gaps)?),
-        advance_height_max: font_types::UfWord::new(max(&advance_height_maxs)?),
-        min_top_side_bearing: font_types::FWord::new(min(&min_tsbs)?),
-        min_bottom_side_bearing: font_types::FWord::new(min(&min_bsbs)?),
-        y_max_extent: font_types::FWord::new(max(&y_max_extents)?),
+        ascender: FWord::new(max(&ascenders)?),
+        descender: FWord::new(min(&descenders)?),
+        line_gap: FWord::new(max(&line_gaps)?),
+        advance_height_max: UfWord::new(max(&advance_height_maxs)?),
+        min_top_side_bearing: FWord::new(min(&min_tsbs)?),
+        min_bottom_side_bearing: FWord::new(min(&min_bsbs)?),
+        y_max_extent: FWord::new(max(&y_max_extents)?),
         caret_slope_rise: first(&tables.iter().map(|t| t.caret_slope_rise()).collect::<Vec<_>>())?,
         caret_slope_run: first(&tables.iter().map(|t| t.caret_slope_run()).collect::<Vec<_>>())?,
         caret_offset: first(&tables.iter().map(|t| t.caret_offset()).collect::<Vec<_>>())?,

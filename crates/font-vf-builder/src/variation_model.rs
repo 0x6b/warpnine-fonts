@@ -137,12 +137,6 @@ impl Region {
 
         scalar
     }
-
-    /// Check if this region is the default (all peaks at 0).
-    #[cfg(test)]
-    pub fn is_default(&self) -> bool {
-        self.axes.iter().all(|(_, peak, _)| *peak == 0.0)
-    }
 }
 
 /// Variation model for computing deltas from master values.
@@ -311,6 +305,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    #[cfg(test)]
+    use crate::designspace;
     use crate::designspace::{Axis, Source};
 
     fn make_2axis_designspace() -> DesignSpace {
@@ -327,7 +323,7 @@ mod tests {
             Source::new(PathBuf::from("BoldItalic.ttf"), vec![("wght", 900.0), ("ital", 1.0)]),
         ];
 
-        DesignSpace::new(axes, sources)
+        designspace::DesignSpace::new(axes, sources)
     }
 
     #[test]

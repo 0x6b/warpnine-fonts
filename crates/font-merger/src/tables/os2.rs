@@ -186,5 +186,5 @@ fn merge_fs_selection(tables: &[ReadOs2]) -> SelectionFlags {
         }
     }
 
-    write_fonts::tables::os2::SelectionFlags::from_bits_truncate(result)
+    SelectionFlags::from_bits_truncate(result)
 }

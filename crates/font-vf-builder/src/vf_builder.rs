@@ -12,10 +12,7 @@ use write_fonts::{
     from_obj::FromObjRef,
     tables::{
         fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord},
-        glyf::{
-            CompositeGlyph as WriteCompositeGlyph, GlyfLocaBuilder, Glyph as WriteGlyph,
-            SimpleGlyph as WriteSimpleGlyph,
-        },
+        glyf::{GlyfLocaBuilder, Glyph as WriteGlyph, SimpleGlyph as WriteSimpleGlyph},
         gvar::{GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent, iup::iup_delta_optimize},
         head::Head,
         name::{Name, NameRecord},
@@ -68,7 +65,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
         .sources
         .iter()
         .map(|source| {
-            read(&source.path).map_err(|e| Error::ReadFont { path: source.path.clone(), source: e })
+            read(&source.path).map_err(|e| ReadFont { path: source.path.clone(), source: e })
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -77,7 +74,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
         .zip(designspace.sources.iter())
         .map(|(data, source)| {
             FontRef::new(data)
-                .map_err(|e| Error::ParseFont { path: source.path.clone(), message: e.to_string() })
+                .map_err(|e| ParseFont { path: source.path.clone(), message: e.to_string() })
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -93,7 +90,7 @@ pub fn build_variable_font(designspace: &DesignSpace) -> Result<Vec<u8>> {
     info!("Variation model: {} regions", model.regions.len());
 
     // Ensure we have glyf table
-    let _ = default_font.glyf().map_err(|_| Error::MissingTable {
+    let _ = default_font.glyf().map_err(|_| MissingTable {
         path: designspace.sources[default_idx].path.clone(),
         table: "glyf".to_string(),
     })?;
@@ -172,7 +169,7 @@ fn verify_glyph_compatibility(designspace: &DesignSpace, masters: &[FontRef]) ->
 
         let actual_glyphs = master.maxp()?.num_glyphs();
         if actual_glyphs != expected_glyphs {
-            return Err(Error::GlyphCountMismatch {
+            return Err(GlyphCountMismatch {
                 path: designspace.sources[idx].path.clone(),
                 expected: expected_glyphs,
                 actual: actual_glyphs,
@@ -232,7 +229,7 @@ fn build_fvar(designspace: &DesignSpace) -> Result<Fvar> {
 
 /// Build name table, copying from default and adding instance names.
 fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name> {
-    let name_table = default_font.name().map_err(|_| Error::MissingTable {
+    let name_table = default_font.name().map_err(|_| MissingTable {
         path: designspace.sources[0].path.clone(),
         table: "name".to_string(),
     })?;
@@ -267,7 +264,7 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             record.platform_id(),
             record.encoding_id(),
             record.language_id(),
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             string.into(),
         ));
     }
@@ -281,7 +278,7 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             3,
             1,
             0x409,
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             instance.name.clone().into(),
         ));
 
@@ -290,7 +287,7 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             1,
             0,
             0,
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             instance.name.clone().into(),
         ));
     }
@@ -314,17 +311,11 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             3,
             1,
             0x409,
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             name.to_string().into(),
         ));
         // Mac
-        new_records.push(NameRecord::new(
-            1,
-            0,
-            0,
-            read_fonts::types::NameId::new(name_id),
-            name.to_string().into(),
-        ));
+        new_records.push(NameRecord::new(1, 0, 0, NameId::new(name_id), name.to_string().into()));
     }
 
     // Italic values (name IDs 290-291)
@@ -336,17 +327,11 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             3,
             1,
             0x409,
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             name.to_string().into(),
         ));
         // Mac
-        new_records.push(NameRecord::new(
-            1,
-            0,
-            0,
-            read_fonts::types::NameId::new(name_id),
-            name.to_string().into(),
-        ));
+        new_records.push(NameRecord::new(1, 0, 0, NameId::new(name_id), name.to_string().into()));
     }
 
     // Sort records by (platformID, encodingID, languageID, nameID)
@@ -371,7 +356,14 @@ use std::{
 use kurbo::{Point, Vec2};
 use log::warn;
 use read_fonts::tables::glyf::{CompositeGlyph, SimpleGlyph};
-use write_fonts::tables::loca::LocaFormat;
+use write_fonts::{
+    tables,
+    tables::{glyf::Glyph, loca::LocaFormat, stat::AxisRecord},
+};
+
+use crate::error::Error::{
+    GlyphCountMismatch, MissingTable, ParseFont, PointCountMismatch, ReadFont,
+};
 
 static TOTAL_POINTS: AtomicUsize = AtomicUsize::new(0);
 static REQUIRED_POINTS: AtomicUsize = AtomicUsize::new(0);
@@ -500,7 +492,7 @@ fn build_simple_glyph_variations(
         let points: Vec<(i16, i16)> = match glyph {
             Some(Glyph::Simple(simple)) => {
                 if simple.num_points() != num_points {
-                    return Err(Error::PointCountMismatch {
+                    return Err(PointCountMismatch {
                         path: designspace.sources[master_idx].path.clone(),
                         glyph_id: gid.to_u32(),
                         expected: num_points,
@@ -521,7 +513,7 @@ fn build_simple_glyph_variations(
     // Get default master coordinates for IUP optimization
     let default_coords: Vec<Point> = default_simple
         .points()
-        .map(|p| kurbo::Point::new(f64::from(p.x), f64::from(p.y)))
+        .map(|p| Point::new(f64::from(p.x), f64::from(p.y)))
         .collect();
 
     // Get contour end points for IUP
@@ -573,7 +565,7 @@ fn build_simple_glyph_variations(
         for (region_idx, raw_deltas) in all_raw_deltas.iter_mut().enumerate() {
             let delta = model.compute_delta_2d_for_region(&point_values, region_idx, &prev_deltas);
             prev_deltas.push(delta);
-            raw_deltas.push(kurbo::Vec2::new(f64::from(delta.0), f64::from(delta.1)));
+            raw_deltas.push(Vec2::new(f64::from(delta.0), f64::from(delta.1)));
         }
     }
     DELTA_COMPUTE_NS.fetch_add(delta_start.elapsed().as_nanos() as u64, Ordering::Relaxed);
@@ -724,7 +716,7 @@ fn build_composite_glyph_variations(
 fn build_glyf_loca(
     default_font: &FontRef,
 ) -> Result<(write_fonts::tables::glyf::Glyf, write_fonts::tables::loca::Loca, LocaFormat)> {
-    use read_fonts::tables::glyf::Glyph;
+    use read_fonts::tables::glyf::Glyph as ReadGlyph;
 
     let glyf = default_font.glyf()?;
     let loca = default_font.loca(None)?;
@@ -739,14 +731,14 @@ fn build_glyf_loca(
 
         let write_glyph: WriteGlyph = match glyph {
             None => WriteGlyph::Empty,
-            Some(Glyph::Simple(simple)) => {
+            Some(ReadGlyph::Simple(simple)) => {
                 let write_simple = WriteSimpleGlyph::from_obj_ref(&simple, FontData::new(&[]));
-                WriteGlyph::Simple(write_simple)
+                Glyph::Simple(write_simple)
             }
-            Some(Glyph::Composite(composite)) => {
+            Some(ReadGlyph::Composite(composite)) => {
                 let write_composite =
-                    WriteCompositeGlyph::from_obj_ref(&composite, FontData::new(&[]));
-                WriteGlyph::Composite(write_composite)
+                    tables::glyf::CompositeGlyph::from_obj_ref(&composite, FontData::new(&[]));
+                Glyph::Composite(write_composite)
             }
         };
 
@@ -794,7 +786,7 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
                 tag_bytes[i] = b;
             }
             // Use name IDs 256+ for axis names (matching fvar)
-            StatAxisRecord::new(Tag::new(&tag_bytes), NameId::new(256 + idx as u16), idx as u16)
+            AxisRecord::new(Tag::new(&tag_bytes), NameId::new(256 + idx as u16), idx as u16)
         })
         .collect();
 

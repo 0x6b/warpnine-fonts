@@ -2,6 +2,7 @@
 
 use std::result;
 
+use font_types::{FWord, Fixed};
 use read_fonts::{TableProvider, tables::post::Post as ReadPost};
 use write_fonts::tables::post::Post;
 
@@ -32,9 +33,9 @@ pub fn merge_post(ctx: &MergeContext) -> Result<Post> {
     let mut post = Post::new_v2(glyph_names);
 
     // Copy over metric values from the first font
-    post.italic_angle = font_types::Fixed::from_bits(first(&italic_angles)?);
-    post.underline_position = font_types::FWord::new(first(&underline_positions)?);
-    post.underline_thickness = font_types::FWord::new(first(&underline_thicknesses)?);
+    post.italic_angle = Fixed::from_bits(first(&italic_angles)?);
+    post.underline_position = FWord::new(first(&underline_positions)?);
+    post.underline_thickness = FWord::new(first(&underline_thicknesses)?);
     post.is_fixed_pitch = first(&is_fixed_pitches)?;
     post.min_mem_type42 = first(&tables.iter().map(|t| t.min_mem_type42()).collect::<Vec<_>>())?;
     post.max_mem_type42 = first(&tables.iter().map(|t| t.max_mem_type42()).collect::<Vec<_>>())?;

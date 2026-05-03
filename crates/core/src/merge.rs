@@ -5,7 +5,7 @@ use std::{fs::create_dir_all, path::Path};
 use anyhow::{Context, Result};
 use log::info;
 use rayon::prelude::*;
-use warpnine_font_merger::Merger;
+use warpnine_font_merger::{Merger, Options};
 
 use crate::io::{read_font, write_font};
 
@@ -67,9 +67,7 @@ impl<'a> BatchMerger<'a> {
     }
 
     pub fn merge_with_fallback(&self, base_data: &[u8]) -> Result<Vec<u8>> {
-        use warpnine_font_merger::Options as MergeOptions;
-
-        let options = MergeOptions::default().drop_table("vhea").drop_table("vmtx");
+        let options = Options::default().drop_table("vhea").drop_table("vmtx");
         let merger = Merger::new(options);
         merger
             .merge(&[base_data, self.fallback_data])
@@ -155,15 +153,13 @@ pub fn merge_with_fallbacks(
     fallbacks: &[&Path],
     output_dir: &Path,
 ) -> Result<()> {
-    use warpnine_font_merger::Options as MergeOptions;
-
     info!("Merging {} fonts with {} fallbacks", base_fonts.len(), fallbacks.len());
 
     let fallback_data: Vec<Vec<u8>> = fallbacks.iter().map(read_font).collect::<Result<_>>()?;
 
     create_dir_all(output_dir)?;
 
-    let options = MergeOptions::default().drop_table("vhea").drop_table("vmtx");
+    let options = Options::default().drop_table("vhea").drop_table("vmtx");
 
     base_fonts.par_iter().try_for_each(|base_path| -> Result<()> {
         let base_path = base_path.as_ref();

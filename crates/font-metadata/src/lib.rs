@@ -1,7 +1,7 @@
 //! Font metadata manipulation (monospace settings, versioning).
 
 use anyhow::{Result, anyhow};
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use read_fonts::TableProvider;
 use warpnine_font_ops::{map_name_records, rewrite_font};
 use write_fonts::{
@@ -72,7 +72,7 @@ impl FontVersion {
     pub fn parse(value: Option<&str>) -> Result<Self> {
         match value {
             None => {
-                let today = chrono::Local::now().date_naive();
+                let today = Local::now().date_naive();
                 Ok(Self::new(today, today.format("%Y-%m-%d").to_string()))
             }
             Some(v) => {
@@ -102,7 +102,13 @@ impl FontVersion {
     /// Compute font revision as YYYY.MMDD.
     pub fn revision(&self) -> Fixed {
         let year = self.date.year() as f64;
-        let month_day = self.date.format("%m%d").to_string().parse::<f64>().expect("month-day format is always numeric") / 10000.0;
+        let month_day = self
+            .date
+            .format("%m%d")
+            .to_string()
+            .parse::<f64>()
+            .expect("month-day format is always numeric")
+            / 10000.0;
         Fixed::from_f64(year + month_day)
     }
 

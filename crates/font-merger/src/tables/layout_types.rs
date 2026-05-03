@@ -178,13 +178,16 @@ impl MergedFeatureList {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(test)]
+    use read_fonts::types;
+
     use super::*;
 
     #[test]
     fn test_script_lang_feature_map() {
         let mut map = ScriptLangFeatureMap::new();
 
-        let latn = ScriptTag::new(Tag::new(b"latn"));
+        let latn = ScriptTag::new(types::Tag::new(b"latn"));
         let dflt_lang = LangTag::dflt();
 
         map.add_features(
@@ -201,10 +204,11 @@ mod tests {
     fn test_merged_feature_list() {
         let mut list = MergedFeatureList::new();
 
-        let idx = list.add(Tag::new(b"liga"), vec![LookupIndex::new(0), LookupIndex::new(1)]);
+        let idx =
+            list.add(types::Tag::new(b"liga"), vec![LookupIndex::new(0), LookupIndex::new(1)]);
         assert_eq!(idx.as_u16(), 0);
 
-        let idx2 = list.add(Tag::new(b"kern"), vec![LookupIndex::new(2)]);
+        let idx2 = list.add(types::Tag::new(b"kern"), vec![LookupIndex::new(2)]);
         assert_eq!(idx2.as_u16(), 1);
 
         assert_eq!(list.len(), 2);

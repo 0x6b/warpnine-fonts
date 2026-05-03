@@ -2,7 +2,7 @@
 //!
 //! These correspond to fontTools.merge.util functions
 
-use crate::{MergeError, Result};
+use crate::{MergeError, MergeError::NotEqual, Result};
 
 /// Assert all values are equal, return the first
 pub fn equal<T: PartialEq + Clone>(
@@ -11,11 +11,7 @@ pub fn equal<T: PartialEq + Clone>(
     field: &'static str,
 ) -> Result<T> {
     let (first, rest) = values.split_first().ok_or(MergeError::NoFonts)?;
-    if rest.iter().all(|v| v == first) {
-        Ok(first.clone())
-    } else {
-        Err(MergeError::NotEqual { table, field })
-    }
+    if rest.iter().all(|v| v == first) { Ok(first.clone()) } else { Err(NotEqual { table, field }) }
 }
 
 /// Return the first value

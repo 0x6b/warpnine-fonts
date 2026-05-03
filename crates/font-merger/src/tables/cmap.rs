@@ -222,12 +222,10 @@ fn iter_cmap_subtable(subtable: &CmapSubtable) -> Vec<(Codepoint, GlyphId)> {
             for group in f12.groups() {
                 let start = group.start_char_code();
                 let end = group.end_char_code();
-                let mut gid = group.start_glyph_id();
-                for cp in start..=end {
+                for (gid, cp) in (group.start_glyph_id()..).zip(start..=end) {
                     if gid != 0 {
                         mappings.push((Codepoint::new(cp), GlyphId::new(gid as u16)));
                     }
-                    gid += 1;
                 }
             }
         }

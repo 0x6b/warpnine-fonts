@@ -5,6 +5,7 @@ use std::{
     iter::repeat_n,
 };
 
+use kurbo::Rect;
 pub use read_fonts::tables::glyf::CurvePoint;
 use read_fonts::{
     FontRef, TableProvider,
@@ -30,9 +31,13 @@ use write_fonts::{
     from_obj::ToOwnedTable,
     tables,
     tables::{
-        glyf::{Bbox, CompositeGlyph, Contour, GlyfLocaBuilder, Glyph as WriteGlyph, SimpleGlyph},
+        glyf::{
+            Anchor::Offset, Bbox, CompositeGlyph, Contour, GlyfLocaBuilder, Glyph as WriteGlyph,
+            SimpleGlyph,
+        },
+        head::Head,
         hhea::Hhea as WriteHhea,
-        hmtx::Hmtx as WriteHmtx,
+        hmtx::{Hmtx as WriteHmtx, LongMetric},
         loca::LocaFormat,
         os2::Os2 as WriteOs2,
         post::Post as WritePost,
@@ -211,7 +216,7 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
 
     // Build head table with recalculated bounds
     if let Ok(head) = font.head() {
-        let new_head = write_fonts::tables::head::Head::new(
+        let new_head = Head::new(
             head.font_revision(),
             head.checksum_adjustment(),
             head.flags(),
@@ -442,7 +447,7 @@ fn apply_deltas_to_composite_glyph(
 
     let mut new_components = components.iter().enumerate().map(|(i, comp)| {
         let anchor = match comp.anchor {
-            ReadAnchor::Offset { .. } => Anchor::Offset {
+            ReadAnchor::Offset { .. } => Offset {
                 x: clamp_i16(offsets[i].x.round().to_i32()),
                 y: clamp_i16(offsets[i].y.round().to_i32()),
             },
@@ -458,7 +463,7 @@ fn apply_deltas_to_composite_glyph(
     let Some(first) = new_components.next() else {
         return Ok(WriteGlyph::Empty);
     };
-    let bbox = kurbo::Rect::new(
+    let bbox = Rect::new(
         composite.x_min() as f64,
         composite.y_min() as f64,
         composite.x_max() as f64,
@@ -690,7 +695,7 @@ fn build_new_hmtx(advances: &[u16], lsbs: &[i16], num_h_metrics: usize) -> Write
         let lsb = lsbs[gid];
 
         if gid < num_h_metrics {
-            h_metrics.push(write_fonts::tables::hmtx::LongMetric { advance, side_bearing: lsb });
+            h_metrics.push(LongMetric { advance, side_bearing: lsb });
         } else {
             left_side_bearings.push(lsb);
         }
@@ -1117,6 +1122,8 @@ fn build_instanced_cmap(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(test)]
+    use read_fonts::types;
     use read_fonts::{FontRef, TableProvider};
 
     use super::*;
@@ -1124,7 +1131,7 @@ mod tests {
     fn get_glyph_coords(font: &FontRef, glyph_id: u32) -> Option<Vec<(i16, i16)>> {
         let glyf = font.glyf().ok()?;
         let loca = font.loca(None).ok()?;
-        let glyph = loca.get_glyf(GlyphId::new(glyph_id), &glyf).ok()??;
+        let glyph = loca.get_glyf(types::GlyphId::new(glyph_id), &glyf).ok()??;
 
         match glyph {
             Glyph::Simple(simple) => Some(simple.points().map(|p| (p.x, p.y)).collect()),
@@ -1133,7 +1140,7 @@ mod tests {
     }
 
     fn get_advance_width(font: &FontRef, glyph_id: u32) -> Option<u16> {
-        font.hmtx().ok()?.advance(GlyphId::new(glyph_id))
+        font.hmtx().ok()?.advance(types::GlyphId::new(glyph_id))
     }
 
     #[test]
@@ -1251,7 +1258,7 @@ mod tests {
 
         // Check that LSB equals xMin for simple glyphs
         for gid in 1..font.maxp().unwrap().num_glyphs().min(20) {
-            let glyph_id = GlyphId::new(gid as u32);
+            let glyph_id = types::GlyphId::new(gid as u32);
             let lsb = hmtx.side_bearing(glyph_id).unwrap_or(0);
 
             if let Some(Glyph::Simple(simple)) = loca.get_glyf(glyph_id, &glyf).ok().flatten()

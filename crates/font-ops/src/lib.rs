@@ -1,7 +1,10 @@
 //! Generic font table manipulation utilities.
 
 use anyhow::{Context, Result};
-use read_fonts::{FontRef, TableProvider, types::Tag};
+use read_fonts::{
+    FontRef, TableProvider,
+    types::{NameId, Tag},
+};
 use write_fonts::{
     FontBuilder,
     tables::name::{Name, NameRecord},
@@ -55,7 +58,7 @@ pub fn map_name_records(
             record.platform_id(),
             record.encoding_id(),
             record.language_id(),
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             new_string.into(),
         ));
     }
