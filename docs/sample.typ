@@ -289,6 +289,25 @@
 
 #pagebreak()
 
+// Japanese specimen page — same text rendered at each Mono weight,
+// styled after the Noto Sans JP specimen on Google Fonts.
+// Source text: opening of "ポラーノの広場" by 宮沢賢治 (Miyazawa Kenji).
+#let jp-specimen-text = "このあのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら、うつくしい森で飾られたモリーオ市、郊外のぎらぎらひかる草の波。"
+
+#for (name, family, weight, style, stretch) in mono-variants {
+  text(font: "Warpnine Sans", size: 7pt, fill: gray)[#name]
+  v(2pt)
+  text(
+    font: family,
+    weight: weight,
+    style: style,
+    size: 14pt,
+  )[#jp-specimen-text]
+  v(10pt)
+}
+
+#pagebreak()
+
 #let sample-text = [
   First note that each cell of the checkerboard (assumed to be an infinite plane) has eight neighboring cells, four adjacent orthogonally, four adjacent diagonally. The rules are:
 

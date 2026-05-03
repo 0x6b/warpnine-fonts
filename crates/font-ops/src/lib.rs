@@ -1,7 +1,10 @@
 //! Generic font table manipulation utilities.
 
 use anyhow::{Context, Result};
-use read_fonts::{FontRef, TableProvider, types::Tag};
+use read_fonts::{
+    FontRef, TableProvider,
+    types::{NameId, Tag},
+};
 use write_fonts::{
     FontBuilder,
     tables::name::{Name, NameRecord},
@@ -55,7 +58,7 @@ pub fn map_name_records(
             record.platform_id(),
             record.encoding_id(),
             record.language_id(),
-            read_fonts::types::NameId::new(name_id),
+            NameId::new(name_id),
             new_string.into(),
         ));
     }
@@ -130,9 +133,9 @@ pub fn copy_gsub_without_feature_variations(
     let source_font = FontRef::new(source_data).context("Failed to parse source font")?;
     let gsub = source_font.gsub().context("Source font has no GSUB table")?;
 
-    let script_list = gsub.script_list().unwrap().to_owned_table();
-    let feature_list = gsub.feature_list().unwrap().to_owned_table();
-    let lookup_list = gsub.lookup_list().unwrap().to_owned_table();
+    let script_list = gsub.script_list()?.to_owned_table();
+    let feature_list = gsub.feature_list()?.to_owned_table();
+    let lookup_list = gsub.lookup_list()?.to_owned_table();
 
     let new_gsub = Gsub::new(script_list, feature_list, lookup_list);
 

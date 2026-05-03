@@ -11,10 +11,6 @@ pub struct BatchResult {
     pub failed: usize,
 }
 
-#[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use BatchResult instead")]
-pub type ParallelResult = BatchResult;
-
 impl BatchResult {
     pub fn total(&self) -> usize {
         self.succeeded + self.failed

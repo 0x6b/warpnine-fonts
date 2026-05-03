@@ -7,7 +7,7 @@ use std::{
 
 use clap::Parser;
 use font_instancer::{AxisLocation, instantiate};
-use skrifa::MetadataProvider;
+use skrifa::{FontRef, MetadataProvider};
 
 #[derive(Debug, thiserror::Error)]
 enum CliError {
@@ -108,7 +108,7 @@ fn show_info(path: &Path) -> ExitCode {
         }
     };
 
-    let font = match skrifa::FontRef::new(&data) {
+    let font = match FontRef::new(&data) {
         Ok(f) => f,
         Err(e) => {
             eprintln!("Error parsing font: {e}");

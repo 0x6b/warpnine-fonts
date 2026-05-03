@@ -7,7 +7,9 @@ use read_fonts::{FontRef, TableProvider, types::Tag};
 use write_fonts::FontBuilder;
 
 use crate::{
-    MergeError, Result,
+    MergeError,
+    MergeError::IncompatibleUnitsPerEm,
+    Result,
     context::{GlyphOrder, MergeContext},
     options::Options,
     tables::{
@@ -158,7 +160,7 @@ impl Merger {
             if upem == first_upem {
                 Ok(())
             } else {
-                Err(MergeError::IncompatibleUnitsPerEm { expected: first_upem, actual: upem })
+                Err(IncompatibleUnitsPerEm { expected: first_upem, actual: upem })
             }
         })
     }

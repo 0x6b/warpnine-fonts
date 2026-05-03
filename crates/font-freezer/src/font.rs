@@ -14,7 +14,11 @@ use read_fonts::{
 };
 use write_fonts::{
     BuilderError, FontBuilder,
-    tables::cmap::{Cmap, CmapSubtable, EncodingRecord, PlatformId, SequentialMapGroup},
+    tables::{
+        cmap::{Cmap, CmapSubtable, EncodingRecord, PlatformId, SequentialMapGroup},
+        name::{Name, NameRecord},
+        post::Post,
+    },
 };
 
 use crate::{Result, error::Error, gsub::GlyphSubstitutions, types::*};
@@ -308,7 +312,7 @@ impl<'a> FontEditor<'a> {
                     6 | 20 => orig.replace(&family_old_ns, &family_new_ns),
                     _ => orig,
                 };
-                write_fonts::tables::name::NameRecord::new(
+                NameRecord::new(
                     r.platform_id(),
                     r.encoding_id(),
                     r.language_id(),
@@ -318,15 +322,12 @@ impl<'a> FontEditor<'a> {
             })
             .collect();
 
-        self.rebuild(|b| {
-            b.add_table(&write_fonts::tables::name::Name::new(records))
-                .map(|_| ())
-        })
+        self.rebuild(|b| b.add_table(&Name::new(records)).map(|_| ()))
     }
 
     pub fn with_post_v3(&self) -> Result<Vec<u8>> {
         let post = self.0.post()?;
-        let mut new_post = write_fonts::tables::post::Post::new(
+        let mut new_post = Post::new(
             post.italic_angle(),
             post.underline_position(),
             post.underline_thickness(),

@@ -1,6 +1,10 @@
 //! Pipeline step definitions.
 
-use std::fs::{copy, create_dir_all, rename, write};
+use std::{
+    collections::BTreeMap,
+    fs::{copy, create_dir_all, rename, write},
+    path::PathBuf,
+};
 
 use anyhow::{Result, anyhow};
 use rayon::prelude::*;
@@ -105,19 +109,25 @@ fn step_remove_ligatures(ctx: &PipelineContext) -> Result<()> {
     check_results(&results, "remove ligatures")
 }
 
-fn step_extract_noto_weights(ctx: &PipelineContext) -> Result<()> {
-    println!("  Extracting Regular (400) and Bold (700) from Noto CJK VF...");
+/// Noto CJK VF wght values that participate in the merge.
+///
+/// The source `NotoSansMonoCJKjp-VF.ttf` axis spans 400-700. We extract the
+/// four Latin weights that fall inside that range so each WarpnineMono master
+/// gets a CJK donor whose weight matches its Latin weight; this produces real
+/// gvar deltas for CJK glyphs in the assembled VF. Latin weights below 400 use
+/// Noto-400, weights above 700 use Noto-700 (clamped at the source axis ends).
+const NOTO_WEIGHTS: &[u16] = &[400, 500, 600, 700];
 
-    let instances = vec![
-        InstanceDef {
-            name: "Noto-400".to_string(),
-            axes: vec![AxisLocation::new("wght", 400.0)],
-        },
-        InstanceDef {
-            name: "Noto-700".to_string(),
-            axes: vec![AxisLocation::new("wght", 700.0)],
-        },
-    ];
+fn step_extract_noto_weights(ctx: &PipelineContext) -> Result<()> {
+    println!("  Extracting weights {NOTO_WEIGHTS:?} from Noto CJK VF...");
+
+    let instances: Vec<InstanceDef> = NOTO_WEIGHTS
+        .iter()
+        .map(|w| InstanceDef {
+            name: format!("Noto-{w}"),
+            axes: vec![AxisLocation::new("wght", f32::from(*w))],
+        })
+        .collect();
 
     create_instances_batch(&ctx.noto_vf, &ctx.build_dir, &instances)
 }
@@ -125,7 +135,7 @@ fn step_extract_noto_weights(ctx: &PipelineContext) -> Result<()> {
 fn step_subset_noto(ctx: &PipelineContext) -> Result<()> {
     println!("  Subsetting Noto fonts to Japanese Unicode ranges...");
 
-    for weight in ["400", "700"] {
+    for weight in NOTO_WEIGHTS {
         let input = ctx.build_dir.join(format!("Noto-{weight}.ttf"));
         let output = ctx.build_dir.join(format!("Noto-{weight}-subset.ttf"));
         let data = read_font(&input)?;
@@ -151,15 +161,46 @@ fn step_subset_jetbrains_box(ctx: &PipelineContext) -> Result<()> {
     Ok(())
 }
 
+/// Map a Latin wght value to the nearest Noto CJK wght master.
+///
+/// Noto CJK Mono VF only spans 400-700, so Latin weights below/above are
+/// clamped to the source axis ends. Values inside the range round to one of
+/// the four masters we extract.
+fn noto_weight_for(latin_wght: f32) -> u16 {
+    let w = latin_wght.round() as i32;
+    match w {
+        ..=449 => 400,
+        450..=549 => 500,
+        550..=649 => 600,
+        _ => 700,
+    }
+}
+
 fn step_merge(ctx: &PipelineContext) -> Result<()> {
     println!("  Merging Duotone + JetBrains (box) + Noto CJK into WarpnineMono...");
 
-    let duotone_fonts = ctx.build_fonts("RecMonoDuotone-*.ttf")?;
     let jetbrains_box = ctx.build_dir.join("JetBrainsMono-BoxDrawing.ttf");
-    let noto_subset = ctx.build_dir.join("Noto-400-subset.ttf");
+
+    // Group Latin statics by which Noto weight they should be merged with.
+    let mut groups: BTreeMap<u16, Vec<PathBuf>> = BTreeMap::new();
+    for style in MONO_STYLES {
+        let path = ctx.build_dir.join(format!("RecMonoDuotone-{}.ttf", style.name));
+        if !path.exists() {
+            return Err(anyhow!("Missing duotone static: {}", path.display()));
+        }
+        groups
+            .entry(noto_weight_for(style.weight.value()))
+            .or_default()
+            .push(path);
+    }
 
     create_dir_all(&ctx.dist_dir)?;
-    merge_with_fallbacks(&duotone_fonts, &[&jetbrains_box, &noto_subset], &ctx.dist_dir)?;
+
+    for (noto_w, bases) in &groups {
+        let noto_subset = ctx.build_dir.join(format!("Noto-{noto_w}-subset.ttf"));
+        println!("    Merging {} statics with Noto-{noto_w}", bases.len());
+        merge_with_fallbacks(bases, &[&jetbrains_box, &noto_subset], &ctx.dist_dir)?;
+    }
 
     for font in ctx.dist_fonts("RecMonoDuotone-*.ttf")? {
         let new_name = font
@@ -372,7 +413,10 @@ fn step_set_names_vf(ctx: &PipelineContext) -> Result<()> {
         return Ok(());
     }
 
-    println!("  Setting names for 1 fonts ({})...", vf_path.file_name().unwrap().to_string_lossy());
+    println!(
+        "  Setting names for 1 fonts ({})...",
+        vf_path.file_name().unwrap_or_default().to_string_lossy()
+    );
 
     // Variable fonts should have:
     // - ID 1 (Family): Just the family name, not "Family VF"

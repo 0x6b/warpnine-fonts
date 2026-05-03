@@ -10,6 +10,7 @@ use read_fonts::{
         gsub::{FeatureList, ScriptList},
         layout::LangSys,
     },
+    types::Tag,
 };
 use write_fonts::FontBuilder;
 
@@ -45,7 +46,9 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let gsub_data = font.table_data(read_fonts::types::Tag::new(b"GSUB")).unwrap();
+    let gsub_data = font
+        .table_data(Tag::new(b"GSUB"))
+        .context("GSUB table data not found")?;
     let mut gsub_bytes = gsub_data.as_bytes().to_vec();
 
     let modifications =
@@ -64,7 +67,7 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
     let mut builder = FontBuilder::new();
     for record in font.table_directory.table_records() {
         let tag = record.tag();
-        if tag == read_fonts::types::Tag::new(b"GSUB") {
+        if tag == Tag::new(b"GSUB") {
             builder.add_raw(tag, &gsub_bytes);
         } else if let Some(table_data) = font.table_data(tag) {
             builder.add_raw(tag, table_data);
@@ -89,9 +92,9 @@ fn find_feature_indices(feature_list: &FeatureList) -> (Vec<u16>, Vec<u16>) {
 
     for (i, record) in feature_list.feature_records().iter().enumerate() {
         let tag = record.feature_tag();
-        if tag == read_fonts::types::Tag::new(b"calt") {
+        if tag == Tag::new(b"calt") {
             calt_indices.push(i as u16);
-        } else if tag == read_fonts::types::Tag::new(b"rclt") {
+        } else if tag == Tag::new(b"rclt") {
             rclt_indices.push(i as u16);
         }
     }

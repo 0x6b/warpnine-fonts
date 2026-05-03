@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use font_types::{FWord, Fixed, LongDateTime, Tag, UfWord};
 use read_fonts::{FontRef, TableProvider, types::GlyphId};
 use warpnine_font_merger::{Merger, Options};
 use write_fonts::{
@@ -9,7 +10,7 @@ use write_fonts::{
     tables::{
         cmap::Cmap,
         glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph},
-        head::Head,
+        head::{Flags, Head, MacStyle},
         hhea::Hhea,
         hmtx::{Hmtx, LongMetric},
         maxp::Maxp,
@@ -69,18 +70,18 @@ fn make_test_font_with_bounds(
 
     // Create other required tables
     let head = Head {
-        font_revision: font_types::Fixed::from_f64(1.0),
+        font_revision: Fixed::from_f64(1.0),
         checksum_adjustment: 0,
         magic_number: 0x5F0F3CF5,
-        flags: write_fonts::tables::head::Flags::empty(),
+        flags: Flags::empty(),
         units_per_em,
-        created: font_types::LongDateTime::new(0),
-        modified: font_types::LongDateTime::new(0),
+        created: LongDateTime::new(0),
+        modified: LongDateTime::new(0),
         x_min,
         y_min,
         x_max,
         y_max,
-        mac_style: write_fonts::tables::head::MacStyle::empty(),
+        mac_style: MacStyle::empty(),
         lowest_rec_ppem: 8,
         font_direction_hint: 2,
         index_to_loc_format: match loca_format {
@@ -90,13 +91,13 @@ fn make_test_font_with_bounds(
     };
 
     let hhea = Hhea {
-        ascender: font_types::FWord::new(700),
-        descender: font_types::FWord::new(-200),
-        line_gap: font_types::FWord::new(0),
-        advance_width_max: font_types::UfWord::new(500),
-        min_left_side_bearing: font_types::FWord::new(0),
-        min_right_side_bearing: font_types::FWord::new(0),
-        x_max_extent: font_types::FWord::new(500),
+        ascender: FWord::new(700),
+        descender: FWord::new(-200),
+        line_gap: FWord::new(0),
+        advance_width_max: UfWord::new(500),
+        min_left_side_bearing: FWord::new(0),
+        min_right_side_bearing: FWord::new(0),
+        x_max_extent: FWord::new(500),
         caret_slope_rise: 1,
         caret_slope_run: 0,
         caret_offset: 0,
@@ -130,9 +131,9 @@ fn make_test_font_with_bounds(
 
     let post = Post {
         version: font_types::Version16Dot16::VERSION_3_0,
-        italic_angle: font_types::Fixed::from_f64(0.0),
-        underline_position: font_types::FWord::new(-100),
-        underline_thickness: font_types::FWord::new(50),
+        italic_angle: Fixed::from_f64(0.0),
+        underline_position: FWord::new(-100),
+        underline_thickness: FWord::new(50),
         is_fixed_pitch: 0,
         min_mem_type42: 0,
         max_mem_type42: 0,
@@ -184,7 +185,7 @@ fn make_os2(version: u16) -> Os2 {
         ul_unicode_range_2: 0,
         ul_unicode_range_3: 0,
         ul_unicode_range_4: 0,
-        ach_vend_id: font_types::Tag::new(b"NONE"),
+        ach_vend_id: Tag::new(b"NONE"),
         fs_selection: write_fonts::tables::os2::SelectionFlags::REGULAR,
         us_first_char_index: 0x20,
         us_last_char_index: 0x7E,
@@ -381,18 +382,18 @@ fn test_merge_os2_unicode_ranges() {
 
         let cmap = Cmap::from_mappings(vec![]).expect("cmap");
         let head = Head {
-            font_revision: font_types::Fixed::from_f64(1.0),
+            font_revision: Fixed::from_f64(1.0),
             checksum_adjustment: 0,
             magic_number: 0x5F0F3CF5,
-            flags: write_fonts::tables::head::Flags::empty(),
+            flags: Flags::empty(),
             units_per_em: 1000,
-            created: font_types::LongDateTime::new(0),
-            modified: font_types::LongDateTime::new(0),
+            created: LongDateTime::new(0),
+            modified: LongDateTime::new(0),
             x_min: 0,
             y_min: 0,
             x_max: 500,
             y_max: 700,
-            mac_style: write_fonts::tables::head::MacStyle::empty(),
+            mac_style: MacStyle::empty(),
             lowest_rec_ppem: 8,
             font_direction_hint: 2,
             index_to_loc_format: match loca_format {
@@ -401,13 +402,13 @@ fn test_merge_os2_unicode_ranges() {
             },
         };
         let hhea = Hhea {
-            ascender: font_types::FWord::new(700),
-            descender: font_types::FWord::new(-200),
-            line_gap: font_types::FWord::new(0),
-            advance_width_max: font_types::UfWord::new(500),
-            min_left_side_bearing: font_types::FWord::new(0),
-            min_right_side_bearing: font_types::FWord::new(0),
-            x_max_extent: font_types::FWord::new(500),
+            ascender: FWord::new(700),
+            descender: FWord::new(-200),
+            line_gap: FWord::new(0),
+            advance_width_max: UfWord::new(500),
+            min_left_side_bearing: FWord::new(0),
+            min_right_side_bearing: FWord::new(0),
+            x_max_extent: FWord::new(500),
             caret_slope_rise: 1,
             caret_slope_run: 0,
             caret_offset: 0,
@@ -435,9 +436,9 @@ fn test_merge_os2_unicode_ranges() {
         };
         let post = Post {
             version: font_types::Version16Dot16::VERSION_3_0,
-            italic_angle: font_types::Fixed::from_f64(0.0),
-            underline_position: font_types::FWord::new(-100),
-            underline_thickness: font_types::FWord::new(50),
+            italic_angle: Fixed::from_f64(0.0),
+            underline_position: FWord::new(-100),
+            underline_thickness: FWord::new(50),
             is_fixed_pitch: 0,
             min_mem_type42: 0,
             max_mem_type42: 0,
@@ -476,18 +477,18 @@ fn test_merge_os2_unicode_ranges() {
 
         let cmap = Cmap::from_mappings(vec![]).expect("cmap");
         let head = Head {
-            font_revision: font_types::Fixed::from_f64(1.0),
+            font_revision: Fixed::from_f64(1.0),
             checksum_adjustment: 0,
             magic_number: 0x5F0F3CF5,
-            flags: write_fonts::tables::head::Flags::empty(),
+            flags: Flags::empty(),
             units_per_em: 1000,
-            created: font_types::LongDateTime::new(0),
-            modified: font_types::LongDateTime::new(0),
+            created: LongDateTime::new(0),
+            modified: LongDateTime::new(0),
             x_min: 0,
             y_min: 0,
             x_max: 500,
             y_max: 700,
-            mac_style: write_fonts::tables::head::MacStyle::empty(),
+            mac_style: MacStyle::empty(),
             lowest_rec_ppem: 8,
             font_direction_hint: 2,
             index_to_loc_format: match loca_format {
@@ -496,13 +497,13 @@ fn test_merge_os2_unicode_ranges() {
             },
         };
         let hhea = Hhea {
-            ascender: font_types::FWord::new(700),
-            descender: font_types::FWord::new(-200),
-            line_gap: font_types::FWord::new(0),
-            advance_width_max: font_types::UfWord::new(500),
-            min_left_side_bearing: font_types::FWord::new(0),
-            min_right_side_bearing: font_types::FWord::new(0),
-            x_max_extent: font_types::FWord::new(500),
+            ascender: FWord::new(700),
+            descender: FWord::new(-200),
+            line_gap: FWord::new(0),
+            advance_width_max: UfWord::new(500),
+            min_left_side_bearing: FWord::new(0),
+            min_right_side_bearing: FWord::new(0),
+            x_max_extent: FWord::new(500),
             caret_slope_rise: 1,
             caret_slope_run: 0,
             caret_offset: 0,
@@ -530,9 +531,9 @@ fn test_merge_os2_unicode_ranges() {
         };
         let post = Post {
             version: font_types::Version16Dot16::VERSION_3_0,
-            italic_angle: font_types::Fixed::from_f64(0.0),
-            underline_position: font_types::FWord::new(-100),
-            underline_thickness: font_types::FWord::new(50),
+            italic_angle: Fixed::from_f64(0.0),
+            underline_position: FWord::new(-100),
+            underline_thickness: FWord::new(50),
             is_fixed_pitch: 0,
             min_mem_type42: 0,
             max_mem_type42: 0,
@@ -794,18 +795,18 @@ fn test_hinting_stripped_from_non_first_fonts() {
         let cmap = Cmap::from_mappings(cmap_mappings).expect("cmap");
 
         let head = Head {
-            font_revision: font_types::Fixed::from_f64(1.0),
+            font_revision: Fixed::from_f64(1.0),
             checksum_adjustment: 0,
             magic_number: 0x5F0F3CF5,
-            flags: write_fonts::tables::head::Flags::empty(),
+            flags: Flags::empty(),
             units_per_em,
-            created: font_types::LongDateTime::new(0),
-            modified: font_types::LongDateTime::new(0),
+            created: LongDateTime::new(0),
+            modified: LongDateTime::new(0),
             x_min: 0,
             y_min: 0,
             x_max: 500,
             y_max: 700,
-            mac_style: write_fonts::tables::head::MacStyle::empty(),
+            mac_style: MacStyle::empty(),
             lowest_rec_ppem: 8,
             font_direction_hint: 2,
             index_to_loc_format: match loca_format {
@@ -814,13 +815,13 @@ fn test_hinting_stripped_from_non_first_fonts() {
             },
         };
         let hhea = Hhea {
-            ascender: font_types::FWord::new(700),
-            descender: font_types::FWord::new(-200),
-            line_gap: font_types::FWord::new(0),
-            advance_width_max: font_types::UfWord::new(500),
-            min_left_side_bearing: font_types::FWord::new(0),
-            min_right_side_bearing: font_types::FWord::new(0),
-            x_max_extent: font_types::FWord::new(500),
+            ascender: FWord::new(700),
+            descender: FWord::new(-200),
+            line_gap: FWord::new(0),
+            advance_width_max: UfWord::new(500),
+            min_left_side_bearing: FWord::new(0),
+            min_right_side_bearing: FWord::new(0),
+            x_max_extent: FWord::new(500),
             caret_slope_rise: 1,
             caret_slope_run: 0,
             caret_offset: 0,
@@ -851,9 +852,9 @@ fn test_hinting_stripped_from_non_first_fonts() {
         };
         let post = Post {
             version: font_types::Version16Dot16::VERSION_3_0,
-            italic_angle: font_types::Fixed::from_f64(0.0),
-            underline_position: font_types::FWord::new(-100),
-            underline_thickness: font_types::FWord::new(50),
+            italic_angle: Fixed::from_f64(0.0),
+            underline_position: FWord::new(-100),
+            underline_thickness: FWord::new(50),
             is_fixed_pitch: 0,
             min_mem_type42: 0,
             max_mem_type42: 0,

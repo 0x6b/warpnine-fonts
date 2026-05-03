@@ -129,12 +129,10 @@ fn extract_from_format12(f12: &Cmap12) -> Vec<u32> {
     for group in f12.groups() {
         let start = group.start_char_code();
         let end = group.end_char_code();
-        let mut gid = group.start_glyph_id();
-        for cp in start..=end {
+        for (gid, cp) in (group.start_glyph_id()..).zip(start..=end) {
             if gid != 0 {
                 codepoints.push(cp);
             }
-            gid += 1;
         }
     }
     codepoints

@@ -5,19 +5,16 @@ use std::{
 
 use anyhow::{Context, Result};
 use read_fonts::{
-    FontRef, TableProvider, TableRef,
-    tables::{
-        gsub::{ChainedSequenceContext, SubstitutionSubtables},
-        layout::ChainedSequenceRuleMarker,
-    },
-    types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16},
+    FontRef, TableProvider,
+    tables::gsub::{ChainedSequenceContext, SubstitutionSubtables},
+    types::{BigEndian, GlyphId, GlyphId16 as ReadGlyphId16, GlyphId16, Tag},
 };
 
 fn find_glyph_id_for_name(font: &FontRef, name: &str) -> Option<u16> {
     let post = font.post().ok()?;
     let num_glyphs = font.maxp().ok()?.num_glyphs();
     for gid in 0..num_glyphs {
-        if let Some(glyph_name) = post.glyph_name(ReadGlyphId16::new(gid))
+        if let Some(glyph_name) = post.glyph_name(GlyphId16::new(gid))
             && glyph_name == name
         {
             return Some(gid);
@@ -46,7 +43,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         }
     };
 
-    let gsub_tag = read_fonts::types::Tag::new(b"GSUB");
+    let gsub_tag = Tag::new(b"GSUB");
     let gsub_record = font
         .table_directory
         .table_records()
@@ -96,7 +93,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
             };
 
             for rule_result in rule_set.chained_seq_rules().iter() {
-                let rule: TableRef<'_, ChainedSequenceRuleMarker> = match rule_result {
+                let rule = match rule_result {
                     Ok(r) => r,
                     Err(_) => continue,
                 };

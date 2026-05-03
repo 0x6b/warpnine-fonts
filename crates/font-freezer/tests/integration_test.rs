@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use font_feature_freezer::{
     FreezeOptions, freeze, freeze_features, freeze_features_with_stats, report,
 };
-use read_fonts::{FontRef, TableProvider};
+use read_fonts::{FontRef, TableProvider, types::GlyphId16};
 
 fn get_cmap(data: &[u8]) -> HashMap<u32, u16> {
     let font = FontRef::new(data).unwrap();
@@ -29,8 +29,7 @@ fn get_cmap(data: &[u8]) -> HashMap<u32, u16> {
 fn get_glyph_name(data: &[u8], gid: u16) -> Option<String> {
     let font = FontRef::new(data).unwrap();
     if let Ok(post) = font.post() {
-        post.glyph_name(read_fonts::types::GlyphId16::new(gid))
-            .map(|s| s.to_string())
+        post.glyph_name(GlyphId16::new(gid)).map(|s| s.to_string())
     } else {
         None
     }

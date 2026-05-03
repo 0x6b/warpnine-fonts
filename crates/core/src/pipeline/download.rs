@@ -9,6 +9,7 @@ use std::{
 use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use reqwest::blocking::get;
+use zip::ZipArchive;
 
 use crate::config::{
     JETBRAINS_MONO_FILENAME, JETBRAINS_MONO_LICENSE_URL, JETBRAINS_MONO_ZIP_PATH,
@@ -78,7 +79,7 @@ fn download_recursive_vf(output_dir: &Path) -> Result<()> {
 
     let bytes = response.bytes()?;
     let cursor = Cursor::new(bytes.as_ref());
-    let mut archive = zip::ZipArchive::new(cursor).context("Failed to open zip archive")?;
+    let mut archive = ZipArchive::new(cursor).context("Failed to open zip archive")?;
 
     let mut file = archive
         .by_name(RECURSIVE_ZIP_PATH)
@@ -107,7 +108,7 @@ fn download_jetbrains_mono(output_dir: &Path) -> Result<()> {
 
     let bytes = response.bytes()?;
     let cursor = Cursor::new(bytes.as_ref());
-    let mut archive = zip::ZipArchive::new(cursor).context("Failed to open zip archive")?;
+    let mut archive = ZipArchive::new(cursor).context("Failed to open zip archive")?;
 
     let mut file = archive
         .by_name(JETBRAINS_MONO_ZIP_PATH)

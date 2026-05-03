@@ -2,7 +2,7 @@
 
 use indexmap::IndexMap;
 use read_fonts::TableProvider;
-use write_fonts::tables::hmtx::Hmtx;
+use write_fonts::tables::hmtx::{Hmtx, LongMetric};
 
 use crate::{Result, context::MergeContext, glyph_order::GlyphName, types::GlyphId};
 
@@ -26,12 +26,16 @@ pub fn merge_hmtx(ctx: &MergeContext) -> Result<Hmtx> {
             let gid = *gid_val as usize;
 
             let (advance, lsb) = if gid < num_h_metrics {
-                let lm = hmtx.h_metrics().get(gid).unwrap();
+                let lm = hmtx.h_metrics().get(gid).expect("gid within num_h_metrics");
                 (lm.advance.get(), lm.side_bearing.get())
             } else {
                 // For glyphs beyond num_h_metrics, use the last advance width
                 let last_advance = if num_h_metrics > 0 {
-                    hmtx.h_metrics().get(num_h_metrics - 1).unwrap().advance.get()
+                    hmtx.h_metrics()
+                        .get(num_h_metrics - 1)
+                        .expect("num_h_metrics > 0")
+                        .advance
+                        .get()
                 } else {
                     0
                 };
@@ -54,7 +58,7 @@ pub fn merge_hmtx(ctx: &MergeContext) -> Result<Hmtx> {
             .cloned()
             .unwrap_or(GlyphMetrics { advance_width: 0, lsb: 0 });
 
-        h_metrics.push(write_fonts::tables::hmtx::LongMetric {
+        h_metrics.push(LongMetric {
             advance: metrics.advance_width,
             side_bearing: metrics.lsb,
         });
