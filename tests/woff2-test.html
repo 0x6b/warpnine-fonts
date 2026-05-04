@@ -10,6 +10,7 @@
       src: url('../dist/WarpnineMono-VF.woff2') format('woff2');
       font-weight: 300 900;
       font-style: normal;
+      font-feature-settings: "dlig", "liga", "calt";
     }
 
     body {
@@ -70,11 +71,11 @@
   <h2>Code Sample</h2>
   <pre class="sample size-md">fn main() {
     let greeting = "Hello, World!";
-    println!("{}", greeting);
-    
+    println!("{greeting}");
+
     for i in 0..10 {
         if i % 2 == 0 {
-            println!("Even: {}", i);
+            println!("Even: {i}");
         }
     }
 }</pre>
