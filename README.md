@@ -26,11 +26,13 @@ Releases are automatically built and published via GitHub Actions when a tag mat
 - Variable Font with 2 axes:
   - `wght`: 300 (Light) to 1000 (ExtraBlack)
   - `ital`: 0 (Upright) to 1 (Italic)
-- Programming Ligatures: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (frozen via `dlig` and `liga`)
-- Always-Active OpenType Features (frozen at build time):
-  - `dlig`, `liga`, `pnum`
+- Programming Ligatures: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (delivered via the `dlig` feature; most editors/terminals leave `dlig` off by default — see [Enabling Ligatures](#enabling-ligatures))
+- Frozen OpenType Features (always active, baked into the default cmap):
+  - `pnum`
   - `ss01` through `ss08`, `ss10`, `ss11`, `ss12`
   - See [OpenType Features](#opentype-features) for details
+- Runtime OpenType Features (require application opt-in):
+  - `dlig` (programming ligatures), `liga` (`fi`, `ffi`)
 - Box Drawing: Full-height box drawing characters (U+2500-U+257F) from JetBrains Mono for seamless terminal UI
 - CJK Support: Full Japanese character coverage (99% Kanji, 98% Hiragana/Katakana)
 - CJK Weight Range: Japanese glyphs interpolate across wght 400-700 (Noto CJK source range); Light=Regular and ExtraBold/Black/ExtraBlack=Bold for CJK shapes
@@ -103,10 +105,12 @@ Note: The following tables are intentionally excluded:
 
 See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-code-config) for detail of the each feature.
 
-#### WarpnineMono (Frozen at Build)
+"Frozen" features have their substitutions baked into the default cmap — they are always active and cannot be disabled. This works for single-glyph substitutions only (e.g. stylistic sets, proportional figures). Multi-glyph features such as `dlig` and `liga` are kept as standard runtime GSUB lookups; they fire only when the rendering application enables the feature.
 
-- `dlig`: Discretionary ligatures (programming ligatures: `->`, `=>`, `>=`, `!=`, `===`, etc.)
-- `liga`: Standard ligatures
+#### WarpnineMono
+
+Frozen at build (always active):
+
 - `pnum`: Proportional figures
 - `ss01`: Single-story a
 - `ss02`: Single-story g
@@ -120,7 +124,14 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 - `ss11`: Simplified 1
 - `ss12`: Simplified @
 
-#### WarpnineSans and WarpnineSansCondensed (Frozen at Build)
+Runtime (require app opt-in):
+
+- `dlig`: Discretionary ligatures (programming ligatures: `->`, `=>`, `>=`, `!=`, `===`, etc.)
+- `liga`: Standard ligatures (`fi`, `ffi`)
+
+#### WarpnineSans and WarpnineSansCondensed
+
+Frozen at build (always active):
 
 - `ss01`: Single-story a
 - `ss02`: Single-story g
@@ -133,7 +144,10 @@ See [arrowtype/recursive-code-config](https://github.com/arrowtype/recursive-cod
 - `ss12`: Simplified @
 - `case`: Case-sensitive forms
 - `pnum`: Proportional figures
-- `liga`: Standard ligatures
+
+Runtime (require app opt-in):
+
+- `liga`: Standard ligatures (`fi`, `ffi`)
 
 #### Additional Features (Variable Font)
 
@@ -141,6 +155,36 @@ The variable font retains additional OpenType features from Recursive:
 
 - Stylistic Sets: `ss09`, `ss20`
 - Other: `zero`, `frac`, `locl`, `calt`, and more
+
+### Enabling Ligatures
+
+Programming ligatures live in the `dlig` feature. Most editors and terminals enable `liga` and `calt` by default but leave `dlig` off, so you must opt in.
+
+#### Ghostty (`~/.config/ghostty/config`):
+
+```
+font-family = "Warpnine Mono"
+font-feature = dlig
+```
+
+#### Zed (`~/.config/zed/settings.json`):
+
+```json
+{
+  "buffer_font_family": "Warpnine Mono",
+  "buffer_font_features": {
+    "calt": true,
+    "liga": true,
+    "dlig": true
+  }
+}
+```
+
+#### CSS:
+
+```css
+font-feature-settings: "dlig", "liga", "calt";
+```
 
 ## Known Limitations
 
