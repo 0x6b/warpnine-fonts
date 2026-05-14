@@ -25,7 +25,17 @@ fn make_test_font(
     cmap_entries: &[(u32, &str)],
     os2_version: Option<u16>,
 ) -> Vec<u8> {
-    make_test_font_with_bounds(glyph_names, cmap_entries, os2_version, (0, 0, 500, 700))
+    make_test_font_with_bounds(glyph_names, cmap_entries, os2_version, (0, 0, 500, 700), None)
+}
+
+/// Create a minimal TrueType font that also embeds a hand-built GPOS table.
+/// Used by the extension-lookup regression test.
+fn make_test_font_with_gpos(
+    glyph_names: &[&str],
+    cmap_entries: &[(u32, &str)],
+    gpos: &write_fonts::tables::gpos::Gpos,
+) -> Vec<u8> {
+    make_test_font_with_bounds(glyph_names, cmap_entries, Some(4), (0, 0, 500, 700), Some(gpos))
 }
 
 /// Create a minimal TrueType font with specified glyphs, cmap, and bounds
@@ -34,6 +44,7 @@ fn make_test_font_with_bounds(
     cmap_entries: &[(u32, &str)],
     os2_version: Option<u16>,
     bounds: (i16, i16, i16, i16),
+    gpos: Option<&write_fonts::tables::gpos::Gpos>,
 ) -> Vec<u8> {
     let units_per_em = 1000u16;
     let (x_min, y_min, x_max, y_max) = bounds;
@@ -158,6 +169,10 @@ fn make_test_font_with_bounds(
     if let Some(version) = os2_version {
         let os2 = make_os2(version);
         builder.add_table(&os2).unwrap();
+    }
+
+    if let Some(gpos) = gpos {
+        builder.add_table(gpos).unwrap();
     }
 
     builder.build()
@@ -577,8 +592,13 @@ fn test_merge_os2_unicode_ranges() {
 #[test]
 fn test_head_bounds_merge() {
     // Font 1 with bounds (0, 0, 500, 700)
-    let font1 =
-        make_test_font_with_bounds(&[".notdef", "A"], &[(0x41, "A")], Some(4), (0, 0, 500, 700));
+    let font1 = make_test_font_with_bounds(
+        &[".notdef", "A"],
+        &[(0x41, "A")],
+        Some(4),
+        (0, 0, 500, 700),
+        None,
+    );
 
     // Font 2 with bounds (-50, -100, 600, 800)
     let font2 = make_test_font_with_bounds(
@@ -586,6 +606,7 @@ fn test_head_bounds_merge() {
         &[(0x42, "B")],
         Some(4),
         (-50, -100, 600, 800),
+        None,
     );
 
     let merger = Merger::default();
@@ -928,4 +949,132 @@ fn test_hinting_stripped_from_non_first_fonts() {
     } else {
         panic!("Expected simple glyph for B");
     }
+}
+
+// ============================================================================
+// GPOS Extension Lookup Tests
+// ============================================================================
+
+/// Regression test: ensure that GPOS features whose lookups are wrapped in
+/// LookupType 9 (Extension Positioning) keep pointing at the right value
+/// records after a merge.
+///
+/// Prior to the fix, `convert_gpos_lookup` matched on the outer
+/// `PositionLookup` enum and returned `None` for Extension lookups, dropping
+/// them from the merged lookup list while leaving the feature-records'
+/// lookup-index offsets unchanged. The result was that any feature pointing
+/// at an extension lookup ended up referencing whatever non-extension lookup
+/// happened to land at that index after compaction. In practice, merging
+/// Noto Sans JP caused `palt`'s lookup pointer to land on `vpal`'s SinglePos
+/// data, which shoved punctuation upward by ~25% of em when `palt` was
+/// enabled in CSS.
+///
+/// The test builds one font with two extension-wrapped GPOS lookups — one
+/// per feature, with distinctive value records — runs the merger on it, and
+/// then asserts each feature still resolves to the value record it started
+/// with.
+#[test]
+fn test_merge_preserves_extension_gpos_lookups() {
+    use font_types::GlyphId16;
+    use read_fonts::tables::gpos::PositionSubtables;
+    use write_fonts::tables::{
+        gpos::{
+            ExtensionPosFormat1, ExtensionSubtable, Gpos, PositionLookup, PositionLookupList,
+            SinglePos, SinglePosFormat1, ValueRecord,
+        },
+        layout::{
+            CoverageTable, Feature, FeatureList, FeatureRecord, LangSys, Lookup, LookupFlag,
+            Script, ScriptList, ScriptRecord,
+        },
+    };
+
+    // Distinct values so we can tell which feature's content the merger
+    // associated with which feature record.
+    let palt_value = ValueRecord::new().with_x_advance(-123);
+    let vpal_value = ValueRecord::new().with_y_advance(-456);
+
+    let palt_inner = SinglePos::Format1(SinglePosFormat1::new(
+        CoverageTable::format_1(vec![GlyphId16::new(1)]),
+        palt_value,
+    ));
+    let vpal_inner = SinglePos::Format1(SinglePosFormat1::new(
+        CoverageTable::format_1(vec![GlyphId16::new(1)]),
+        vpal_value,
+    ));
+
+    // LookupType 9 wrapping LookupType 1 (SinglePos).
+    let palt_ext = ExtensionSubtable::Single(ExtensionPosFormat1::new(1, palt_inner));
+    let vpal_ext = ExtensionSubtable::Single(ExtensionPosFormat1::new(1, vpal_inner));
+
+    let palt_lookup = PositionLookup::Extension(Lookup::new(LookupFlag::default(), vec![palt_ext]));
+    let vpal_lookup = PositionLookup::Extension(Lookup::new(LookupFlag::default(), vec![vpal_ext]));
+
+    let lookup_list = PositionLookupList::new(vec![palt_lookup, vpal_lookup]);
+
+    let feature_list = FeatureList::new(vec![
+        FeatureRecord::new(Tag::new(b"palt"), Feature::new(None, vec![0])),
+        FeatureRecord::new(Tag::new(b"vpal"), Feature::new(None, vec![1])),
+    ]);
+
+    let lang_sys = LangSys::new(vec![0, 1]);
+    let script = Script::new(Some(lang_sys), vec![]);
+    let script_list = ScriptList::new(vec![ScriptRecord::new(Tag::new(b"DFLT"), script)]);
+
+    let gpos = Gpos::new(script_list, feature_list, lookup_list);
+
+    let font_bytes = make_test_font_with_gpos(&[".notdef", "A"], &[(0x41, "A")], &gpos);
+
+    let merger = Merger::default();
+    let merged = merger.merge(&[&font_bytes]).expect("merge failed");
+    let font_ref = FontRef::new(&merged).expect("parse merged font");
+
+    let gpos = font_ref.gpos().expect("merged font has GPOS");
+    let feature_list = gpos.feature_list().expect("feature list");
+    let lookup_list = gpos.lookup_list().expect("lookup list");
+
+    // Helper: pull out the (x_advance, y_advance) carried by the single
+    // SinglePos subtable that the named feature ultimately points at.
+    let value_for_feature = |target: Tag| -> (i16, i16) {
+        let records = feature_list.feature_records();
+        let idx = records
+            .iter()
+            .position(|r| r.feature_tag() == target)
+            .unwrap_or_else(|| panic!("feature {target} missing from merged GPOS"));
+        let record = records.get(idx).unwrap();
+        let feature = record
+            .feature(feature_list.offset_data())
+            .expect("feature");
+        let indices = feature.lookup_list_indices();
+        assert_eq!(indices.len(), 1, "{target} should reference exactly one lookup");
+
+        let li = indices.first().unwrap().get();
+        let lookup = lookup_list
+            .lookups()
+            .get(li as usize)
+            .expect("lookup index in range");
+        match lookup.subtables().expect("subtables") {
+            PositionSubtables::Single(iter) => {
+                let mut found = None;
+                for st in iter.iter().filter_map(|s| s.ok()) {
+                    if let read_fonts::tables::gpos::SinglePos::Format1(f1) = st {
+                        let vr = f1.value_record();
+                        found = Some((vr.x_advance().unwrap_or(0), vr.y_advance().unwrap_or(0)));
+                    }
+                }
+                found.expect("at least one SinglePos subtable")
+            }
+            _ => panic!("{target} should resolve to SinglePos subtables, got something else"),
+        }
+    };
+
+    assert_eq!(
+        value_for_feature(Tag::new(b"palt")),
+        (-123, 0),
+        "palt's value record was not preserved through merge — likely crossed with another feature's lookup"
+    );
+    assert_eq!(
+        value_for_feature(Tag::new(b"vpal")),
+        (0, -456),
+        "vpal's value record was not preserved through merge — likely crossed with another feature's lookup"
+    );
 }
