@@ -5,7 +5,11 @@ use std::collections::HashMap;
 use font_types::{BigEndian, GlyphId16};
 use read_fonts::{
     TableProvider, tables,
-    tables::{gpos as read_gpos, layout},
+    tables::{
+        gpos::{self as read_gpos, PositionSubtables},
+        gsub::SubstitutionSubtables,
+        layout,
+    },
     types::Tag,
 };
 use write_fonts::tables::{
@@ -119,17 +123,23 @@ fn convert_gsub_lookup(
     lookup_offset: LookupIndex,
 ) -> Option<write_fonts::tables::gsub::SubstitutionLookup> {
     let _lookup_offset = lookup_offset.as_u16();
-    use read_fonts::tables::gsub::SubstitutionLookup as ReadLookup;
     use write_fonts::tables::gsub::{
         AlternateSet, AlternateSubstFormat1, Ligature, LigatureSet, LigatureSubstFormat1,
         MultipleSubstFormat1, ReverseChainSingleSubstFormat1, Sequence, SingleSubst,
         SubstitutionLookup as WriteLookup,
     };
 
-    match lookup {
-        ReadLookup::Single(read_lookup) => {
+    // Dispatch via `subtables()` rather than the outer `SubstitutionLookup`
+    // enum so that LookupType 7 (Extension) is auto-unwrapped to its inner
+    // type. Matching on the outer enum would force us to either drop
+    // extensions or hand-roll the unwrap; the read-fonts API already handles
+    // this cleanly.
+    let flag = lookup.lookup_flag();
+    let read_subs = lookup.subtables().ok()?;
+    match read_subs {
+        SubstitutionSubtables::Single(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 match subtable {
                     read_fonts::tables::gsub::SingleSubst::Format1(f1) => {
                         if let Ok(coverage) = f1.coverage() {
@@ -182,11 +192,11 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Single(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::Single(Lookup::new(flag, subtables)))
         }
-        ReadLookup::Multiple(read_lookup) => {
+        SubstitutionSubtables::Multiple(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Ok(coverage) = subtable.coverage() {
                     let mut glyph_array = Vec::new();
                     let mut sequences = Vec::new();
@@ -217,11 +227,11 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Multiple(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::Multiple(Lookup::new(flag, subtables)))
         }
-        ReadLookup::Alternate(read_lookup) => {
+        SubstitutionSubtables::Alternate(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Ok(coverage) = subtable.coverage() {
                     let mut glyph_array = Vec::new();
                     let mut alt_sets = Vec::new();
@@ -252,11 +262,11 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Alternate(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::Alternate(Lookup::new(flag, subtables)))
         }
-        ReadLookup::Ligature(read_lookup) => {
+        SubstitutionSubtables::Ligature(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Ok(coverage) = subtable.coverage() {
                     let mut glyph_array = Vec::new();
                     let mut lig_sets = Vec::new();
@@ -298,11 +308,11 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Ligature(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::Ligature(Lookup::new(flag, subtables)))
         }
-        ReadLookup::Contextual(read_lookup) => {
+        SubstitutionSubtables::Contextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Some(converted) =
                     convert_gsub_sequence_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -312,11 +322,11 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Contextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::Contextual(Lookup::new(flag, subtables)))
         }
-        ReadLookup::ChainContextual(read_lookup) => {
+        SubstitutionSubtables::ChainContextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Some(converted) =
                     convert_gsub_chained_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -326,15 +336,11 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::ChainContextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::ChainContextual(Lookup::new(flag, subtables)))
         }
-        ReadLookup::Extension(_) => {
-            // Extension lookups wrap other lookup types - would need recursive handling
-            None
-        }
-        ReadLookup::Reverse(read_lookup) => {
+        SubstitutionSubtables::Reverse(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Ok(coverage) = subtable.coverage() {
                     let remapped_cov = remap_coverage(&coverage, gid_remap);
 
@@ -375,7 +381,7 @@ fn convert_gsub_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(WriteLookup::Reverse(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(WriteLookup::Reverse(Lookup::new(flag, subtables)))
         }
     }
 }
@@ -448,10 +454,14 @@ fn convert_gpos_lookup(
     lookup_offset: LookupIndex,
 ) -> Option<PositionLookup> {
     let _lookup_offset = lookup_offset.as_u16();
-    match lookup {
-        read_gpos::PositionLookup::Single(read_lookup) => {
+    // See the matching comment in `convert_gsub_lookup`: dispatch via
+    // `subtables()` so LookupType 9 (Extension) is auto-unwrapped.
+    let flag = lookup.lookup_flag();
+    let read_subs = lookup.subtables().ok()?;
+    match read_subs {
+        PositionSubtables::Single(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 match subtable {
                     read_gpos::SinglePos::Format1(f1) => {
                         if let Ok(coverage) = f1.coverage() {
@@ -483,11 +493,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Single(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::Single(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::Pair(read_lookup) => {
+        PositionSubtables::Pair(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 match subtable {
                     read_gpos::PairPos::Format1(f1) => {
                         if let Ok(coverage) = f1.coverage() {
@@ -567,11 +577,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Pair(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::Pair(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::Cursive(read_lookup) => {
+        PositionSubtables::Cursive(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Ok(coverage) = subtable.coverage() {
                     let remapped_cov = remap_coverage(&coverage, gid_remap);
                     let entry_exit_records: Vec<EntryExitRecord> = subtable
@@ -595,11 +605,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Cursive(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::Cursive(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::MarkToBase(read_lookup) => {
+        PositionSubtables::MarkToBase(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let (Ok(mark_cov), Ok(base_cov)) =
                     (subtable.mark_coverage(), subtable.base_coverage())
                 {
@@ -642,11 +652,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::MarkToBase(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::MarkToBase(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::MarkToLig(read_lookup) => {
+        PositionSubtables::MarkToLig(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let (Ok(mark_cov), Ok(lig_cov)) =
                     (subtable.mark_coverage(), subtable.ligature_coverage())
                 {
@@ -697,11 +707,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::MarkToLig(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::MarkToLig(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::MarkToMark(read_lookup) => {
+        PositionSubtables::MarkToMark(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let (Ok(mark1_cov), Ok(mark2_cov)) =
                     (subtable.mark1_coverage(), subtable.mark2_coverage())
                 {
@@ -744,11 +754,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::MarkToMark(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::MarkToMark(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::Contextual(read_lookup) => {
+        PositionSubtables::Contextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Some(converted) =
                     convert_gpos_sequence_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -758,11 +768,11 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::Contextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
+            Some(PositionLookup::Contextual(Lookup::new(flag, subtables)))
         }
-        read_gpos::PositionLookup::ChainContextual(read_lookup) => {
+        PositionSubtables::ChainContextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_lookup.subtables().iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
                 if let Some(converted) =
                     convert_gpos_chained_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -772,11 +782,7 @@ fn convert_gpos_lookup(
             if subtables.is_empty() {
                 return None;
             }
-            Some(PositionLookup::ChainContextual(Lookup::new(read_lookup.lookup_flag(), subtables)))
-        }
-        read_gpos::PositionLookup::Extension(_) => {
-            // Extension lookups wrap other lookup types - would need recursive handling
-            None
+            Some(PositionLookup::ChainContextual(Lookup::new(flag, subtables)))
         }
     }
 }
