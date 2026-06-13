@@ -15,17 +15,17 @@ Pre-built fonts are available from [GitHub Releases](https://github.com/0x6b/war
 
 - Variable Font: `WarpnineMono-VF.ttf` (recommended)
 - Static Fonts: Light through ExtraBlack, upright and italic
-- Sans Fonts: `WarpnineSans-*.ttf` (proportional sans-serif, Latin only)
-- Condensed Fonts: `WarpnineSansCondensed-*.ttf` (proportional sans-serif, 90% width, Latin only)
+- Sans Fonts: `WarpnineSans-VF.ttf` (variable) and `WarpnineSans-*.ttf` (static, proportional sans-serif, Latin only)
+- Condensed Fonts: `WarpnineSansCondensed-VF.ttf` (variable) and `WarpnineSansCondensed-*.ttf` (static, proportional sans-serif, 90% width, Latin only)
 - License file: `OFL`
 
 Releases are automatically built and published via GitHub Actions when a tag matching the pattern `v[YYYY-MM-DD]`, `[YYYY-MM-DD]`, or with patch suffix (e.g. `v2025-01-15.1`) is pushed, or manually triggered.
 
 ## Features
 
-- Variable Font with 2 axes:
-  - `wght`: 300 (Light) to 1000 (ExtraBlack)
-  - `ital`: 0 (Upright) to 1 (Italic)
+- Variable Fonts with 2 axes (`wght`, `ital`):
+  - WarpnineMono: `wght` 300 (Light) to 1000 (ExtraBlack), `ital` 0 (Upright) to 1 (Italic)
+  - WarpnineSans / WarpnineSansCondensed: `wght` 300 (Light) to 900 (Black), `ital` 0 (Upright) to 1 (Italic)
 - Programming Ligatures: `->`, `=>`, `>=`, `!=`, `===`, `&&`, `||`, and more (delivered via the `dlig` feature; most editors/terminals leave `dlig` off by default — see [Enabling Ligatures](#enabling-ligatures))
 - Frozen OpenType Features (always active, baked into the default cmap):
   - `pnum`
@@ -57,10 +57,12 @@ That will generate the following fonts:
 - Static fonts: `dist/WarpnineMono-*.ttf` (18 MB each)
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
   - Each with upright and italic variants
-- Sans fonts: `dist/WarpnineSans-*.ttf`
+- Sans variable font: `dist/WarpnineSans-VF.ttf`
+- Sans static fonts: `dist/WarpnineSans-*.ttf`
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black
   - Each with upright and italic variants
-- Condensed fonts: `dist/WarpnineSansCondensed-*.ttf`
+- Condensed variable font: `dist/WarpnineSansCondensed-VF.ttf`
+- Condensed static fonts: `dist/WarpnineSansCondensed-*.ttf`
   - Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black
   - Each with upright and italic variants
 

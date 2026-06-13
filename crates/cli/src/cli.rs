@@ -43,12 +43,12 @@ pub enum Commands {
         #[command(flatten)]
         args: BuildArgs,
     },
-    /// Build WarpnineSans fonts only (proportional sans-serif)
+    /// Build WarpnineSans fonts only (proportional sans-serif, static + variable)
     BuildSans {
         #[command(flatten)]
         args: BuildArgs,
     },
-    /// Build WarpnineSansCondensed fonts only (90% width)
+    /// Build WarpnineSansCondensed fonts only (90% width, static + variable)
     BuildCondensed {
         #[command(flatten)]
         args: BuildArgs,

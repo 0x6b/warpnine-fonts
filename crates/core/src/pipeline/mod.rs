@@ -16,7 +16,10 @@ pub use download::download;
 pub use steps::{
     CONDENSED_ONLY_STEPS, FINAL_STEPS, MONO_STEPS, PipelineStep, SANS_ONLY_STEPS, SANS_STEPS,
 };
-pub use vf::{build_warpnine_mono_vf, warpnine_mono_designspace};
+pub use vf::{
+    build_warpnine_condensed_vf, build_warpnine_mono_vf, build_warpnine_sans_vf,
+    warpnine_mono_designspace,
+};
 
 use crate::{
     FontVersion,
@@ -72,6 +75,14 @@ impl PipelineContext {
 
     pub fn vf_output(&self) -> PathBuf {
         self.dist_dir.join("WarpnineMono-VF.ttf")
+    }
+
+    pub fn sans_vf_output(&self) -> PathBuf {
+        self.dist_dir.join("WarpnineSans-VF.ttf")
+    }
+
+    pub fn condensed_vf_output(&self) -> PathBuf {
+        self.dist_dir.join("WarpnineSansCondensed-VF.ttf")
     }
 
     pub fn frozen_backup_dir(&self) -> PathBuf {
