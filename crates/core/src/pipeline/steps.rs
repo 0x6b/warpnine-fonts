@@ -3,14 +3,19 @@
 use std::{
     collections::BTreeMap,
     fs::{copy, create_dir_all, rename, write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Result, anyhow};
 use rayon::prelude::*;
 use warpnine_font_ops::copy_gsub_without_feature_variations;
 
-use super::{PipelineContext, clean::clean, download::download, vf::build_warpnine_mono_vf};
+use super::{
+    PipelineContext,
+    clean::clean,
+    download::download,
+    vf::{build_warpnine_condensed_vf, build_warpnine_mono_vf, build_warpnine_sans_vf},
+};
 use crate::{
     MonospaceSettings, Subsetter, convert_to_woff2,
     freeze_batch::{AutoRvrn, freeze_features},
@@ -53,6 +58,12 @@ pub const SANS_STEPS: &[PipelineStep] = &[
     ("create-sans", step_create_sans),
     ("set-names-sans", step_set_names_sans),
     ("freeze-vf-and-sans", step_freeze_vf_and_sans),
+    ("build-sans-vf", step_build_sans_vf),
+    ("build-condensed-vf", step_build_condensed_vf),
+    ("set-names-sans-vf", step_set_names_sans_vf),
+    ("set-names-condensed-vf", step_set_names_condensed_vf),
+    ("generate-woff2-sans", step_generate_woff2_sans),
+    ("generate-woff2-condensed", step_generate_woff2_condensed),
 ];
 
 pub const FINAL_STEPS: &[PipelineStep] = &[("set-version", step_set_version)];
@@ -62,6 +73,9 @@ pub const SANS_ONLY_STEPS: &[PipelineStep] = &[
     ("create-sans", step_create_sans),
     ("set-names-sans-only", step_set_names_sans_only),
     ("freeze-sans", step_freeze_sans),
+    ("build-sans-vf", step_build_sans_vf),
+    ("set-names-sans-vf", step_set_names_sans_vf),
+    ("generate-woff2-sans", step_generate_woff2_sans),
     ("set-version", step_set_version),
 ];
 
@@ -70,6 +84,9 @@ pub const CONDENSED_ONLY_STEPS: &[PipelineStep] = &[
     ("create-condensed", step_create_condensed),
     ("set-names-condensed-only", step_set_names_condensed_only),
     ("freeze-condensed", step_freeze_condensed),
+    ("build-condensed-vf", step_build_condensed_vf),
+    ("set-names-condensed-vf", step_set_names_condensed_vf),
+    ("generate-woff2-condensed", step_generate_woff2_condensed),
     ("set-version", step_set_version),
 ];
 
@@ -446,6 +463,63 @@ fn step_freeze_vf_and_sans(ctx: &PipelineContext) -> Result<()> {
     Ok(())
 }
 
+fn step_build_sans_vf(ctx: &PipelineContext) -> Result<()> {
+    build_warpnine_sans_vf(&ctx.dist_dir, &ctx.sans_vf_output())
+}
+
+fn step_build_condensed_vf(ctx: &PipelineContext) -> Result<()> {
+    build_warpnine_condensed_vf(&ctx.dist_dir, &ctx.condensed_vf_output())
+}
+
+/// Set name records on a built variable font. Variable fonts use the family
+/// name alone (ID 1/16) with "Regular" as the default instance (ID 17).
+fn set_vf_names(
+    vf_path: &Path,
+    family: &str,
+    ps_family: &str,
+    copyright_extra: &str,
+) -> Result<()> {
+    if !vf_path.exists() {
+        println!("  VF not found, skipping name setting");
+        return Ok(());
+    }
+
+    let naming = FontNaming {
+        family: family.to_string(),
+        style: "Regular".to_string(),
+        postscript_family: Some(ps_family.to_string()),
+        copyright_extra: Some(copyright_extra.to_string()),
+    };
+
+    set_name(vf_path, &naming)
+}
+
+fn step_set_names_sans_vf(ctx: &PipelineContext) -> Result<()> {
+    set_vf_names(
+        &ctx.sans_vf_output(),
+        "Warpnine Sans",
+        "WarpnineSans",
+        "Warpnine Sans is based on Recursive.",
+    )
+}
+
+fn step_set_names_condensed_vf(ctx: &PipelineContext) -> Result<()> {
+    set_vf_names(
+        &ctx.condensed_vf_output(),
+        "Warpnine Sans Condensed",
+        "WarpnineSansCondensed",
+        "Warpnine Sans Condensed is based on Recursive.",
+    )
+}
+
+fn step_generate_woff2_sans(ctx: &PipelineContext) -> Result<()> {
+    generate_vf_woff2(&ctx.sans_vf_output())
+}
+
+fn step_generate_woff2_condensed(ctx: &PipelineContext) -> Result<()> {
+    generate_vf_woff2(&ctx.condensed_vf_output())
+}
+
 fn step_set_version(ctx: &PipelineContext) -> Result<()> {
     let fonts = ctx.dist_fonts("*.ttf")?;
     println!("  Setting version on {} fonts...", fonts.len());
@@ -464,14 +538,19 @@ fn step_set_version(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_generate_woff2(ctx: &PipelineContext) -> Result<()> {
-    let vf = ctx.vf_output();
+    generate_vf_woff2(&ctx.vf_output())
+}
+
+/// Convert a built variable font to WOFF2 alongside the TTF. Silently skips if
+/// the source TTF does not exist.
+fn generate_vf_woff2(vf: &Path) -> Result<()> {
     if !vf.exists() {
         println!("  VF not found, skipping WOFF2 generation");
         return Ok(());
     }
 
-    println!("  Generating WOFF2 from VF (excluding problematic codepoints)...");
-    let ttf_data = read_font(&vf)?;
+    println!("  Generating WOFF2 from {}...", vf.display());
+    let ttf_data = read_font(vf)?;
     let woff2_data = convert_to_woff2(&ttf_data)?;
 
     let woff2_path = vf.with_extension("woff2");
