@@ -7,7 +7,12 @@ use read_fonts::{
 };
 use write_fonts::{
     FontBuilder,
-    tables::name::{Name, NameRecord},
+    from_obj::ToOwnedTable,
+    tables::{
+        head::{Head, MacStyle},
+        name::{Name, NameRecord},
+        os2::{Os2, SelectionFlags},
+    },
 };
 
 /// Rewrite font data by applying a transformation function.
@@ -86,6 +91,88 @@ pub fn apply_family_style_names(font_data: &[u8], family: &str, style: &str) -> 
             _ => None,
         })?;
         builder.add_table(&new_name)?;
+        Ok(())
+    })
+}
+
+/// Human-readable name-table strings for a single static style.
+///
+/// Maps to name IDs: 1 (family), 2 (subfamily), 4 (full name),
+/// 6 (PostScript name), 16 (typographic family), 17 (typographic subfamily).
+#[derive(Debug, Clone)]
+pub struct StyleNames {
+    pub family: String,
+    pub subfamily: String,
+    pub full_name: String,
+    pub postscript: String,
+    pub typo_family: String,
+    pub typo_subfamily: String,
+}
+
+/// OS/2 `fsSelection` / head `macStyle` / OS/2 `usWeightClass` settings for a style.
+///
+/// `regular` should be set only when the face is neither `bold` nor `italic`.
+#[derive(Debug, Clone, Copy)]
+pub struct StyleBits {
+    pub italic: bool,
+    pub bold: bool,
+    pub regular: bool,
+    pub weight_class: u16,
+}
+
+/// Apply per-style naming and style bits to a font.
+///
+/// Rewrites name IDs 1/2/4/6/16/17, sets OS/2 `usWeightClass`, and updates the
+/// bold/italic/regular bits in OS/2 `fsSelection` and head `macStyle` while
+/// preserving all other bits. Name records that do not exist are left untouched.
+pub fn apply_style(font_data: &[u8], names: &StyleNames, bits: &StyleBits) -> Result<Vec<u8>> {
+    rewrite_font(font_data, |font, builder| {
+        let new_name = map_name_records(font, |name_id, _current| match name_id {
+            1 => Some(names.family.clone()),
+            2 => Some(names.subfamily.clone()),
+            4 => Some(names.full_name.clone()),
+            6 => Some(names.postscript.clone()),
+            16 => Some(names.typo_family.clone()),
+            17 => Some(names.typo_subfamily.clone()),
+            _ => None,
+        })?;
+        builder.add_table(&new_name)?;
+
+        if let Ok(os2) = font.os2() {
+            let mut new_os2: Os2 = os2.to_owned_table();
+            new_os2.us_weight_class = bits.weight_class;
+
+            let mut fs = new_os2.fs_selection;
+            fs.remove(SelectionFlags::ITALIC | SelectionFlags::BOLD | SelectionFlags::REGULAR);
+            if bits.italic {
+                fs.insert(SelectionFlags::ITALIC);
+            }
+            if bits.bold {
+                fs.insert(SelectionFlags::BOLD);
+            }
+            if bits.regular {
+                fs.insert(SelectionFlags::REGULAR);
+            }
+            new_os2.fs_selection = fs;
+
+            builder.add_table(&new_os2)?;
+        }
+
+        if let Ok(head) = font.head() {
+            let mut new_head: Head = head.to_owned_table();
+            let mut mac = new_head.mac_style;
+            mac.remove(MacStyle::BOLD | MacStyle::ITALIC);
+            if bits.bold {
+                mac.insert(MacStyle::BOLD);
+            }
+            if bits.italic {
+                mac.insert(MacStyle::ITALIC);
+            }
+            new_head.mac_style = mac;
+
+            builder.add_table(&new_head)?;
+        }
+
         Ok(())
     })
 }
