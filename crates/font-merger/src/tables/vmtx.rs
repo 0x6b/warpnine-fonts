@@ -1,5 +1,6 @@
 //! vmtx table merging
 
+use font_types::BigEndian;
 use indexmap::IndexMap;
 use read_fonts::TableProvider;
 use write_fonts::tables::vmtx::{LongMetric, Vmtx};
@@ -23,13 +24,11 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
     let mut metrics_map: IndexMap<GlyphName, VerticalGlyphMetrics> = IndexMap::new();
 
     for (i, font) in ctx.fonts().iter().enumerate() {
-        let vmtx = match font.vmtx() {
-            Ok(v) => v,
-            Err(_) => continue,
+        let Ok(vmtx) = font.vmtx() else {
+            continue;
         };
-        let vhea = match font.vhea() {
-            Ok(v) => v,
-            Err(_) => continue,
+        let Ok(vhea) = font.vhea() else {
+            continue;
         };
         let num_v_metrics = vhea.number_of_long_ver_metrics() as usize;
 
@@ -51,7 +50,7 @@ pub fn merge_vmtx(ctx: &MergeContext) -> Result<Option<Vmtx>> {
                     0
                 };
                 let tsb_idx = gid - num_v_metrics;
-                let tsb = vmtx.top_side_bearings().get(tsb_idx).map(|b| b.get()).unwrap_or(0);
+                let tsb = vmtx.top_side_bearings().get(tsb_idx).map_or(0, BigEndian::get);
                 (last_advance, tsb)
             };
 

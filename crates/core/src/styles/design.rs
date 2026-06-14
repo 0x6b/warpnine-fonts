@@ -1,7 +1,7 @@
 //! Style and design type definitions.
 
 use font_instancer::AxisLocation;
-use warpnine_font_ops::{StyleBits, StyleNames};
+use warpnine_font_ops::{StyleBits, StyleNames, style_display_name};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Slant {
@@ -73,7 +73,7 @@ impl Style {
     }
 
     pub fn display_name(&self) -> String {
-        warpnine_font_ops::style_display_name(self.name)
+        style_display_name(self.name)
     }
 
     /// RIBBI-grouped name-table strings for this style.

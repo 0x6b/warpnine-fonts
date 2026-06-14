@@ -14,7 +14,7 @@ use crate::{
 pub fn merge_maxp(fonts: &[FontRef], total_glyphs: u16) -> Result<Maxp> {
     let tables: Vec<ReadMaxp> = fonts
         .iter()
-        .map(|f| f.maxp())
+        .map(TableProvider::maxp)
         .collect::<result::Result<Vec<_>, _>>()?;
 
     if tables.is_empty() {

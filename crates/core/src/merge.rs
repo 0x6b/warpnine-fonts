@@ -31,7 +31,7 @@ impl FontMerger {
     }
 
     pub fn merge(&self) -> Result<Vec<u8>> {
-        let font_refs: Vec<&[u8]> = self.fonts.iter().map(|v| v.as_slice()).collect();
+        let font_refs: Vec<&[u8]> = self.fonts.iter().map(Vec::as_slice).collect();
         let merger = Merger::default();
         merger.merge(&font_refs).context("Failed to merge fonts")
     }
@@ -166,7 +166,7 @@ pub fn merge_with_fallbacks(
         let base_data = read_font(base_path)?;
 
         let mut font_slices: Vec<&[u8]> = vec![&base_data];
-        font_slices.extend(fallback_data.iter().map(|v| v.as_slice()));
+        font_slices.extend(fallback_data.iter().map(Vec::as_slice));
 
         let merger = Merger::new(options.clone());
         let merged_data = merger

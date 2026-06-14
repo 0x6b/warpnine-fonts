@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use log::info;
 use rayon::prelude::*;
 use read_fonts::FontRef;
@@ -135,8 +135,7 @@ pub fn set_ribbi_names_for_pattern(
         .filter(|p| {
             p.file_name()
                 .and_then(|s| s.to_str())
-                .map(|s| !s.contains("-VF"))
-                .unwrap_or(false)
+                .is_some_and(|s| !s.contains("-VF"))
         })
         .collect();
     if fonts.is_empty() {
@@ -156,7 +155,7 @@ pub fn set_ribbi_names_for_pattern(
             let style = styles
                 .iter()
                 .find(|s| s.name == style_name)
-                .ok_or_else(|| anyhow::anyhow!("Unknown style '{style_name}' for {pattern}"))?;
+                .ok_or_else(|| anyhow!("Unknown style '{style_name}' for {pattern}"))?;
 
             set_ribbi_names(path, family, ps_family, copyright_extra, style)
         })

@@ -196,30 +196,30 @@ mod tests {
     fn test_glyph_id() {
         let gid = GlyphId::new(42);
         assert_eq!(gid.to_u16(), 42);
-        assert_eq!(format!("{}", gid), "GID42");
+        assert_eq!(format!("{gid}"), "GID42");
     }
 
     #[test]
     fn test_mega_glyph_id() {
         let mgid = MegaGlyphId::new(100);
         assert_eq!(mgid.to_u16(), 100);
-        assert_eq!(format!("{}", mgid), "MGID100");
+        assert_eq!(format!("{mgid}"), "MGID100");
     }
 
     #[test]
     fn test_codepoint() {
         let cp = Codepoint::new(0x0041);
         assert_eq!(cp.to_char(), Some('A'));
-        assert_eq!(format!("{}", cp), "U+0041");
+        assert_eq!(format!("{cp}"), "U+0041");
     }
 
     #[test]
     fn test_table_tag() {
         let tag = TableTag::parse("head").unwrap();
-        assert_eq!(format!("{}", tag), "head");
+        assert_eq!(format!("{tag}"), "head");
 
         let tag = TableTag::parse("OS/2").unwrap();
-        assert_eq!(format!("{}", tag), "OS/2");
+        assert_eq!(format!("{tag}"), "OS/2");
 
         // Too long
         assert!(TableTag::parse("toolong").is_none());

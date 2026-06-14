@@ -54,7 +54,7 @@ impl Freezer {
     pub fn freeze(&self, data: &[u8]) -> Result<(Vec<u8>, usize)> {
         let features = self.resolved_features();
         let (frozen_data, stats) =
-            freeze_features_with_stats(data, features.iter().map(|f| f.as_str()))?;
+            freeze_features_with_stats(data, features.iter().map(String::as_str))?;
         Ok((frozen_data, stats.substitutions_applied))
     }
 
@@ -121,7 +121,7 @@ pub fn freeze_features(
     auto_rvrn: AutoRvrn,
 ) -> Result<()> {
     Freezer::new()
-        .with_features(features.iter().map(|f| f.as_ref()))
+        .with_features(features.iter().map(AsRef::as_ref))
         .auto_rvrn(auto_rvrn)
         .freeze_files(files)?;
     Ok(())

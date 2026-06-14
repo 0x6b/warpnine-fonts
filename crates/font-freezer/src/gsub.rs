@@ -56,9 +56,9 @@ impl GlyphSubstitutions {
     fn process_single(&mut self, subtable: &SingleSubst<'_>) -> Result<()> {
         match subtable {
             SingleSubst::Format1(fmt) => {
-                let delta = fmt.delta_glyph_id() as i32;
+                let delta = i32::from(fmt.delta_glyph_id());
                 for gid in Coverage(fmt.coverage()?).iter() {
-                    self.apply(gid, (gid as i32 + delta) as u16);
+                    self.apply(gid, (i32::from(gid) + delta) as u16);
                 }
             }
             SingleSubst::Format2(fmt) => {

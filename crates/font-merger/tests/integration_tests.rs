@@ -1,20 +1,22 @@
 //! Integration tests ported from fontTools Tests/merge/merge_test.py
 
-use std::collections::HashMap;
+use std::{collections::HashMap, result::Result};
 
-use font_types::{FWord, Fixed, LongDateTime, Tag, UfWord};
-use read_fonts::{FontRef, TableProvider, types::GlyphId};
+use font_types::{FWord, Fixed, LongDateTime, Tag, UfWord, Version16Dot16};
+use read_fonts::{FontRef, TableProvider, tables, types::GlyphId};
 use warpnine_font_merger::{Merger, Options};
 use write_fonts::{
     FontBuilder,
     tables::{
         cmap::Cmap,
         glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph},
+        gpos::Gpos,
         head::{Flags, Head, MacStyle},
         hhea::Hhea,
         hmtx::{Hmtx, LongMetric},
+        loca::LocaFormat,
         maxp::Maxp,
-        os2::Os2,
+        os2::{Os2, SelectionFlags},
         post::Post,
     },
 };
@@ -33,7 +35,7 @@ fn make_test_font(
 fn make_test_font_with_gpos(
     glyph_names: &[&str],
     cmap_entries: &[(u32, &str)],
-    gpos: &write_fonts::tables::gpos::Gpos,
+    gpos: &Gpos,
 ) -> Vec<u8> {
     make_test_font_with_bounds(glyph_names, cmap_entries, Some(4), (0, 0, 500, 700), Some(gpos))
 }
@@ -44,7 +46,7 @@ fn make_test_font_with_bounds(
     cmap_entries: &[(u32, &str)],
     os2_version: Option<u16>,
     bounds: (i16, i16, i16, i16),
-    gpos: Option<&write_fonts::tables::gpos::Gpos>,
+    gpos: Option<&Gpos>,
 ) -> Vec<u8> {
     let units_per_em = 1000u16;
     let (x_min, y_min, x_max, y_max) = bounds;
@@ -74,7 +76,7 @@ fn make_test_font_with_bounds(
         .filter_map(|(cp, name)| {
             let gid = name_to_gid.get(name)?;
             let ch = char::from_u32(*cp)?;
-            Some((ch, GlyphId::new(*gid as u32)))
+            Some((ch, GlyphId::new(u32::from(*gid))))
         })
         .collect();
     let cmap = Cmap::from_mappings(cmap_mappings).expect("cmap");
@@ -96,8 +98,8 @@ fn make_test_font_with_bounds(
         lowest_rec_ppem: 8,
         font_direction_hint: 2,
         index_to_loc_format: match loca_format {
-            write_fonts::tables::loca::LocaFormat::Short => 0,
-            write_fonts::tables::loca::LocaFormat::Long => 1,
+            LocaFormat::Short => 0,
+            LocaFormat::Long => 1,
         },
     };
 
@@ -141,7 +143,7 @@ fn make_test_font_with_bounds(
     };
 
     let post = Post {
-        version: font_types::Version16Dot16::VERSION_3_0,
+        version: Version16Dot16::VERSION_3_0,
         italic_angle: Fixed::from_f64(0.0),
         underline_position: FWord::new(-100),
         underline_thickness: FWord::new(50),
@@ -201,7 +203,7 @@ fn make_os2(version: u16) -> Os2 {
         ul_unicode_range_3: 0,
         ul_unicode_range_4: 0,
         ach_vend_id: Tag::new(b"NONE"),
-        fs_selection: write_fonts::tables::os2::SelectionFlags::REGULAR,
+        fs_selection: SelectionFlags::REGULAR,
         us_first_char_index: 0x20,
         us_last_char_index: 0x7E,
         s_typo_ascender: 700,
@@ -412,8 +414,8 @@ fn test_merge_os2_unicode_ranges() {
             lowest_rec_ppem: 8,
             font_direction_hint: 2,
             index_to_loc_format: match loca_format {
-                write_fonts::tables::loca::LocaFormat::Short => 0,
-                write_fonts::tables::loca::LocaFormat::Long => 1,
+                LocaFormat::Short => 0,
+                LocaFormat::Long => 1,
             },
         };
         let hhea = Hhea {
@@ -450,7 +452,7 @@ fn test_merge_os2_unicode_ranges() {
             max_component_depth: Some(0),
         };
         let post = Post {
-            version: font_types::Version16Dot16::VERSION_3_0,
+            version: Version16Dot16::VERSION_3_0,
             italic_angle: Fixed::from_f64(0.0),
             underline_position: FWord::new(-100),
             underline_thickness: FWord::new(50),
@@ -507,8 +509,8 @@ fn test_merge_os2_unicode_ranges() {
             lowest_rec_ppem: 8,
             font_direction_hint: 2,
             index_to_loc_format: match loca_format {
-                write_fonts::tables::loca::LocaFormat::Short => 0,
-                write_fonts::tables::loca::LocaFormat::Long => 1,
+                LocaFormat::Short => 0,
+                LocaFormat::Long => 1,
             },
         };
         let hhea = Hhea {
@@ -545,7 +547,7 @@ fn test_merge_os2_unicode_ranges() {
             max_component_depth: Some(0),
         };
         let post = Post {
-            version: font_types::Version16Dot16::VERSION_3_0,
+            version: Version16Dot16::VERSION_3_0,
             italic_angle: Fixed::from_f64(0.0),
             underline_position: FWord::new(-100),
             underline_thickness: FWord::new(50),
@@ -831,8 +833,8 @@ fn test_hinting_stripped_from_non_first_fonts() {
             lowest_rec_ppem: 8,
             font_direction_hint: 2,
             index_to_loc_format: match loca_format {
-                write_fonts::tables::loca::LocaFormat::Short => 0,
-                write_fonts::tables::loca::LocaFormat::Long => 1,
+                LocaFormat::Short => 0,
+                LocaFormat::Long => 1,
             },
         };
         let hhea = Hhea {
@@ -872,7 +874,7 @@ fn test_hinting_stripped_from_non_first_fonts() {
             max_component_depth: Some(0),
         };
         let post = Post {
-            version: font_types::Version16Dot16::VERSION_3_0,
+            version: Version16Dot16::VERSION_3_0,
             italic_angle: Fixed::from_f64(0.0),
             underline_position: FWord::new(-100),
             underline_thickness: FWord::new(50),
@@ -929,7 +931,7 @@ fn test_hinting_stripped_from_non_first_fonts() {
         .expect("glyph B exists");
 
     // Glyph A (from first font) should retain its instructions
-    if let read_fonts::tables::glyf::Glyph::Simple(simple) = glyph_a {
+    if let tables::glyf::Glyph::Simple(simple) = glyph_a {
         assert_eq!(
             simple.instructions().len(),
             3,
@@ -940,7 +942,7 @@ fn test_hinting_stripped_from_non_first_fonts() {
     }
 
     // Glyph B (from second font) should have instructions stripped
-    if let read_fonts::tables::glyf::Glyph::Simple(simple) = glyph_b {
+    if let tables::glyf::Glyph::Simple(simple) = glyph_b {
         assert_eq!(
             simple.instructions().len(),
             0,
@@ -1050,7 +1052,7 @@ fn test_merge_preserves_extension_gpos_lookups() {
         match lookup.subtables().expect("subtables") {
             PositionSubtables::Single(iter) => {
                 let mut found = None;
-                for st in iter.iter().filter_map(|s| s.ok()) {
+                for st in iter.iter().filter_map(Result::ok) {
                     if let read_fonts::tables::gpos::SinglePos::Format1(f1) = st {
                         let vr = f1.value_record();
                         found = Some((vr.x_advance().unwrap_or(0), vr.y_advance().unwrap_or(0)));

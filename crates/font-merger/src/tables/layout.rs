@@ -1,15 +1,11 @@
 //! GSUB/GPOS layout table merging
 
-use std::collections::HashMap;
+use std::{collections::HashMap, result};
 
 use font_types::{BigEndian, GlyphId16};
 use read_fonts::{
     TableProvider, tables,
-    tables::{
-        gpos::{self as read_gpos, PositionSubtables},
-        gsub::SubstitutionSubtables,
-        layout,
-    },
+    tables::{gpos::PositionSubtables, gsub::SubstitutionSubtables, layout},
     types::Tag,
 };
 use write_fonts::tables::{
@@ -61,9 +57,8 @@ pub fn merge_gsub(ctx: &MergeContext) -> Result<Option<Gsub>> {
     let mut lookups: Vec<write_fonts::tables::gsub::SubstitutionLookup> = Vec::new();
 
     for (_font_idx, font, remap) in ctx.fonts_with_remap() {
-        let gsub = match font.gsub() {
-            Ok(g) => g,
-            Err(_) => continue,
+        let Ok(gsub) = font.gsub() else {
+            continue;
         };
 
         let lookup_offset = LookupIndex::new(lookups.len() as u16);
@@ -139,9 +134,9 @@ fn convert_gsub_lookup(
     match read_subs {
         SubstitutionSubtables::Single(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 match subtable {
-                    read_fonts::tables::gsub::SingleSubst::Format1(f1) => {
+                    tables::gsub::SingleSubst::Format1(f1) => {
                         if let Ok(coverage) = f1.coverage() {
                             let delta = f1.delta_glyph_id();
                             // Format1 uses delta, need to convert each glyph
@@ -149,7 +144,8 @@ fn convert_gsub_lookup(
                             let mut subst_glyphs = Vec::new();
                             for gid in coverage.iter() {
                                 let old_gid = gid.to_u32() as u16;
-                                let subst_old = ((old_gid as i32 + delta as i32) & 0xFFFF) as u16;
+                                let subst_old =
+                                    ((i32::from(old_gid) + i32::from(delta)) & 0xFFFF) as u16;
                                 // Only include this substitution if BOTH source and target can be
                                 // remapped
                                 if let (Some(new_gid), Some(subst_new)) =
@@ -165,7 +161,7 @@ fn convert_gsub_lookup(
                             }
                         }
                     }
-                    read_fonts::tables::gsub::SingleSubst::Format2(f2) => {
+                    tables::gsub::SingleSubst::Format2(f2) => {
                         if let Ok(coverage) = f2.coverage() {
                             let mut glyph_array = Vec::new();
                             let mut subst_glyphs = Vec::new();
@@ -196,7 +192,7 @@ fn convert_gsub_lookup(
         }
         SubstitutionSubtables::Multiple(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Ok(coverage) = subtable.coverage() {
                     let mut glyph_array = Vec::new();
                     let mut sequences = Vec::new();
@@ -231,7 +227,7 @@ fn convert_gsub_lookup(
         }
         SubstitutionSubtables::Alternate(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Ok(coverage) = subtable.coverage() {
                     let mut glyph_array = Vec::new();
                     let mut alt_sets = Vec::new();
@@ -266,7 +262,7 @@ fn convert_gsub_lookup(
         }
         SubstitutionSubtables::Ligature(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Ok(coverage) = subtable.coverage() {
                     let mut glyph_array = Vec::new();
                     let mut lig_sets = Vec::new();
@@ -278,7 +274,7 @@ fn convert_gsub_lookup(
                             let ligatures: Vec<Ligature> = lig_set
                                 .ligatures()
                                 .iter()
-                                .filter_map(|lig| lig.ok())
+                                .filter_map(result::Result::ok)
                                 .filter_map(|lig| {
                                     let lig_glyph_old = lig.ligature_glyph().to_u32() as u16;
                                     let lig_glyph = gid_remap.get_u16(lig_glyph_old)?;
@@ -312,7 +308,7 @@ fn convert_gsub_lookup(
         }
         SubstitutionSubtables::Contextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Some(converted) =
                     convert_gsub_sequence_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -326,7 +322,7 @@ fn convert_gsub_lookup(
         }
         SubstitutionSubtables::ChainContextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Some(converted) =
                     convert_gsub_chained_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -340,21 +336,21 @@ fn convert_gsub_lookup(
         }
         SubstitutionSubtables::Reverse(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Ok(coverage) = subtable.coverage() {
                     let remapped_cov = remap_coverage(&coverage, gid_remap);
 
                     let backtrack: Vec<CoverageTable> = subtable
                         .backtrack_coverages()
                         .iter()
-                        .filter_map(|c| c.ok())
+                        .filter_map(result::Result::ok)
                         .map(|c| remap_coverage(&c, gid_remap))
                         .collect();
 
                     let lookahead: Vec<CoverageTable> = subtable
                         .lookahead_coverages()
                         .iter()
-                        .filter_map(|c| c.ok())
+                        .filter_map(result::Result::ok)
                         .map(|c| remap_coverage(&c, gid_remap))
                         .collect();
 
@@ -399,9 +395,8 @@ pub fn merge_gpos(ctx: &MergeContext) -> Result<Option<Gpos>> {
     let mut lookups: Vec<PositionLookup> = Vec::new();
 
     for (_font_idx, font, remap) in ctx.fonts_with_remap() {
-        let gpos = match font.gpos() {
-            Ok(g) => g,
-            Err(_) => continue,
+        let Ok(gpos) = font.gpos() else {
+            continue;
         };
 
         let lookup_offset = LookupIndex::new(lookups.len() as u16);
@@ -461,9 +456,9 @@ fn convert_gpos_lookup(
     match read_subs {
         PositionSubtables::Single(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 match subtable {
-                    read_gpos::SinglePos::Format1(f1) => {
+                    tables::gpos::SinglePos::Format1(f1) => {
                         if let Ok(coverage) = f1.coverage() {
                             let remapped_cov = remap_coverage(&coverage, gid_remap);
                             let value_record = f1.value_record().to_write();
@@ -473,13 +468,13 @@ fn convert_gpos_lookup(
                             )));
                         }
                     }
-                    read_gpos::SinglePos::Format2(f2) => {
+                    tables::gpos::SinglePos::Format2(f2) => {
                         if let Ok(coverage) = f2.coverage() {
                             let remapped_cov = remap_coverage(&coverage, gid_remap);
                             let value_records: Vec<ValueRecord> = f2
                                 .value_records()
                                 .iter()
-                                .filter_map(|vr| vr.ok())
+                                .filter_map(result::Result::ok)
                                 .map(|vr| vr.to_write())
                                 .collect();
                             subtables.push(SinglePos::Format2(SinglePosFormat2::new(
@@ -497,22 +492,22 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::Pair(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 match subtable {
-                    read_gpos::PairPos::Format1(f1) => {
+                    tables::gpos::PairPos::Format1(f1) => {
                         if let Ok(coverage) = f1.coverage() {
                             let remapped_cov = remap_coverage(&coverage, gid_remap);
                             let pair_sets: Vec<PairSet> = f1
                                 .pair_sets()
                                 .iter()
-                                .filter_map(|ps| ps.ok())
+                                .filter_map(result::Result::ok)
                                 .map(|ps| {
                                     // Filter to only include records where second glyph can be
                                     // remapped
                                     let records: Vec<PairValueRecord> = ps
                                         .pair_value_records()
                                         .iter()
-                                        .filter_map(|pvr| pvr.ok())
+                                        .filter_map(result::Result::ok)
                                         .filter_map(|pvr| {
                                             let second_old = pvr.second_glyph().to_u32() as u16;
                                             let second_new = gid_remap.get_u16(second_old)?;
@@ -532,7 +527,7 @@ fn convert_gpos_lookup(
                             )));
                         }
                     }
-                    read_gpos::PairPos::Format2(f2) => {
+                    tables::gpos::PairPos::Format2(f2) => {
                         if let Ok(coverage) = f2.coverage() {
                             let remapped_cov = remap_coverage(&coverage, gid_remap);
                             let class_def1 = if let Ok(cd) = f2.class_def1() {
@@ -548,12 +543,12 @@ fn convert_gpos_lookup(
                             let class1_records: Vec<Class1Record> = f2
                                 .class1_records()
                                 .iter()
-                                .filter_map(|c1r| c1r.ok())
+                                .filter_map(result::Result::ok)
                                 .map(|c1r| {
                                     let class2_records: Vec<Class2Record> = c1r
                                         .class2_records()
                                         .iter()
-                                        .filter_map(|c2r| c2r.ok())
+                                        .filter_map(result::Result::ok)
                                         .map(|c2r| {
                                             Class2Record::new(
                                                 c2r.value_record1().to_write(),
@@ -581,7 +576,7 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::Cursive(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Ok(coverage) = subtable.coverage() {
                     let remapped_cov = remap_coverage(&coverage, gid_remap);
                     let entry_exit_records: Vec<EntryExitRecord> = subtable
@@ -590,11 +585,11 @@ fn convert_gpos_lookup(
                         .map(|eer| {
                             let entry = eer
                                 .entry_anchor(subtable.offset_data())
-                                .and_then(|a| a.ok())
+                                .and_then(result::Result::ok)
                                 .map(|a| a.to_write());
                             let exit = eer
                                 .exit_anchor(subtable.offset_data())
-                                .and_then(|a| a.ok())
+                                .and_then(result::Result::ok)
                                 .map(|a| a.to_write());
                             EntryExitRecord::new(entry, exit)
                         })
@@ -609,7 +604,7 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::MarkToBase(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let (Ok(mark_cov), Ok(base_cov)) =
                     (subtable.mark_coverage(), subtable.base_coverage())
                 {
@@ -626,12 +621,12 @@ fn convert_gpos_lookup(
                         let base_records: Vec<BaseRecord> = ba
                             .base_records()
                             .iter()
-                            .filter_map(|br| br.ok())
+                            .filter_map(result::Result::ok)
                             .map(|br| {
                                 let anchors: Vec<Option<AnchorTable>> = br
                                     .base_anchors(ba.offset_data())
                                     .iter()
-                                    .map(|a| a.and_then(|r| r.ok()).map(|a| a.to_write()))
+                                    .map(|a| a.and_then(result::Result::ok).map(|a| a.to_write()))
                                     .collect();
                                 BaseRecord::new(anchors)
                             })
@@ -656,7 +651,7 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::MarkToLig(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let (Ok(mark_cov), Ok(lig_cov)) =
                     (subtable.mark_coverage(), subtable.ligature_coverage())
                 {
@@ -673,17 +668,19 @@ fn convert_gpos_lookup(
                         let lig_attaches: Vec<LigatureAttach> = la
                             .ligature_attaches()
                             .iter()
-                            .filter_map(|la| la.ok())
+                            .filter_map(result::Result::ok)
                             .map(|la| {
                                 let component_records: Vec<ComponentRecord> = la
                                     .component_records()
                                     .iter()
-                                    .filter_map(|cr| cr.ok())
+                                    .filter_map(result::Result::ok)
                                     .map(|cr| {
                                         let anchors: Vec<Option<AnchorTable>> = cr
                                             .ligature_anchors(la.offset_data())
                                             .iter()
-                                            .map(|a| a.and_then(|r| r.ok()).map(|a| a.to_write()))
+                                            .map(|a| {
+                                                a.and_then(result::Result::ok).map(|a| a.to_write())
+                                            })
                                             .collect();
                                         ComponentRecord::new(anchors)
                                     })
@@ -711,7 +708,7 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::MarkToMark(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let (Ok(mark1_cov), Ok(mark2_cov)) =
                     (subtable.mark1_coverage(), subtable.mark2_coverage())
                 {
@@ -728,12 +725,12 @@ fn convert_gpos_lookup(
                         let mark2_records: Vec<Mark2Record> = m2a
                             .mark2_records()
                             .iter()
-                            .filter_map(|m2r| m2r.ok())
+                            .filter_map(result::Result::ok)
                             .map(|m2r| {
                                 let anchors: Vec<Option<AnchorTable>> = m2r
                                     .mark2_anchors(m2a.offset_data())
                                     .iter()
-                                    .map(|a| a.and_then(|r| r.ok()).map(|a| a.to_write()))
+                                    .map(|a| a.and_then(result::Result::ok).map(|a| a.to_write()))
                                     .collect();
                                 Mark2Record::new(anchors)
                             })
@@ -758,7 +755,7 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::Contextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Some(converted) =
                     convert_gpos_sequence_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -772,7 +769,7 @@ fn convert_gpos_lookup(
         }
         PositionSubtables::ChainContextual(read_subs) => {
             let mut subtables = Vec::new();
-            for subtable in read_subs.iter().filter_map(|s| s.ok()) {
+            for subtable in read_subs.iter().filter_map(result::Result::ok) {
                 if let Some(converted) =
                     convert_gpos_chained_context(&subtable, gid_remap, _lookup_offset)
                 {
@@ -788,10 +785,7 @@ fn convert_gpos_lookup(
 }
 
 /// Remap coverage table glyphs
-fn remap_coverage(
-    coverage: &read_fonts::tables::layout::CoverageTable,
-    gid_remap: &GidRemap,
-) -> CoverageTable {
+fn remap_coverage(coverage: &layout::CoverageTable, gid_remap: &GidRemap) -> CoverageTable {
     let glyphs: Vec<GlyphId16> = coverage
         .iter()
         .filter_map(|gid| {
@@ -803,10 +797,7 @@ fn remap_coverage(
 }
 
 /// Remap class definition
-fn remap_class_def(
-    class_def: &read_fonts::tables::layout::ClassDef,
-    gid_remap: &GidRemap,
-) -> ClassDef {
+fn remap_class_def(class_def: &layout::ClassDef, gid_remap: &GidRemap) -> ClassDef {
     let mappings: Vec<(GlyphId16, u16)> = class_def
         .iter()
         .filter_map(|(gid, class)| {
@@ -833,7 +824,7 @@ fn remap_glyph_array(
 
 /// Remap SequenceLookupRecords with lookup offset adjustment
 fn remap_seq_lookup_records(
-    records: &[read_fonts::tables::layout::SequenceLookupRecord],
+    records: &[layout::SequenceLookupRecord],
     lookup_offset: u16,
 ) -> Vec<SequenceLookupRecord> {
     records
@@ -846,14 +837,12 @@ fn remap_seq_lookup_records(
 
 /// Convert GSUB SequenceContext (contextual substitution type 5)
 fn convert_gsub_sequence_context(
-    subtable: &read_fonts::tables::layout::SequenceContext,
+    subtable: &layout::SequenceContext,
     gid_remap: &GidRemap,
     lookup_offset: u16,
 ) -> Option<SubstitutionSequenceContext> {
-    use read_fonts::tables::layout::SequenceContext as ReadSeqCtx;
-
     match subtable {
-        ReadSeqCtx::Format1(f1) => {
+        layout::SequenceContext::Format1(f1) => {
             let coverage = f1.coverage().ok()?;
             let remapped_cov = remap_coverage(&coverage, gid_remap);
 
@@ -861,12 +850,12 @@ fn convert_gsub_sequence_context(
                 .seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|srs| {
+                    opt_result.and_then(result::Result::ok).map(|srs| {
                         // Filter rules where all glyphs can be remapped
                         let seq_rules: Vec<SequenceRule> = srs
                             .seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .filter_map(|rule| {
                                 let input_seq =
                                     remap_glyph_array(rule.input_sequence(), gid_remap)?;
@@ -886,7 +875,7 @@ fn convert_gsub_sequence_context(
                 SequenceContextFormat1::new(remapped_cov, seq_rule_sets),
             )))
         }
-        ReadSeqCtx::Format2(f2) => {
+        layout::SequenceContext::Format2(f2) => {
             let coverage = f2.coverage().ok()?;
             let class_def = f2.class_def().ok()?;
             let remapped_cov = remap_coverage(&coverage, gid_remap);
@@ -896,14 +885,14 @@ fn convert_gsub_sequence_context(
                 .class_seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|csrs| {
+                    opt_result.and_then(result::Result::ok).map(|csrs| {
                         let class_seq_rules: Vec<ClassSequenceRule> = csrs
                             .class_seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .map(|rule| {
                                 let input_seq: Vec<u16> =
-                                    rule.input_sequence().iter().map(|c| c.get()).collect();
+                                    rule.input_sequence().iter().map(BigEndian::get).collect();
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
@@ -920,11 +909,11 @@ fn convert_gsub_sequence_context(
                 SequenceContextFormat2::new(remapped_cov, remapped_class_def, class_seq_rule_sets),
             )))
         }
-        ReadSeqCtx::Format3(f3) => {
+        layout::SequenceContext::Format3(f3) => {
             let coverages: Vec<CoverageTable> = f3
                 .coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
@@ -943,10 +932,8 @@ fn convert_gsub_chained_context(
     gid_remap: &GidRemap,
     lookup_offset: u16,
 ) -> Option<SubstitutionChainContext> {
-    use read_fonts::tables::layout::ChainedSequenceContext as ReadChainCtx;
-
     match subtable {
-        ReadChainCtx::Format1(f1) => {
+        layout::ChainedSequenceContext::Format1(f1) => {
             let coverage = f1.coverage().ok()?;
             let remapped_cov = remap_coverage(&coverage, gid_remap);
 
@@ -954,12 +941,12 @@ fn convert_gsub_chained_context(
                 .chained_seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|csrs| {
+                    opt_result.and_then(result::Result::ok).map(|csrs| {
                         // Filter rules where all glyphs can be remapped
                         let chained_seq_rules: Vec<ChainedSequenceRule> = csrs
                             .chained_seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .filter_map(|rule| {
                                 let backtrack =
                                     remap_glyph_array(rule.backtrack_sequence(), gid_remap)?;
@@ -987,7 +974,7 @@ fn convert_gsub_chained_context(
                 ChainedSequenceContextFormat1::new(remapped_cov, chained_seq_rule_sets),
             )))
         }
-        ReadChainCtx::Format2(f2) => {
+        layout::ChainedSequenceContext::Format2(f2) => {
             let coverage = f2.coverage().ok()?;
             let backtrack_class_def = f2.backtrack_class_def().ok()?;
             let input_class_def = f2.input_class_def().ok()?;
@@ -1002,18 +989,18 @@ fn convert_gsub_chained_context(
                 .chained_class_seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|ccsrs| {
+                    opt_result.and_then(result::Result::ok).map(|ccsrs| {
                         let chained_class_seq_rules: Vec<ChainedClassSequenceRule> = ccsrs
                             .chained_class_seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .map(|rule| {
                                 let backtrack: Vec<u16> =
-                                    rule.backtrack_sequence().iter().map(|c| c.get()).collect();
+                                    rule.backtrack_sequence().iter().map(BigEndian::get).collect();
                                 let input: Vec<u16> =
-                                    rule.input_sequence().iter().map(|c| c.get()).collect();
+                                    rule.input_sequence().iter().map(BigEndian::get).collect();
                                 let lookahead: Vec<u16> =
-                                    rule.lookahead_sequence().iter().map(|c| c.get()).collect();
+                                    rule.lookahead_sequence().iter().map(BigEndian::get).collect();
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
@@ -1041,25 +1028,25 @@ fn convert_gsub_chained_context(
                 ),
             )))
         }
-        ReadChainCtx::Format3(f3) => {
+        layout::ChainedSequenceContext::Format3(f3) => {
             let backtrack_coverages: Vec<CoverageTable> = f3
                 .backtrack_coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
             let input_coverages: Vec<CoverageTable> = f3
                 .input_coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
             let lookahead_coverages: Vec<CoverageTable> = f3
                 .lookahead_coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
@@ -1079,14 +1066,12 @@ fn convert_gsub_chained_context(
 
 /// Convert GPOS SequenceContext (contextual positioning type 7)
 fn convert_gpos_sequence_context(
-    subtable: &read_fonts::tables::layout::SequenceContext,
+    subtable: &layout::SequenceContext,
     gid_remap: &GidRemap,
     lookup_offset: u16,
 ) -> Option<PositionSequenceContext> {
-    use read_fonts::tables::layout::SequenceContext as ReadSeqCtx;
-
     match subtable {
-        ReadSeqCtx::Format1(f1) => {
+        layout::SequenceContext::Format1(f1) => {
             let coverage = f1.coverage().ok()?;
             let remapped_cov = remap_coverage(&coverage, gid_remap);
 
@@ -1094,12 +1079,12 @@ fn convert_gpos_sequence_context(
                 .seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|srs| {
+                    opt_result.and_then(result::Result::ok).map(|srs| {
                         // Filter rules where all glyphs can be remapped
                         let seq_rules: Vec<SequenceRule> = srs
                             .seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .filter_map(|rule| {
                                 let input_seq =
                                     remap_glyph_array(rule.input_sequence(), gid_remap)?;
@@ -1119,7 +1104,7 @@ fn convert_gpos_sequence_context(
                 SequenceContextFormat1::new(remapped_cov, seq_rule_sets),
             )))
         }
-        ReadSeqCtx::Format2(f2) => {
+        layout::SequenceContext::Format2(f2) => {
             let coverage = f2.coverage().ok()?;
             let class_def = f2.class_def().ok()?;
             let remapped_cov = remap_coverage(&coverage, gid_remap);
@@ -1129,14 +1114,14 @@ fn convert_gpos_sequence_context(
                 .class_seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|csrs| {
+                    opt_result.and_then(result::Result::ok).map(|csrs| {
                         let class_seq_rules: Vec<ClassSequenceRule> = csrs
                             .class_seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .map(|rule| {
                                 let input_seq: Vec<u16> =
-                                    rule.input_sequence().iter().map(|c| c.get()).collect();
+                                    rule.input_sequence().iter().map(BigEndian::get).collect();
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
@@ -1153,11 +1138,11 @@ fn convert_gpos_sequence_context(
                 SequenceContextFormat2::new(remapped_cov, remapped_class_def, class_seq_rule_sets),
             )))
         }
-        ReadSeqCtx::Format3(f3) => {
+        layout::SequenceContext::Format3(f3) => {
             let coverages: Vec<CoverageTable> = f3
                 .coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
@@ -1176,10 +1161,8 @@ fn convert_gpos_chained_context(
     gid_remap: &GidRemap,
     lookup_offset: u16,
 ) -> Option<PositionChainContext> {
-    use read_fonts::tables::layout::ChainedSequenceContext as ReadChainCtx;
-
     match subtable {
-        ReadChainCtx::Format1(f1) => {
+        layout::ChainedSequenceContext::Format1(f1) => {
             let coverage = f1.coverage().ok()?;
             let remapped_cov = remap_coverage(&coverage, gid_remap);
 
@@ -1187,12 +1170,12 @@ fn convert_gpos_chained_context(
                 .chained_seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|csrs| {
+                    opt_result.and_then(result::Result::ok).map(|csrs| {
                         // Filter rules where all glyphs can be remapped
                         let chained_seq_rules: Vec<ChainedSequenceRule> = csrs
                             .chained_seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .filter_map(|rule| {
                                 let backtrack =
                                     remap_glyph_array(rule.backtrack_sequence(), gid_remap)?;
@@ -1220,7 +1203,7 @@ fn convert_gpos_chained_context(
                 ChainedSequenceContextFormat1::new(remapped_cov, chained_seq_rule_sets),
             )))
         }
-        ReadChainCtx::Format2(f2) => {
+        layout::ChainedSequenceContext::Format2(f2) => {
             let coverage = f2.coverage().ok()?;
             let backtrack_class_def = f2.backtrack_class_def().ok()?;
             let input_class_def = f2.input_class_def().ok()?;
@@ -1235,18 +1218,18 @@ fn convert_gpos_chained_context(
                 .chained_class_seq_rule_sets()
                 .iter()
                 .map(|opt_result| {
-                    opt_result.and_then(|r| r.ok()).map(|ccsrs| {
+                    opt_result.and_then(result::Result::ok).map(|ccsrs| {
                         let chained_class_seq_rules: Vec<ChainedClassSequenceRule> = ccsrs
                             .chained_class_seq_rules()
                             .iter()
-                            .filter_map(|r| r.ok())
+                            .filter_map(result::Result::ok)
                             .map(|rule| {
                                 let backtrack: Vec<u16> =
-                                    rule.backtrack_sequence().iter().map(|c| c.get()).collect();
+                                    rule.backtrack_sequence().iter().map(BigEndian::get).collect();
                                 let input: Vec<u16> =
-                                    rule.input_sequence().iter().map(|c| c.get()).collect();
+                                    rule.input_sequence().iter().map(BigEndian::get).collect();
                                 let lookahead: Vec<u16> =
-                                    rule.lookahead_sequence().iter().map(|c| c.get()).collect();
+                                    rule.lookahead_sequence().iter().map(BigEndian::get).collect();
                                 let seq_lookups = remap_seq_lookup_records(
                                     rule.seq_lookup_records(),
                                     lookup_offset,
@@ -1274,25 +1257,25 @@ fn convert_gpos_chained_context(
                 ),
             )))
         }
-        ReadChainCtx::Format3(f3) => {
+        layout::ChainedSequenceContext::Format3(f3) => {
             let backtrack_coverages: Vec<CoverageTable> = f3
                 .backtrack_coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
             let input_coverages: Vec<CoverageTable> = f3
                 .input_coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
             let lookahead_coverages: Vec<CoverageTable> = f3
                 .lookahead_coverages()
                 .iter()
-                .filter_map(|c| c.ok())
+                .filter_map(result::Result::ok)
                 .map(|c| remap_coverage(&c, gid_remap))
                 .collect();
 
@@ -1311,7 +1294,7 @@ fn convert_gpos_chained_context(
 }
 
 fn collect_scripts_typed(
-    script_list: &read_fonts::tables::layout::ScriptList,
+    script_list: &layout::ScriptList,
     merged: &mut ScriptLangFeatureMap,
     feature_offset: u16,
 ) {
@@ -1353,7 +1336,7 @@ fn add_locl_lookups_typed(
     duplicate_info: &DuplicateGlyphInfo,
     glyph_order: &GlyphOrder,
 ) {
-    for dups in duplicate_info.per_font.iter() {
+    for dups in &duplicate_info.per_font {
         if dups.is_empty() {
             continue;
         }

@@ -37,6 +37,10 @@ pub struct PipelineContext {
 }
 
 impl PipelineContext {
+    // `version` is taken by value to keep the owned-`Option<String>` call sites
+    // simple; switching to `Option<&str>` would cascade the same lint up to every
+    // `build_*` entry point.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new(build_dir: PathBuf, dist_dir: PathBuf, version: Option<String>) -> Result<Self> {
         let version = FontVersion::parse(version.as_deref())?;
         let recursive_vf = build_dir.join(RECURSIVE_VF_FILENAME);
@@ -67,8 +71,7 @@ impl PipelineContext {
             .filter(|p| {
                 p.file_name()
                     .and_then(|s| s.to_str())
-                    .map(|s| !s.contains("-VF"))
-                    .unwrap_or(false)
+                    .is_some_and(|s| !s.contains("-VF"))
             })
             .collect())
     }

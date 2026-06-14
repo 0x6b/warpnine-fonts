@@ -12,7 +12,7 @@ use write_fonts::{
     from_obj::FromObjRef,
     tables::{
         fvar::{AxisInstanceArrays, Fvar, InstanceRecord, VariationAxisRecord},
-        glyf::{GlyfLocaBuilder, Glyph as WriteGlyph, SimpleGlyph as WriteSimpleGlyph},
+        glyf::{GlyfLocaBuilder, Glyph as WriteGlyph},
         gvar::{GlyphDelta, GlyphDeltas, GlyphVariations, Gvar, Tent, iup::iup_delta_optimize},
         head::Head,
         name::{Name, NameRecord},
@@ -371,7 +371,8 @@ use std::{
 
 use kurbo::{Point, Vec2};
 use log::warn;
-use read_fonts::tables::glyf::{CompositeGlyph, SimpleGlyph};
+use read_fonts::tables::glyf::{Anchor, CompositeGlyph, SimpleGlyph};
+use warpnine_font_ops::weight_name;
 use write_fonts::{
     tables,
     tables::{glyf::Glyph, loca::LocaFormat, stat::AxisRecord},
@@ -403,7 +404,7 @@ fn build_gvar(
     // Load glyf/loca for all masters
     let master_glyfs: Vec<_> = masters
         .iter()
-        .map(|m| m.glyf())
+        .map(TableProvider::glyf)
         .collect::<result::Result<Vec<_>, _>>()?;
     let master_locas: Vec<_> = masters
         .iter()
@@ -415,7 +416,7 @@ fn build_gvar(
     let variations_start = Instant::now();
     let all_variations: Vec<GlyphVariations> = (0..num_glyphs)
         .map(|glyph_idx| {
-            let gid = GlyphId::new(glyph_idx as u32);
+            let gid = GlyphId::new(u32::from(glyph_idx));
             build_glyph_variations(gid, designspace, &master_glyfs, &master_locas, model)
         })
         .collect::<Result<Vec<_>>>()?;
@@ -426,7 +427,7 @@ fn build_gvar(
     let optional = OPTIONAL_POINTS.load(Ordering::Relaxed);
     info!(
         "Glyph variations computed in {variations_elapsed:.2}s ({num_glyphs} glyphs, {:.0} glyphs/sec)",
-        num_glyphs as f64 / variations_elapsed
+        f64::from(num_glyphs) / variations_elapsed
     );
     info!(
         "IUP statistics: {total} total points, {required} required ({:.1}%), {optional} optional ({:.1}%)",
@@ -596,13 +597,13 @@ fn build_simple_glyph_variations(
         // Add 4 phantom point deltas (set to zero for now)
         // Phantom points: LSB origin, advance width, top origin, advance height
         for _ in 0..4 {
-            raw_deltas.push(kurbo::Vec2::ZERO);
+            raw_deltas.push(Vec2::ZERO);
         }
 
         // Extend coordinates with phantom points
         let mut coords_with_phantom = default_coords.clone();
         for _ in 0..4 {
-            coords_with_phantom.push(kurbo::Point::ZERO);
+            coords_with_phantom.push(Point::ZERO);
         }
 
         // Apply IUP optimization with tolerance of 0.5 (half a unit)
@@ -668,7 +669,7 @@ fn build_composite_glyph_variations(
                 .map(|c| {
                     let anchor = c.anchor;
                     match anchor {
-                        read_fonts::tables::glyf::Anchor::Offset { x, y } => (x, y),
+                        Anchor::Offset { x, y } => (x, y),
                         _ => (0, 0),
                     }
                 })
@@ -678,7 +679,7 @@ fn build_composite_glyph_variations(
                 default_composite
                     .components()
                     .map(|c| match c.anchor {
-                        read_fonts::tables::glyf::Anchor::Offset { x, y } => (x, y),
+                        Anchor::Offset { x, y } => (x, y),
                         _ => (0, 0),
                     })
                     .collect()
@@ -741,14 +742,15 @@ fn build_glyf_loca(
     let mut builder = GlyfLocaBuilder::new();
 
     for glyph_idx in 0..num_glyphs {
-        let gid = GlyphId::new(glyph_idx as u32);
+        let gid = GlyphId::new(u32::from(glyph_idx));
 
         let glyph = loca.get_glyf(gid, &glyf).ok().flatten();
 
         let write_glyph: WriteGlyph = match glyph {
-            None => WriteGlyph::Empty,
+            None => Glyph::Empty,
             Some(ReadGlyph::Simple(simple)) => {
-                let write_simple = WriteSimpleGlyph::from_obj_ref(&simple, FontData::new(&[]));
+                let write_simple =
+                    tables::glyf::SimpleGlyph::from_obj_ref(&simple, FontData::new(&[]));
                 Glyph::Simple(write_simple)
             }
             Some(ReadGlyph::Composite(composite)) => {
@@ -781,8 +783,8 @@ fn build_head(default_font: &FontRef, loca_format: LocaFormat) -> Result<Head> {
         head.mac_style(),
         head.lowest_rec_ppem(),
         match loca_format {
-            write_fonts::tables::loca::LocaFormat::Short => 0,
-            write_fonts::tables::loca::LocaFormat::Long => 1,
+            LocaFormat::Short => 0,
+            LocaFormat::Long => 1,
         },
     ))
 }
@@ -814,13 +816,12 @@ fn weight_stops_in_range(designspace: &DesignSpace) -> Vec<(f64, &'static str, u
         .axes
         .iter()
         .find(|a| a.tag == "wght")
-        .map(|a| (f64::from(a.minimum), f64::from(a.maximum)))
-        .unwrap_or((f64::MIN, f64::MAX));
+        .map_or((f64::MIN, f64::MAX), |a| (f64::from(a.minimum), f64::from(a.maximum)));
 
     WEIGHT_STOPS
         .into_iter()
         .filter(|(value, _)| *value >= min && *value <= max)
-        .map(|(value, name_id)| (value, warpnine_font_ops::weight_name(value as u16), name_id))
+        .map(|(value, name_id)| (value, weight_name(value as u16), name_id))
         .collect()
 }
 

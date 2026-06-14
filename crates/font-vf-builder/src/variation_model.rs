@@ -232,7 +232,7 @@ impl VariationModel {
                 }
             }
 
-            deltas.push(delta.clamp(i16::MIN as i32, i16::MAX as i32) as i16);
+            deltas.push(delta.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16);
         }
 
         (default_value, deltas)
@@ -260,8 +260,8 @@ impl VariationModel {
             }
 
             deltas.push((
-                delta_x.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
-                delta_y.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+                delta_x.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+                delta_y.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
             ));
         }
 
@@ -294,8 +294,8 @@ impl VariationModel {
         }
 
         (
-            delta_x.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
-            delta_y.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+            delta_x.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+            delta_y.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
         )
     }
 }
@@ -305,8 +305,6 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    #[cfg(test)]
-    use crate::designspace;
     use crate::designspace::{Axis, Source};
 
     fn make_2axis_designspace() -> DesignSpace {
@@ -323,7 +321,7 @@ mod tests {
             Source::new(PathBuf::from("BoldItalic.ttf"), vec![("wght", 900.0), ("ital", 1.0)]),
         ];
 
-        designspace::DesignSpace::new(axes, sources)
+        DesignSpace::new(axes, sources)
     }
 
     #[test]

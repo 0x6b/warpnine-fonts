@@ -103,13 +103,13 @@ pub struct StyleBits {
 pub fn weight_name(weight: u16) -> &'static str {
     match weight {
         300 => "Light",
-        400 => "Regular",
         500 => "Medium",
         600 => "SemiBold",
         700 => "Bold",
         800 => "ExtraBold",
         900 => "Black",
         1000 => "ExtraBlack",
+        // 400 and any unknown value fall back to "Regular".
         _ => "Regular",
     }
 }

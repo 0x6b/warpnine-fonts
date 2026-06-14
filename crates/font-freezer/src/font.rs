@@ -19,6 +19,7 @@ use write_fonts::{
         name::{Name, NameRecord},
         post::Post,
     },
+    types::Version16Dot16,
 };
 
 use crate::{Result, error::Error, gsub::GlyphSubstitutions, types::*};
@@ -139,6 +140,10 @@ struct FeatureResolver<'a> {
 }
 
 impl FeatureResolver<'_> {
+    // `.iter().map(|i| i.get())` over `&BigEndian<T>` reads as a redundant closure
+    // to clippy, but the method-path form does not type-check: `get` takes `self`
+    // by value while `iter()` yields `&BigEndian<T>`.
+    #[allow(clippy::redundant_closure_for_method_calls)]
     fn resolve(&self) -> Result<BTreeSet<u16>> {
         let feature_indices = self.collect_feature_indices()?;
         let feature_tags = self.options.feature_tags();
@@ -158,6 +163,9 @@ impl FeatureResolver<'_> {
             .collect())
     }
 
+    // See `resolve`: `.map(|i| i.get())` over `&BigEndian<T>` is a clippy
+    // false-positive that cannot use the method-path form.
+    #[allow(clippy::redundant_closure_for_method_calls)]
     fn collect_feature_indices(&self) -> Result<Option<HashSet<u16>>> {
         if !self.options.filter.is_active() {
             return Ok(None);
@@ -337,7 +345,7 @@ impl<'a> FontEditor<'a> {
             0,
             0,
         );
-        new_post.version = write_fonts::types::Version16Dot16::VERSION_3_0;
+        new_post.version = Version16Dot16::VERSION_3_0;
         self.rebuild(|b| b.add_table(&new_post).map(|_| ()))
     }
 
@@ -363,7 +371,7 @@ fn build_groups(mappings: &[(u32, u16)]) -> Vec<SequentialMapGroup> {
             let expected_cp = last.end_char_code + 1;
             let expected_gid =
                 last.start_glyph_id + (last.end_char_code + 1 - last.start_char_code);
-            if cp == expected_cp && gid as u32 == expected_gid {
+            if cp == expected_cp && u32::from(gid) == expected_gid {
                 last.end_char_code = cp;
                 continue;
             }
@@ -371,7 +379,7 @@ fn build_groups(mappings: &[(u32, u16)]) -> Vec<SequentialMapGroup> {
         groups.push(SequentialMapGroup {
             start_char_code: cp,
             end_char_code: cp,
-            start_glyph_id: gid as u32,
+            start_glyph_id: u32::from(gid),
         });
     }
     groups

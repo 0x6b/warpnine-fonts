@@ -1,7 +1,10 @@
 //! vhea table merging
 
 use font_types::{FWord, UfWord};
-use read_fonts::{FontRef, TableProvider, tables::vhea::Vhea as ReadVhea};
+use read_fonts::{
+    FontRef, TableProvider,
+    tables::{vhea, vhea::Vhea as ReadVhea},
+};
 use write_fonts::tables::vhea::Vhea;
 
 use crate::{
@@ -33,9 +36,13 @@ pub fn merge_vhea(fonts: &[FontRef], num_v_metrics: u16) -> Result<Option<Vhea>>
         min_top_side_bearing: FWord::new(min(&min_tsbs)?),
         min_bottom_side_bearing: FWord::new(min(&min_bsbs)?),
         y_max_extent: FWord::new(max(&y_max_extents)?),
-        caret_slope_rise: first(&tables.iter().map(|t| t.caret_slope_rise()).collect::<Vec<_>>())?,
-        caret_slope_run: first(&tables.iter().map(|t| t.caret_slope_run()).collect::<Vec<_>>())?,
-        caret_offset: first(&tables.iter().map(|t| t.caret_offset()).collect::<Vec<_>>())?,
+        caret_slope_rise: first(
+            &tables.iter().map(vhea::Vhea::caret_slope_rise).collect::<Vec<_>>(),
+        )?,
+        caret_slope_run: first(
+            &tables.iter().map(vhea::Vhea::caret_slope_run).collect::<Vec<_>>(),
+        )?,
+        caret_offset: first(&tables.iter().map(vhea::Vhea::caret_offset).collect::<Vec<_>>())?,
         number_of_long_ver_metrics: num_v_metrics,
     }))
 }

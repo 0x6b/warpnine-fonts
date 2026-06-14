@@ -5,11 +5,12 @@
 //! - `GidRemap`: Mapping from source font GIDs to merged GIDs
 //! - `MergeContext`: The central context passed to all table mergers
 
-use std::collections::HashMap;
+use std::{collections::HashMap, string::ToString};
 
 use indexmap::{IndexMap, map::Entry};
 use read_fonts::{FontRef, TableProvider, tables::post::Post, types::GlyphId16};
 
+use super::types;
 use crate::{
     glyph_order::GlyphName,
     options::Options,
@@ -132,7 +133,7 @@ fn get_glyph_order(font: &FontRef) -> Vec<GlyphName> {
 }
 
 fn get_glyph_name_from_post(post: &Post, gid: u16) -> Option<String> {
-    post.glyph_name(GlyphId16::new(gid)).map(|s| s.to_string())
+    post.glyph_name(GlyphId16::new(gid)).map(ToString::to_string)
 }
 
 /// Mapping from source font GIDs to merged mega GIDs
@@ -160,7 +161,7 @@ impl GidRemap {
 
     /// Look up the mega GID for a raw u16 source GID
     pub fn get_u16(&self, old: u16) -> Option<u16> {
-        self.get(GlyphId::new(old)).map(|m| m.to_u16())
+        self.get(GlyphId::new(old)).map(types::MegaGlyphId::to_u16)
     }
 
     /// Get the underlying HashMap for iteration
@@ -267,20 +268,16 @@ impl<'a> MergeContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(test)]
-    use std::collections;
 
     use super::*;
-    #[cfg(test)]
-    use crate::types;
 
     #[test]
     fn test_gid_remap() {
         let mut mapping = IndexMap::new();
-        mapping.insert(types::GlyphId::new(0), GlyphName::new(".notdef"));
-        mapping.insert(types::GlyphId::new(1), GlyphName::new("A"));
+        mapping.insert(GlyphId::new(0), GlyphName::new(".notdef"));
+        mapping.insert(GlyphId::new(1), GlyphName::new("A"));
 
-        let mut name_to_mega = collections::HashMap::new();
+        let mut name_to_mega = HashMap::new();
         name_to_mega.insert(GlyphName::new(".notdef"), MegaGlyphId::new(0));
         name_to_mega.insert(GlyphName::new("A"), MegaGlyphId::new(1));
 

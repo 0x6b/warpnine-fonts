@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use warpnine_font_merger::{Merger, Options, Result};
+use warpnine_font_merger::{MergeError, Merger, Options, Result};
 
 #[derive(Parser)]
 #[command(name = "font-merger")]
@@ -41,7 +41,7 @@ fn main() -> Result<()> {
             if cli.verbose {
                 eprintln!("  Reading: {}", path.display());
             }
-            read(path).map_err(warpnine_font_merger::MergeError::Io)
+            read(path).map_err(MergeError::Io)
         })
         .collect::<Result<Vec<_>>>()?;
 

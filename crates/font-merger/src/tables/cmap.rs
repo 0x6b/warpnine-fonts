@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use font_types::BigEndian;
 use indexmap::{IndexMap, map::Entry};
 use read_fonts::{
     FontRef, TableProvider,
@@ -185,10 +186,10 @@ fn iter_cmap_subtable(subtable: &CmapSubtable) -> Vec<(Codepoint, GlyphId)> {
 
             let seg_count = f4.seg_count_x2() as usize / 2;
             for seg in 0..seg_count {
-                let end_code = end_codes.get(seg).map(|v| v.get()).unwrap_or(0xFFFF);
-                let start_code = start_codes.get(seg).map(|v| v.get()).unwrap_or(0);
-                let id_delta = id_deltas.get(seg).map(|v| v.get()).unwrap_or(0);
-                let id_range_offset = id_range_offsets.get(seg).map(|v| v.get()).unwrap_or(0);
+                let end_code = end_codes.get(seg).map_or(0xFFFF, BigEndian::get);
+                let start_code = start_codes.get(seg).map_or(0, BigEndian::get);
+                let id_delta = id_deltas.get(seg).map_or(0, BigEndian::get);
+                let id_range_offset = id_range_offsets.get(seg).map_or(0, BigEndian::get);
 
                 if start_code == 0xFFFF {
                     continue;
@@ -196,14 +197,14 @@ fn iter_cmap_subtable(subtable: &CmapSubtable) -> Vec<(Codepoint, GlyphId)> {
 
                 for cp in start_code..=end_code {
                     let gid = if id_range_offset == 0 {
-                        ((cp as i32 + id_delta as i32) & 0xFFFF) as u16
+                        ((i32::from(cp) + i32::from(id_delta)) & 0xFFFF) as u16
                     } else {
                         let glyph_idx = (id_range_offset as usize / 2) + (cp - start_code) as usize
                             - (seg_count - seg);
                         if let Some(gid) = glyph_id_array.get(glyph_idx) {
                             let gid = gid.get();
                             if gid != 0 {
-                                ((gid as i32 + id_delta as i32) & 0xFFFF) as u16
+                                ((i32::from(gid) + i32::from(id_delta)) & 0xFFFF) as u16
                             } else {
                                 0
                             }
@@ -213,7 +214,7 @@ fn iter_cmap_subtable(subtable: &CmapSubtable) -> Vec<(Codepoint, GlyphId)> {
                     };
 
                     if gid != 0 {
-                        mappings.push((Codepoint::new(cp as u32), GlyphId::new(gid)));
+                        mappings.push((Codepoint::new(u32::from(cp)), GlyphId::new(gid)));
                     }
                 }
             }
@@ -230,7 +231,7 @@ fn iter_cmap_subtable(subtable: &CmapSubtable) -> Vec<(Codepoint, GlyphId)> {
             }
         }
         CmapSubtable::Format6(f6) => {
-            let first = f6.first_code() as u32;
+            let first = u32::from(f6.first_code());
             for (i, gid) in f6.glyph_id_array().iter().enumerate() {
                 let gid = gid.get();
                 if gid != 0 {

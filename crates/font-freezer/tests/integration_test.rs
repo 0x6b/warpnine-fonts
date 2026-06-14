@@ -3,7 +3,7 @@
 //! Test fixtures from: https://github.com/twardoch/fonttools-opentype-feature-freezer/tree/master/tests
 //! OpenSans-Bold.subset.ttf is licensed under Apache License 2.0
 
-use std::collections::HashMap;
+use std::{collections::HashMap, string::ToString};
 
 use font_feature_freezer::{
     FreezeOptions, freeze, freeze_features, freeze_features_with_stats, report,
@@ -29,7 +29,7 @@ fn get_cmap(data: &[u8]) -> HashMap<u32, u16> {
 fn get_glyph_name(data: &[u8], gid: u16) -> Option<String> {
     let font = FontRef::new(data).unwrap();
     if let Ok(post) = font.post() {
-        post.glyph_name(GlyphId16::new(gid)).map(|s| s.to_string())
+        post.glyph_name(GlyphId16::new(gid)).map(ToString::to_string)
     } else {
         None
     }
@@ -201,7 +201,7 @@ fn test_freeze_with_suffix() {
 
     // Family name should have " onum" appended
     let family = get_name_record(&result.data, 1).unwrap();
-    assert!(family.contains("onum"), "Expected 'onum' in family name: {}", family);
+    assert!(family.contains("onum"), "Expected 'onum' in family name: {family}");
 }
 
 #[test]

@@ -16,11 +16,17 @@ use read_fonts::{
             Anchor as ReadAnchor, CompositeGlyph as ReadCompositeGlyph, Glyph, PointFlags,
             SimpleGlyph as ReadSimpleGlyph,
         },
-        gsub::{Gsub, SingleSubst},
+        gsub::{Gsub, SingleSubst, SubstitutionLookup},
         gvar::Gvar,
         hhea::Hhea,
         layout::Condition,
-        mvar::{Mvar, tags as mvar_tags},
+        mvar::{
+            Mvar,
+            tags::{
+                CPHT, HASC, HCOF, HCRN, HCRS, HDSC, HLGP, SBXO, SBXS, SBYO, SBYS, SPXO, SPXS, SPYO,
+                SPYS, STRO, STRS, UNDO, UNDS, XHGT,
+            },
+        },
         os2::Os2,
         post::Post,
     },
@@ -52,7 +58,7 @@ use crate::{
 };
 
 fn clamp_i16(value: i32) -> i16 {
-    value.clamp(i16::MIN as i32, i16::MAX as i32) as i16
+    value.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
 }
 
 const VARIATION_TABLES: [Tag; 8] = [
@@ -113,7 +119,7 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
     fvar.user_to_normalized(avar.as_ref(), user_coords, &mut normalized_coords);
 
     let maxp = font.maxp()?;
-    let num_glyphs = maxp.num_glyphs() as u32;
+    let num_glyphs = u32::from(maxp.num_glyphs());
 
     let hmtx = font.hmtx()?;
     let hhea = font.hhea()?;
@@ -130,7 +136,7 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
         let gid = GlyphId::new(glyph_id);
 
         let aw_delta = match gvar.phantom_point_deltas(&glyf, &loca, &normalized_coords, gid) {
-            Ok(Some(deltas)) => deltas.get(1).map(|d| d.x.to_i32() as i16).unwrap_or(0),
+            Ok(Some(deltas)) => deltas.get(1).map_or(0, |d| d.x.to_i32() as i16),
             _ => 0,
         };
         advance_width_deltas.push(aw_delta);
@@ -142,7 +148,7 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
         lsbs.push(orig_lsb);
 
         let Some(glyph) = loca.get_glyf(gid, &glyf).ok().flatten() else {
-            glyphs.push(WriteGlyph::Empty);
+            glyphs.push(tables::glyf::Glyph::Empty);
             glyph_bboxes.push(None);
             continue;
         };
@@ -177,13 +183,13 @@ pub fn instantiate(data: &[u8], locations: &[AxisLocation]) -> Result<Vec<u8>> {
         .collect();
 
     for glyph in &mut glyphs {
-        if let WriteGlyph::Composite(composite) = glyph {
+        if let tables::glyf::Glyph::Composite(composite) = glyph {
             let references_empty = composite
                 .components()
                 .iter()
                 .any(|comp| empty_glyph_gids.contains(&comp.glyph.to_u16()));
             if references_empty {
-                *glyph = WriteGlyph::Empty;
+                *glyph = tables::glyf::Glyph::Empty;
             }
         }
     }
@@ -302,7 +308,7 @@ fn apply_deltas_to_simple_glyph(
 ) -> Result<WriteGlyph> {
     let num_points = simple.num_points();
     if num_points == 0 {
-        return Ok(WriteGlyph::Empty);
+        return Ok(tables::glyf::Glyph::Empty);
     }
 
     let end_pts: Vec<usize> = simple
@@ -316,7 +322,10 @@ fn apply_deltas_to_simple_glyph(
     let mut flags: Vec<PointFlags> = Vec::with_capacity(num_points + PHANTOM_POINTS);
 
     for point in simple.points() {
-        points.push(Point::new(Fixed::from_i32(point.x as i32), Fixed::from_i32(point.y as i32)));
+        points.push(Point::new(
+            Fixed::from_i32(i32::from(point.x)),
+            Fixed::from_i32(i32::from(point.y)),
+        ));
         flags.push(if point.on_curve {
             PointFlags::on_curve()
         } else {
@@ -402,7 +411,7 @@ fn apply_deltas_to_simple_glyph(
     };
     glyph.recompute_bounding_box();
 
-    Ok(WriteGlyph::Simple(glyph))
+    Ok(tables::glyf::Glyph::Simple(glyph))
 }
 
 fn apply_deltas_to_composite_glyph(
@@ -415,7 +424,7 @@ fn apply_deltas_to_composite_glyph(
 
     let components: Vec<_> = composite.components().collect();
     if components.is_empty() {
-        return Ok(WriteGlyph::Empty);
+        return Ok(tables::glyf::Glyph::Empty);
     }
 
     // Use Fixed (16.16) for delta accumulation to preserve fractional precision
@@ -423,7 +432,7 @@ fn apply_deltas_to_composite_glyph(
         .iter()
         .map(|c| match c.anchor {
             ReadAnchor::Offset { x, y } => {
-                Point::new(Fixed::from_i32(x as i32), Fixed::from_i32(y as i32))
+                Point::new(Fixed::from_i32(i32::from(x)), Fixed::from_i32(i32::from(y)))
             }
             ReadAnchor::Point { .. } => Point::default(),
         })
@@ -461,21 +470,21 @@ fn apply_deltas_to_composite_glyph(
     });
 
     let Some(first) = new_components.next() else {
-        return Ok(WriteGlyph::Empty);
+        return Ok(tables::glyf::Glyph::Empty);
     };
     let bbox = Rect::new(
-        composite.x_min() as f64,
-        composite.y_min() as f64,
-        composite.x_max() as f64,
-        composite.y_max() as f64,
+        f64::from(composite.x_min()),
+        f64::from(composite.y_min()),
+        f64::from(composite.x_max()),
+        f64::from(composite.y_max()),
     );
 
     let mut new_composite = CompositeGlyph::new(first, bbox);
     for comp in new_components {
-        new_composite.add_component(comp, kurbo::Rect::ZERO);
+        new_composite.add_component(comp, Rect::ZERO);
     }
 
-    Ok(WriteGlyph::Composite(new_composite))
+    Ok(tables::glyf::Glyph::Composite(new_composite))
 }
 
 /// Recompute bounding boxes for composite glyphs from their components.
@@ -492,7 +501,7 @@ fn recompute_composite_bboxes(glyphs: &mut [WriteGlyph], bboxes: &mut [Option<Bb
                 continue;
             }
 
-            let WriteGlyph::Composite(composite) = &glyphs[glyph_id] else {
+            let tables::glyf::Glyph::Composite(composite) = &glyphs[glyph_id] else {
                 continue;
             };
 
@@ -500,7 +509,7 @@ fn recompute_composite_bboxes(glyphs: &mut [WriteGlyph], bboxes: &mut [Option<Bb
             if let Some(new_bbox) = compute_composite_bbox(composite, bboxes) {
                 bboxes[glyph_id] = Some(new_bbox);
                 // Update the composite glyph's stored bbox
-                if let WriteGlyph::Composite(c) = &mut glyphs[glyph_id] {
+                if let tables::glyf::Glyph::Composite(c) = &mut glyphs[glyph_id] {
                     c.bbox = new_bbox;
                 }
                 changed = true;
@@ -541,23 +550,23 @@ fn compute_composite_bbox(composite: &CompositeGlyph, bboxes: &[Option<Bbox>]) -
 
         // Get the component offset
         let (offset_x, offset_y) = match comp.anchor {
-            Anchor::Offset { x, y } => (x as f64, y as f64),
+            Anchor::Offset { x, y } => (f64::from(x), f64::from(y)),
             Anchor::Point { .. } => (0.0, 0.0), // Point anchors don't add offset
         };
 
         // Get the transform (2x2 matrix: xx, xy, yx, yy)
         let t = &comp.transform;
-        let xx = t.xx.to_f32() as f64;
-        let xy = t.xy.to_f32() as f64;
-        let yx = t.yx.to_f32() as f64;
-        let yy = t.yy.to_f32() as f64;
+        let xx = f64::from(t.xx.to_f32());
+        let xy = f64::from(t.xy.to_f32());
+        let yx = f64::from(t.yx.to_f32());
+        let yy = f64::from(t.yy.to_f32());
 
         // Transform all four corners of the component bbox
         let corners = [
-            (component_bbox.x_min as f64, component_bbox.y_min as f64),
-            (component_bbox.x_min as f64, component_bbox.y_max as f64),
-            (component_bbox.x_max as f64, component_bbox.y_min as f64),
-            (component_bbox.x_max as f64, component_bbox.y_max as f64),
+            (f64::from(component_bbox.x_min), f64::from(component_bbox.y_min)),
+            (f64::from(component_bbox.x_min), f64::from(component_bbox.y_max)),
+            (f64::from(component_bbox.x_max), f64::from(component_bbox.y_min)),
+            (f64::from(component_bbox.x_max), f64::from(component_bbox.y_max)),
         ];
 
         for (cx, cy) in corners {
@@ -671,17 +680,17 @@ fn iup_single(c1: i32, c2: i32, c: i32, d1: i32, d2: i32) -> i32 {
     } else if c >= c2 {
         d2
     } else {
-        let t = (c - c1) as f64 / (c2 - c1) as f64;
-        (d1 as f64 + t * (d2 - d1) as f64).round() as i32
+        let t = f64::from(c - c1) / f64::from(c2 - c1);
+        (f64::from(d1) + t * f64::from(d2 - d1)).round() as i32
     }
 }
 
 /// Get the xMin value from a glyph's bounding box.
 fn get_glyph_xmin(glyph: &WriteGlyph) -> Option<i16> {
     match glyph {
-        WriteGlyph::Simple(s) => Some(s.bbox.x_min),
-        WriteGlyph::Composite(c) => Some(c.bbox.x_min),
-        WriteGlyph::Empty => None,
+        tables::glyf::Glyph::Simple(s) => Some(s.bbox.x_min),
+        tables::glyf::Glyph::Composite(c) => Some(c.bbox.x_min),
+        tables::glyf::Glyph::Empty => None,
     }
 }
 
@@ -735,9 +744,9 @@ impl FontBounds {
         self.advance_width_max = self.advance_width_max.max(advance);
 
         let bbox = match glyph {
-            WriteGlyph::Simple(s) => s.bbox,
-            WriteGlyph::Composite(c) => c.bbox,
-            WriteGlyph::Empty => return,
+            tables::glyf::Glyph::Simple(s) => s.bbox,
+            tables::glyf::Glyph::Composite(c) => c.bbox,
+            tables::glyf::Glyph::Empty => return,
         };
 
         if bbox.x_min == 0 && bbox.x_max == 0 && bbox.y_min == 0 && bbox.y_max == 0 {
@@ -789,8 +798,7 @@ impl FontBounds {
 
 fn get_mvar_delta(mvar: Option<&Mvar>, tag: Tag, coords: &[F2Dot14]) -> i32 {
     mvar.and_then(|m| m.metric_delta(tag, coords).ok())
-        .map(|f| f.to_i32())
-        .unwrap_or(0)
+        .map_or(0, Fixed::to_i32)
 }
 
 fn build_new_hhea(
@@ -799,14 +807,14 @@ fn build_new_hhea(
     mvar: Option<&Mvar>,
     coords: &[F2Dot14],
 ) -> WriteHhea {
-    let ascender_delta = get_mvar_delta(mvar, mvar_tags::HASC, coords);
-    let descender_delta = get_mvar_delta(mvar, mvar_tags::HDSC, coords);
-    let line_gap_delta = get_mvar_delta(mvar, mvar_tags::HLGP, coords);
-    let caret_slope_rise_delta = get_mvar_delta(mvar, mvar_tags::HCRS, coords);
-    let caret_slope_run_delta = get_mvar_delta(mvar, mvar_tags::HCRN, coords);
-    let caret_offset_delta = get_mvar_delta(mvar, mvar_tags::HCOF, coords);
+    let ascender_delta = get_mvar_delta(mvar, HASC, coords);
+    let descender_delta = get_mvar_delta(mvar, HDSC, coords);
+    let line_gap_delta = get_mvar_delta(mvar, HLGP, coords);
+    let caret_slope_rise_delta = get_mvar_delta(mvar, HCRS, coords);
+    let caret_slope_run_delta = get_mvar_delta(mvar, HCRN, coords);
+    let caret_offset_delta = get_mvar_delta(mvar, HCOF, coords);
 
-    WriteHhea::new(
+    tables::hhea::Hhea::new(
         clamp_i16(i32::from(original.ascender().to_i16()) + ascender_delta).into(),
         clamp_i16(i32::from(original.descender().to_i16()) + descender_delta).into(),
         clamp_i16(i32::from(original.line_gap().to_i16()) + line_gap_delta).into(),
@@ -859,59 +867,44 @@ fn build_new_os2(
         os2.us_width_class = wdth_to_width_class(wdth.value);
     }
 
-    os2.y_strikeout_size = clamp_i16(
-        i32::from(original.y_strikeout_size()) + get_mvar_delta(mvar, mvar_tags::STRS, coords),
-    );
-    os2.y_strikeout_position = clamp_i16(
-        i32::from(original.y_strikeout_position()) + get_mvar_delta(mvar, mvar_tags::STRO, coords),
-    );
-    os2.s_typo_ascender = clamp_i16(
-        i32::from(original.s_typo_ascender()) + get_mvar_delta(mvar, mvar_tags::HASC, coords),
-    );
-    os2.s_typo_descender = clamp_i16(
-        i32::from(original.s_typo_descender()) + get_mvar_delta(mvar, mvar_tags::HDSC, coords),
-    );
-    os2.s_typo_line_gap = clamp_i16(
-        i32::from(original.s_typo_line_gap()) + get_mvar_delta(mvar, mvar_tags::HLGP, coords),
-    );
+    os2.y_strikeout_size =
+        clamp_i16(i32::from(original.y_strikeout_size()) + get_mvar_delta(mvar, STRS, coords));
+    os2.y_strikeout_position =
+        clamp_i16(i32::from(original.y_strikeout_position()) + get_mvar_delta(mvar, STRO, coords));
+    os2.s_typo_ascender =
+        clamp_i16(i32::from(original.s_typo_ascender()) + get_mvar_delta(mvar, HASC, coords));
+    os2.s_typo_descender =
+        clamp_i16(i32::from(original.s_typo_descender()) + get_mvar_delta(mvar, HDSC, coords));
+    os2.s_typo_line_gap =
+        clamp_i16(i32::from(original.s_typo_line_gap()) + get_mvar_delta(mvar, HLGP, coords));
 
-    os2.y_subscript_x_offset = clamp_i16(
-        i32::from(original.y_subscript_x_offset()) + get_mvar_delta(mvar, mvar_tags::SBXO, coords),
-    );
-    os2.y_subscript_y_offset = clamp_i16(
-        i32::from(original.y_subscript_y_offset()) + get_mvar_delta(mvar, mvar_tags::SBYO, coords),
-    );
-    os2.y_subscript_x_size = clamp_i16(
-        i32::from(original.y_subscript_x_size()) + get_mvar_delta(mvar, mvar_tags::SBXS, coords),
-    );
-    os2.y_subscript_y_size = clamp_i16(
-        i32::from(original.y_subscript_y_size()) + get_mvar_delta(mvar, mvar_tags::SBYS, coords),
-    );
+    os2.y_subscript_x_offset =
+        clamp_i16(i32::from(original.y_subscript_x_offset()) + get_mvar_delta(mvar, SBXO, coords));
+    os2.y_subscript_y_offset =
+        clamp_i16(i32::from(original.y_subscript_y_offset()) + get_mvar_delta(mvar, SBYO, coords));
+    os2.y_subscript_x_size =
+        clamp_i16(i32::from(original.y_subscript_x_size()) + get_mvar_delta(mvar, SBXS, coords));
+    os2.y_subscript_y_size =
+        clamp_i16(i32::from(original.y_subscript_y_size()) + get_mvar_delta(mvar, SBYS, coords));
 
     os2.y_superscript_x_offset = clamp_i16(
-        i32::from(original.y_superscript_x_offset())
-            + get_mvar_delta(mvar, mvar_tags::SPXO, coords),
+        i32::from(original.y_superscript_x_offset()) + get_mvar_delta(mvar, SPXO, coords),
     );
     os2.y_superscript_y_offset = clamp_i16(
-        i32::from(original.y_superscript_y_offset())
-            + get_mvar_delta(mvar, mvar_tags::SPYO, coords),
+        i32::from(original.y_superscript_y_offset()) + get_mvar_delta(mvar, SPYO, coords),
     );
-    os2.y_superscript_x_size = clamp_i16(
-        i32::from(original.y_superscript_x_size()) + get_mvar_delta(mvar, mvar_tags::SPXS, coords),
-    );
-    os2.y_superscript_y_size = clamp_i16(
-        i32::from(original.y_superscript_y_size()) + get_mvar_delta(mvar, mvar_tags::SPYS, coords),
-    );
+    os2.y_superscript_x_size =
+        clamp_i16(i32::from(original.y_superscript_x_size()) + get_mvar_delta(mvar, SPXS, coords));
+    os2.y_superscript_y_size =
+        clamp_i16(i32::from(original.y_superscript_y_size()) + get_mvar_delta(mvar, SPYS, coords));
 
     if let Some(sx_height) = original.sx_height() {
-        os2.sx_height =
-            Some(clamp_i16(i32::from(sx_height) + get_mvar_delta(mvar, mvar_tags::XHGT, coords)));
+        os2.sx_height = Some(clamp_i16(i32::from(sx_height) + get_mvar_delta(mvar, XHGT, coords)));
     }
 
     if let Some(s_cap_height) = original.s_cap_height() {
-        os2.s_cap_height = Some(clamp_i16(
-            i32::from(s_cap_height) + get_mvar_delta(mvar, mvar_tags::CPHT, coords),
-        ));
+        os2.s_cap_height =
+            Some(clamp_i16(i32::from(s_cap_height) + get_mvar_delta(mvar, CPHT, coords)));
     }
 
     os2
@@ -920,8 +913,8 @@ fn build_new_os2(
 fn build_new_post(original: &Post, mvar: Option<&Mvar>, coords: &[F2Dot14]) -> WritePost {
     let mut post: WritePost = original.to_owned_table();
 
-    let underline_position_delta = get_mvar_delta(mvar, mvar_tags::UNDO, coords);
-    let underline_thickness_delta = get_mvar_delta(mvar, mvar_tags::UNDS, coords);
+    let underline_position_delta = get_mvar_delta(mvar, UNDO, coords);
+    let underline_thickness_delta = get_mvar_delta(mvar, UNDS, coords);
 
     post.underline_position =
         clamp_i16(i32::from(original.underline_position().to_i16()) + underline_position_delta)
@@ -1031,8 +1024,7 @@ fn compute_feature_variation_substitutions(
                     continue;
                 };
 
-                if let read_fonts::tables::gsub::SubstitutionLookup::Single(single_lookup) = lookup
-                {
+                if let SubstitutionLookup::Single(single_lookup) = lookup {
                     for subtable_result in single_lookup.subtables().iter() {
                         let Ok(subtable) = subtable_result else {
                             continue;
@@ -1042,7 +1034,7 @@ fn compute_feature_variation_substitutions(
                                 let Ok(coverage) = f1.coverage() else {
                                     continue;
                                 };
-                                let delta = f1.delta_glyph_id() as i32;
+                                let delta = i32::from(f1.delta_glyph_id());
                                 for glyph in coverage.iter() {
                                     let from_gid = GlyphId::from(glyph);
                                     let to_gid =
@@ -1117,13 +1109,18 @@ fn build_instanced_cmap(
         return None;
     }
 
-    write_fonts::tables::cmap::Cmap::from_mappings(mappings).ok()
+    tables::cmap::Cmap::from_mappings(mappings).ok()
 }
 
 #[cfg(test)]
 mod tests {
+
     #[cfg(test)]
-    use read_fonts::types;
+    use font_test_data::CANTARELL_VF_TRIMMED;
+    #[cfg(test)]
+    use font_test_data::SIMPLE_GLYF;
+    #[cfg(test)]
+    use font_test_data::VAZIRMATN_VAR;
     use read_fonts::{FontRef, TableProvider};
 
     use super::*;
@@ -1131,7 +1128,7 @@ mod tests {
     fn get_glyph_coords(font: &FontRef, glyph_id: u32) -> Option<Vec<(i16, i16)>> {
         let glyf = font.glyf().ok()?;
         let loca = font.loca(None).ok()?;
-        let glyph = loca.get_glyf(types::GlyphId::new(glyph_id), &glyf).ok()??;
+        let glyph = loca.get_glyf(GlyphId::new(glyph_id), &glyf).ok()??;
 
         match glyph {
             Glyph::Simple(simple) => Some(simple.points().map(|p| (p.x, p.y)).collect()),
@@ -1140,12 +1137,12 @@ mod tests {
     }
 
     fn get_advance_width(font: &FontRef, glyph_id: u32) -> Option<u16> {
-        font.hmtx().ok()?.advance(types::GlyphId::new(glyph_id))
+        font.hmtx().ok()?.advance(GlyphId::new(glyph_id))
     }
 
     #[test]
     fn instantiate_at_default() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
         let result = instantiate(data, &[AxisLocation::new("wght", 400.0)]).unwrap();
 
         let output = FontRef::new(&result).unwrap();
@@ -1157,7 +1154,7 @@ mod tests {
 
     #[test]
     fn instantiate_at_min() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
         let result = instantiate(data, &[AxisLocation::new("wght", 100.0)]).unwrap();
 
         let output = FontRef::new(&result).unwrap();
@@ -1167,7 +1164,7 @@ mod tests {
 
     #[test]
     fn instantiate_at_max() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
         let result = instantiate(data, &[AxisLocation::new("wght", 900.0)]).unwrap();
 
         let output = FontRef::new(&result).unwrap();
@@ -1177,7 +1174,7 @@ mod tests {
 
     #[test]
     fn preserves_glyph_count() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
         let input = FontRef::new(data).unwrap();
         let input_count = input.maxp().unwrap().num_glyphs();
 
@@ -1190,7 +1187,7 @@ mod tests {
 
     #[test]
     fn updates_advance_widths() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
 
         let result_min = instantiate(data, &[AxisLocation::new("wght", 100.0)]).unwrap();
         let result_max = instantiate(data, &[AxisLocation::new("wght", 900.0)]).unwrap();
@@ -1206,21 +1203,21 @@ mod tests {
 
     #[test]
     fn rejects_cff_font() {
-        let data = font_test_data::CANTARELL_VF_TRIMMED;
+        let data = CANTARELL_VF_TRIMMED;
         let result = instantiate(data, &[AxisLocation::new("wght", 700.0)]);
         assert!(matches!(result, Err(Error::NoCff2Support)));
     }
 
     #[test]
     fn rejects_non_variable_font() {
-        let data = font_test_data::SIMPLE_GLYF;
+        let data = SIMPLE_GLYF;
         let result = instantiate(data, &[AxisLocation::new("wght", 400.0)]);
         assert!(matches!(result, Err(Error::NotVariableFont)));
     }
 
     #[test]
     fn handles_empty_locations() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
         let result = instantiate(data, &[]).unwrap();
 
         let output = FontRef::new(&result).unwrap();
@@ -1229,7 +1226,7 @@ mod tests {
 
     #[test]
     fn coordinates_differ_at_extremes() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
 
         let result_min = instantiate(data, &[AxisLocation::new("wght", 100.0)]).unwrap();
         let result_max = instantiate(data, &[AxisLocation::new("wght", 900.0)]).unwrap();
@@ -1246,7 +1243,7 @@ mod tests {
 
     #[test]
     fn lsb_equals_glyph_xmin() {
-        let data = font_test_data::VAZIRMATN_VAR;
+        let data = VAZIRMATN_VAR;
 
         // Test at an interpolated position (not axis default)
         let result = instantiate(data, &[AxisLocation::new("wght", 500.0)]).unwrap();
@@ -1258,7 +1255,7 @@ mod tests {
 
         // Check that LSB equals xMin for simple glyphs
         for gid in 1..font.maxp().unwrap().num_glyphs().min(20) {
-            let glyph_id = types::GlyphId::new(gid as u32);
+            let glyph_id = GlyphId::new(u32::from(gid));
             let lsb = hmtx.side_bearing(glyph_id).unwrap_or(0);
 
             if let Some(Glyph::Simple(simple)) = loca.get_glyf(glyph_id, &glyf).ok().flatten()

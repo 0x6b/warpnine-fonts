@@ -10,9 +10,8 @@ use crate::Result;
 /// For now, we just copy the name table from the first font as raw bytes
 /// A more sophisticated implementation would merge unique name records
 pub fn merge_name(fonts: &[FontRef], builder: &mut FontBuilder) -> Result<()> {
-    let first = match fonts.first() {
-        Some(f) => f,
-        None => return Ok(()),
+    let Some(first) = fonts.first() else {
+        return Ok(());
     };
 
     if let Some(data) = first.table_data(Tag::new(b"name")) {

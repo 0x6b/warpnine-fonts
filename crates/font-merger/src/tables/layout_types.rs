@@ -101,7 +101,7 @@ impl ScriptLangFeatureMap {
 
     /// Add a feature to all non-DFLT scripts and all their languages
     pub fn add_feature_to_all_scripts(&mut self, feature: FeatureIndex) {
-        for (script, lang_map) in self.inner.iter_mut() {
+        for (script, lang_map) in &mut self.inner {
             if !script.is_dflt() {
                 for features in lang_map.values_mut() {
                     features.push(feature);
@@ -118,7 +118,7 @@ impl ScriptLangFeatureMap {
                 let lang_raw = lang_map
                     .into_iter()
                     .map(|(lang, features)| {
-                        (lang.tag(), features.into_iter().map(|f| f.as_u16()).collect())
+                        (lang.tag(), features.into_iter().map(FeatureIndex::as_u16).collect())
                     })
                     .collect();
                 (script.tag(), lang_raw)
@@ -171,15 +171,13 @@ impl MergedFeatureList {
     pub fn into_raw(self) -> Vec<(Tag, Vec<u16>)> {
         self.features
             .into_iter()
-            .map(|f| (f.tag, f.lookup_indices.into_iter().map(|l| l.as_u16()).collect()))
+            .map(|f| (f.tag, f.lookup_indices.into_iter().map(LookupIndex::as_u16).collect()))
             .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    #[cfg(test)]
-    use read_fonts::types;
 
     use super::*;
 
@@ -187,7 +185,7 @@ mod tests {
     fn test_script_lang_feature_map() {
         let mut map = ScriptLangFeatureMap::new();
 
-        let latn = ScriptTag::new(types::Tag::new(b"latn"));
+        let latn = ScriptTag::new(Tag::new(b"latn"));
         let dflt_lang = LangTag::dflt();
 
         map.add_features(
@@ -204,11 +202,10 @@ mod tests {
     fn test_merged_feature_list() {
         let mut list = MergedFeatureList::new();
 
-        let idx =
-            list.add(types::Tag::new(b"liga"), vec![LookupIndex::new(0), LookupIndex::new(1)]);
+        let idx = list.add(Tag::new(b"liga"), vec![LookupIndex::new(0), LookupIndex::new(1)]);
         assert_eq!(idx.as_u16(), 0);
 
-        let idx2 = list.add(types::Tag::new(b"kern"), vec![LookupIndex::new(2)]);
+        let idx2 = list.add(Tag::new(b"kern"), vec![LookupIndex::new(2)]);
         assert_eq!(idx2.as_u16(), 1);
 
         assert_eq!(list.len(), 2);

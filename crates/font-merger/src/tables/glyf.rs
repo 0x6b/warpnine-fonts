@@ -13,8 +13,8 @@ use std::collections::{HashMap, HashSet};
 
 use font_types::GlyphId16;
 use read_fonts::{
-    TableProvider,
-    tables::glyf::{CurvePoint, Glyph as ReadGlyph},
+    TableProvider, tables,
+    tables::glyf::{Anchor, CurvePoint, Glyph as ReadGlyph},
     types,
 };
 use write_fonts::tables::{
@@ -68,13 +68,11 @@ pub fn merge_glyf(ctx: &MergeContext) -> Result<Option<(Glyf, Loca, LocaFormat)>
     for (font_idx, font) in fonts.iter().enumerate() {
         let mapping = ctx.font_mapping(font_idx);
 
-        let glyf = match font.glyf() {
-            Ok(g) => g,
-            Err(_) => continue,
+        let Ok(glyf) = font.glyf() else {
+            continue;
         };
-        let loca = match font.loca(None) {
-            Ok(l) => l,
-            Err(_) => continue,
+        let Ok(loca) = font.loca(None) else {
+            continue;
         };
 
         for (gid, glyph_name) in mapping {
@@ -82,12 +80,9 @@ pub fn merge_glyf(ctx: &MergeContext) -> Result<Option<(Glyf, Loca, LocaFormat)>
                 continue;
             }
 
-            let glyph = match loca.get_glyf(types::GlyphId::new(gid.to_u32()), &glyf) {
-                Ok(Some(g)) => g,
-                _ => {
-                    glyph_map.insert(glyph_name.clone(), Glyph::Empty);
-                    continue;
-                }
+            let Ok(Some(glyph)) = loca.get_glyf(types::GlyphId::new(gid.to_u32()), &glyf) else {
+                glyph_map.insert(glyph_name.clone(), Glyph::Empty);
+                continue;
             };
 
             let strip_hinting = font_idx > 0;
@@ -150,7 +145,7 @@ fn convert_glyph(
     strip_hinting: bool,
 ) -> Glyph {
     match glyph {
-        ReadGlyph::Simple(simple) => {
+        tables::glyf::Glyph::Simple(simple) => {
             // Build contours manually
             let mut contours: Vec<Contour> = Vec::new();
 
@@ -186,7 +181,7 @@ fn convert_glyph(
 
             Glyph::Simple(simple_glyph)
         }
-        ReadGlyph::Composite(composite) => {
+        tables::glyf::Glyph::Composite(composite) => {
             // Build components with remapped GIDs
             let mut components: Vec<Component> = Vec::new();
 
@@ -198,14 +193,11 @@ fn convert_glyph(
                     .get(font_idx)
                     .and_then(|m| m.get(&old_gid))
                     .and_then(|name| name_to_new_gid.get(name))
-                    .map(|m| m.to_u16())
-                    .unwrap_or(0);
+                    .map_or(0, |m| m.to_u16());
 
                 let anchor = match comp.anchor {
-                    read_fonts::tables::glyf::Anchor::Offset { x, y } => Offset { x, y },
-                    read_fonts::tables::glyf::Anchor::Point { base, component } => {
-                        Point { base, component }
-                    }
+                    Anchor::Offset { x, y } => Offset { x, y },
+                    Anchor::Point { base, component } => Point { base, component },
                 };
 
                 let transform = Transform {

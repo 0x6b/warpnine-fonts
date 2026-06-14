@@ -27,20 +27,14 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
     let data = read(path).context("Failed to read font")?;
     let font = FontRef::new(&data).context("Failed to parse font")?;
 
-    let gsub = match font.gsub() {
-        Ok(gsub) => gsub,
-        Err(_) => {
-            println!("  No GSUB table found");
-            return Ok(false);
-        }
+    let Ok(gsub) = font.gsub() else {
+        println!("  No GSUB table found");
+        return Ok(false);
     };
 
-    let grave_gid = match find_glyph_id_for_name(&font, "grave") {
-        Some(gid) => gid,
-        None => {
-            println!("  No 'grave' glyph found");
-            return Ok(false);
-        }
+    let Some(grave_gid) = find_glyph_id_for_name(&font, "grave") else {
+        println!("  No 'grave' glyph found");
+        return Ok(false);
     };
 
     let gsub_tag = Tag::new(b"GSUB");
@@ -55,47 +49,40 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
     let lookup_list = gsub.lookup_list().context("Failed to read lookup list")?;
 
     for (lookup_idx, lookup_result) in lookup_list.lookups().iter().enumerate() {
-        let lookup = match lookup_result {
-            Ok(l) => l,
-            Err(_) => continue,
+        let Ok(lookup) = lookup_result else {
+            continue;
         };
 
         if lookup.lookup_type() != 6 {
             continue;
         }
 
-        let subtables = match lookup.subtables() {
-            Ok(SubstitutionSubtables::ChainContextual(s)) => s,
-            _ => continue,
+        let Ok(SubstitutionSubtables::ChainContextual(subtables)) = lookup.subtables() else {
+            continue;
         };
 
         for subtable_result in subtables.iter() {
-            let subtable = match subtable_result {
-                Ok(ChainedSequenceContext::Format1(s)) => s,
-                _ => continue,
+            let Ok(ChainedSequenceContext::Format1(subtable)) = subtable_result else {
+                continue;
             };
 
-            let coverage = match subtable.coverage() {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Ok(coverage) = subtable.coverage() else {
+                continue;
             };
 
-            let grave_coverage_idx = match coverage.get(GlyphId::new(grave_gid as u32)) {
-                Some(idx) => idx,
-                None => continue,
+            let Some(grave_coverage_idx) = coverage.get(GlyphId::new(u32::from(grave_gid))) else {
+                continue;
             };
 
             let rule_sets = subtable.chained_seq_rule_sets();
 
-            let rule_set = match rule_sets.get(grave_coverage_idx as usize) {
-                Some(Ok(rs)) => rs,
-                _ => continue,
+            let Some(Ok(rule_set)) = rule_sets.get(grave_coverage_idx as usize) else {
+                continue;
             };
 
             for rule_result in rule_set.chained_seq_rules().iter() {
-                let rule = match rule_result {
-                    Ok(r) => r,
-                    Err(_) => continue,
+                let Ok(rule) = rule_result else {
+                    continue;
                 };
 
                 let input_seq = rule.input_sequence();
@@ -105,7 +92,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
 
                 let all_grave = input_seq
                     .iter()
-                    .all(|g: &BigEndian<ReadGlyphId16>| g.get().to_u32() == grave_gid as u32);
+                    .all(|g: &BigEndian<ReadGlyphId16>| g.get().to_u32() == u32::from(grave_gid));
 
                 if !all_grave {
                     continue;
@@ -123,7 +110,7 @@ pub fn remove_grave_ligature(path: &Path) -> Result<bool> {
         }
     }
 
-    let grave_be = (grave_gid as u16).to_be_bytes();
+    let grave_be = grave_gid.to_be_bytes();
     let mut modified_data = data.clone();
     let mut modifications = 0;
 

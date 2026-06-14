@@ -108,14 +108,14 @@ fn extract_codepoints(cmap: &Cmap) -> Vec<u32> {
     let records = cmap.encoding_records();
 
     // Try format 12 first (full Unicode)
-    for record in records.iter() {
+    for record in records {
         if let Ok(CmapSubtable::Format12(f12)) = record.subtable(cmap.offset_data()) {
             return extract_from_format12(&f12);
         }
     }
 
     // Fall back to format 4
-    for record in records.iter() {
+    for record in records {
         if let Ok(CmapSubtable::Format4(f4)) = record.subtable(cmap.offset_data()) {
             return extract_from_format4(&f4);
         }
@@ -138,6 +138,10 @@ fn extract_from_format12(f12: &Cmap12) -> Vec<u32> {
     codepoints
 }
 
+// `.get()` closures over `&BigEndian<T>` read as redundant to clippy, but the
+// method-path form does not type-check: `get` takes `self` by value while the
+// `.get(seg)` lookups yield references.
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn extract_from_format4(f4: &Cmap4) -> Vec<u32> {
     let mut codepoints = Vec::new();
 
@@ -149,10 +153,10 @@ fn extract_from_format4(f4: &Cmap4) -> Vec<u32> {
 
     let seg_count = f4.seg_count_x2() as usize / 2;
     for seg in 0..seg_count {
-        let end_code = end_codes.get(seg).map(|v| v.get()).unwrap_or(0xFFFF);
-        let start_code = start_codes.get(seg).map(|v| v.get()).unwrap_or(0);
-        let id_delta = id_deltas.get(seg).map(|v| v.get()).unwrap_or(0);
-        let id_range_offset = id_range_offsets.get(seg).map(|v| v.get()).unwrap_or(0);
+        let end_code = end_codes.get(seg).map_or(0xFFFF, |v| v.get());
+        let start_code = start_codes.get(seg).map_or(0, |v| v.get());
+        let id_delta = id_deltas.get(seg).map_or(0, |v| v.get());
+        let id_range_offset = id_range_offsets.get(seg).map_or(0, |v| v.get());
 
         if start_code == 0xFFFF {
             continue;
@@ -160,20 +164,24 @@ fn extract_from_format4(f4: &Cmap4) -> Vec<u32> {
 
         for cp in start_code..=end_code {
             let gid = if id_range_offset == 0 {
-                ((cp as i32 + id_delta as i32) & 0xFFFF) as u16
+                ((i32::from(cp) + i32::from(id_delta)) & 0xFFFF) as u16
             } else {
                 let glyph_idx =
                     (id_range_offset as usize / 2) + (cp - start_code) as usize - (seg_count - seg);
                 if let Some(gid) = glyph_id_array.get(glyph_idx) {
                     let gid = gid.get();
-                    if gid != 0 { ((gid as i32 + id_delta as i32) & 0xFFFF) as u16 } else { 0 }
+                    if gid != 0 {
+                        ((i32::from(gid) + i32::from(id_delta)) & 0xFFFF) as u16
+                    } else {
+                        0
+                    }
                 } else {
                     0
                 }
             };
 
             if gid != 0 {
-                codepoints.push(cp as u32);
+                codepoints.push(u32::from(cp));
             }
         }
     }
