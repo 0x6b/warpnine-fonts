@@ -213,11 +213,16 @@ fn build_fvar(designspace: &DesignSpace) -> Result<Fvar> {
                 .map(|axis| Fixed::from_f64(f64::from(instance.axis_value(axis))))
                 .collect();
 
+            let post_script_name_id = instance
+                .postscript_name
+                .as_ref()
+                .map(|_| NameId::new(INSTANCE_PS_NAME_ID_START + idx as u16));
+
             InstanceRecord {
                 subfamily_name_id: NameId::new(INSTANCE_NAME_ID_START + idx as u16),
                 flags: 0,
                 coordinates,
-                post_script_name_id: None,
+                post_script_name_id,
             }
         })
         .collect();
@@ -246,12 +251,21 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
         .into_iter()
         .collect();
 
+    // Name IDs used for fvar instance PostScript names
+    let ps_name_ids: HashSet<u16> = (INSTANCE_PS_NAME_ID_START
+        ..INSTANCE_PS_NAME_ID_START + designspace.instances.len() as u16)
+        .collect();
+
     // Copy existing name records (skip any that will be replaced)
     for record in name_table.name_record() {
         let name_id = record.name_id().to_u16();
 
-        // Skip name IDs that will be used for instances or STAT
-        if instance_name_ids.contains(&name_id) || stat_name_ids.contains(&name_id) {
+        // Skip name IDs that will be used for instances, STAT, or instance
+        // PostScript names.
+        if instance_name_ids.contains(&name_id)
+            || stat_name_ids.contains(&name_id)
+            || ps_name_ids.contains(&name_id)
+        {
             continue;
         }
 
@@ -290,22 +304,24 @@ fn build_name(default_font: &FontRef, designspace: &DesignSpace) -> Result<Name>
             NameId::new(name_id),
             instance.name.clone().into(),
         ));
+
+        // Optional PostScript name (name IDs 300+)
+        if let Some(ps_name) = &instance.postscript_name {
+            let ps_id = INSTANCE_PS_NAME_ID_START + idx as u16;
+            new_records.push(NameRecord::new(
+                3,
+                1,
+                0x409,
+                NameId::new(ps_id),
+                ps_name.clone().into(),
+            ));
+            new_records.push(NameRecord::new(1, 0, 0, NameId::new(ps_id), ps_name.clone().into()));
+        }
     }
 
     // Add STAT table name entries
-    // Weight values (name IDs 280-287)
-    let stat_weight_names = [
-        (280, "Light"),
-        (281, "Regular"),
-        (282, "Medium"),
-        (283, "SemiBold"),
-        (284, "Bold"),
-        (285, "ExtraBold"),
-        (286, "Black"),
-        (287, "ExtraBlack"),
-    ];
-
-    for (name_id, name) in stat_weight_names {
+    // Weight values (name IDs 280-287), restricted to the axis range.
+    for (_value, name, name_id) in weight_stops_in_range(designspace) {
         // Windows
         new_records.push(NameRecord::new(
             3,
@@ -771,6 +787,43 @@ fn build_head(default_font: &FontRef, loca_format: LocaFormat) -> Result<Head> {
     ))
 }
 
+/// Weight axis stops as `(user_value, name_id)`.
+///
+/// Name IDs 280-287 hold the corresponding strings in the name table; the
+/// human-readable names come from [`warpnine_font_ops::weight_name`].
+const WEIGHT_STOPS: [(f64, u16); 8] = [
+    (300.0, 280),
+    (400.0, 281),
+    (500.0, 282),
+    (600.0, 283),
+    (700.0, 284),
+    (800.0, 285),
+    (900.0, 286),
+    (1000.0, 287),
+];
+
+/// fvar instance PostScript name IDs start here (one per instance).
+const INSTANCE_PS_NAME_ID_START: u16 = 300;
+
+/// Weight stops that fall within the designspace `wght` axis range.
+///
+/// Sans (`wght` max 900) drops ExtraBlack (1000); Mono (max 1000) keeps it.
+/// Falls back to all stops if there is no `wght` axis.
+fn weight_stops_in_range(designspace: &DesignSpace) -> Vec<(f64, &'static str, u16)> {
+    let (min, max) = designspace
+        .axes
+        .iter()
+        .find(|a| a.tag == "wght")
+        .map(|a| (f64::from(a.minimum), f64::from(a.maximum)))
+        .unwrap_or((f64::MIN, f64::MAX));
+
+    WEIGHT_STOPS
+        .into_iter()
+        .filter(|(value, _)| *value >= min && *value <= max)
+        .map(|(value, name_id)| (value, warpnine_font_ops::weight_name(value as u16), name_id))
+        .collect()
+}
+
 /// Build STAT table for style attributes.
 ///
 /// The STAT table is required for proper style menu grouping in applications.
@@ -793,20 +846,8 @@ fn build_stat(designspace: &DesignSpace) -> Result<Stat> {
     // Build axis values for each named instance/weight
     let mut axis_values: Vec<AxisValue> = Vec::new();
 
-    // For weight axis: add values for each weight stop
-    // Standard weight values with name IDs starting at 280
-    let weight_values: [(f64, &str, u16); 8] = [
-        (300.0, "Light", 280),
-        (400.0, "Regular", 281),
-        (500.0, "Medium", 282),
-        (600.0, "SemiBold", 283),
-        (700.0, "Bold", 284),
-        (800.0, "ExtraBold", 285),
-        (900.0, "Black", 286),
-        (1000.0, "ExtraBlack", 287),
-    ];
-
-    for (value, _name, name_id) in weight_values {
+    // For weight axis: add a value for each weight stop within the axis range.
+    for (value, _name, name_id) in weight_stops_in_range(designspace) {
         let mut flags = AxisValueTableFlags::empty();
         // Mark Regular (400) as the elidable default
         if (value - 400.0).abs() < 0.1 {
@@ -902,4 +943,38 @@ fn build_gsub_without_feature_variations(
     let lookup_list = gsub.lookup_list()?.to_owned_table();
 
     Ok(write_fonts::tables::gsub::Gsub::new(script_list, feature_list, lookup_list))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::designspace::Axis;
+
+    fn ds(wght_max: f32) -> DesignSpace {
+        DesignSpace::new(
+            vec![
+                Axis::new("wght", "Weight", 300.0, 400.0, wght_max),
+                Axis::new("ital", "Italic", 0.0, 0.0, 1.0),
+            ],
+            vec![],
+        )
+    }
+
+    #[test]
+    fn mono_keeps_extrablack() {
+        let stops = weight_stops_in_range(&ds(1000.0));
+        let names: Vec<&str> = stops.iter().map(|(_, n, _)| *n).collect();
+        assert_eq!(
+            names,
+            ["Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold", "Black", "ExtraBlack"]
+        );
+    }
+
+    #[test]
+    fn sans_drops_extrablack_beyond_max() {
+        let stops = weight_stops_in_range(&ds(900.0));
+        let names: Vec<&str> = stops.iter().map(|(_, n, _)| *n).collect();
+        assert_eq!(names, ["Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold", "Black"]);
+        assert!(stops.iter().all(|(v, _, _)| *v <= 900.0));
+    }
 }

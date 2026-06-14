@@ -22,11 +22,11 @@ use crate::{
     instance::{AxisLocation, InstanceDef, create_instances_batch},
     io::{check_results, glob_fonts, read_font, write_font},
     merge::merge_with_fallbacks,
-    styles::{FeatureTag, MONO_FEATURES, MONO_STYLES, SANS_FEATURES, duotone_casl},
+    styles::{FeatureTag, MONO_FEATURES, MONO_STYLES, SANS_FEATURES, SANS_STYLES, duotone_casl},
     warpnine::{
         condense::create_condensed,
         ligatures::remove_grave_ligature,
-        naming::{FontNaming, set_name, set_names_for_pattern},
+        naming::{FontNaming, set_name, set_ribbi_names_for_pattern},
         sans::create_sans,
     },
 };
@@ -236,31 +236,16 @@ fn step_set_names_mono(ctx: &PipelineContext) -> Result<()> {
     const MONO_COPYRIGHT: &str =
         "Warpnine Mono is based on Recursive Mono Duotone and Noto Sans Mono CJK JP.";
 
-    let fonts = ctx.static_mono_fonts()?;
-    println!("  Setting names for {} static mono fonts...", fonts.len());
-
-    let results: Vec<_> = fonts
-        .par_iter()
-        .map(|path| {
-            let style = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .map(|s| s.strip_prefix("WarpnineMono-").unwrap_or(s))
-                .unwrap_or_default()
-                .to_string();
-
-            let naming = FontNaming {
-                family: "Warpnine Mono".to_string(),
-                style,
-                postscript_family: Some("WarpnineMono".to_string()),
-                copyright_extra: Some(MONO_COPYRIGHT.to_string()),
-            };
-
-            set_name(path, &naming)
-        })
-        .collect();
-
-    check_results(&results, "set names (mono)")
+    set_ribbi_names_for_pattern(
+        &ctx.dist_dir,
+        "WarpnineMono-*.ttf",
+        "Warpnine Mono",
+        "WarpnineMono",
+        MONO_COPYRIGHT,
+        "WarpnineMono-",
+        MONO_STYLES,
+    )?;
+    Ok(())
 }
 
 fn step_freeze_static_mono(ctx: &PipelineContext) -> Result<()> {
@@ -351,47 +336,33 @@ fn step_create_sans(ctx: &PipelineContext) -> Result<()> {
 }
 
 fn step_set_names_sans(ctx: &PipelineContext) -> Result<()> {
-    set_names_for_pattern(
-        &ctx.dist_dir,
-        "WarpnineSans-*.ttf",
-        "Warpnine Sans",
-        "WarpnineSans",
-        "Warpnine Sans is based on Recursive.",
-        "WarpnineSans-",
-    )?;
-
-    set_names_for_pattern(
-        &ctx.dist_dir,
-        "WarpnineSansCondensed-*.ttf",
-        "Warpnine Sans Condensed",
-        "WarpnineSansCondensed",
-        "Warpnine Sans Condensed is based on Recursive.",
-        "WarpnineSansCondensed-",
-    )?;
-
+    step_set_names_sans_only(ctx)?;
+    step_set_names_condensed_only(ctx)?;
     Ok(())
 }
 
 fn step_set_names_sans_only(ctx: &PipelineContext) -> Result<()> {
-    set_names_for_pattern(
+    set_ribbi_names_for_pattern(
         &ctx.dist_dir,
         "WarpnineSans-*.ttf",
         "Warpnine Sans",
         "WarpnineSans",
         "Warpnine Sans is based on Recursive.",
         "WarpnineSans-",
+        SANS_STYLES,
     )?;
     Ok(())
 }
 
 fn step_set_names_condensed_only(ctx: &PipelineContext) -> Result<()> {
-    set_names_for_pattern(
+    set_ribbi_names_for_pattern(
         &ctx.dist_dir,
         "WarpnineSansCondensed-*.ttf",
         "Warpnine Sans Condensed",
         "WarpnineSansCondensed",
         "Warpnine Sans Condensed is based on Recursive.",
         "WarpnineSansCondensed-",
+        SANS_STYLES,
     )?;
     Ok(())
 }
