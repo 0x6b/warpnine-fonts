@@ -138,6 +138,10 @@ fn extract_from_format12(f12: &Cmap12) -> Vec<u32> {
     codepoints
 }
 
+// `.get()` closures over `&BigEndian<T>` read as redundant to clippy, but the
+// method-path form does not type-check: `get` takes `self` by value while the
+// `.get(seg)` lookups yield references.
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn extract_from_format4(f4: &Cmap4) -> Vec<u32> {
     let mut codepoints = Vec::new();
 

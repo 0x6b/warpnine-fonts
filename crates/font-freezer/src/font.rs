@@ -140,6 +140,10 @@ struct FeatureResolver<'a> {
 }
 
 impl FeatureResolver<'_> {
+    // `.iter().map(|i| i.get())` over `&BigEndian<T>` reads as a redundant closure
+    // to clippy, but the method-path form does not type-check: `get` takes `self`
+    // by value while `iter()` yields `&BigEndian<T>`.
+    #[allow(clippy::redundant_closure_for_method_calls)]
     fn resolve(&self) -> Result<BTreeSet<u16>> {
         let feature_indices = self.collect_feature_indices()?;
         let feature_tags = self.options.feature_tags();
@@ -159,6 +163,9 @@ impl FeatureResolver<'_> {
             .collect())
     }
 
+    // See `resolve`: `.map(|i| i.get())` over `&BigEndian<T>` is a clippy
+    // false-positive that cannot use the method-path form.
+    #[allow(clippy::redundant_closure_for_method_calls)]
     fn collect_feature_indices(&self) -> Result<Option<HashSet<u16>>> {
         if !self.options.filter.is_active() {
             return Ok(None);

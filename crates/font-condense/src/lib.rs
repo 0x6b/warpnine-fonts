@@ -37,6 +37,10 @@ const TAG_HHEA: Tag = Tag::new(b"hhea");
 const TAG_OS2: Tag = Tag::new(b"OS/2");
 
 /// Scales a simple glyph's x-coordinates by the given factor.
+// `.iter().map(|e| e.get())` over `&BigEndian<T>` reads as a redundant closure to
+// clippy, but the method-path form does not type-check: `get` takes `self` by
+// value while `iter()` yields `&BigEndian<T>`.
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn scale_simple_glyph(glyph: &glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
     let mut contours = Vec::new();
     let end_pts: Vec<u16> = glyph.end_pts_of_contours().iter().map(|e| e.get()).collect();

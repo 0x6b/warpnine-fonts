@@ -146,6 +146,10 @@ fn collect_modifications(
     Ok(modifications)
 }
 
+// `.iter().map(|i| i.get())` over `&BigEndian<T>` reads as a redundant closure to
+// clippy, but the method-path form does not type-check: `get` takes `self` by
+// value while `iter()` yields `&BigEndian<T>`.
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn check_lang_sys(
     lang_sys: &LangSys,
     offset: usize,
