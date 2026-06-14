@@ -3,7 +3,10 @@
 use std::result;
 
 use font_types::{FWord, UfWord};
-use read_fonts::{FontRef, TableProvider, tables::hhea::Hhea as ReadHhea};
+use read_fonts::{
+    FontRef, TableProvider,
+    tables::{hhea, hhea::Hhea as ReadHhea},
+};
 use write_fonts::tables::hhea::Hhea;
 
 use crate::{
@@ -14,7 +17,7 @@ use crate::{
 pub fn merge_hhea(fonts: &[FontRef], num_h_metrics: u16) -> Result<Hhea> {
     let tables: Vec<ReadHhea> = fonts
         .iter()
-        .map(|f| f.hhea())
+        .map(TableProvider::hhea)
         .collect::<result::Result<Vec<_>, _>>()?;
 
     if tables.is_empty() {
@@ -38,9 +41,13 @@ pub fn merge_hhea(fonts: &[FontRef], num_h_metrics: u16) -> Result<Hhea> {
         min_left_side_bearing: FWord::new(min(&min_lsbs)?),
         min_right_side_bearing: FWord::new(min(&min_rsbs)?),
         x_max_extent: FWord::new(max(&x_max_extents)?),
-        caret_slope_rise: first(&tables.iter().map(|t| t.caret_slope_rise()).collect::<Vec<_>>())?,
-        caret_slope_run: first(&tables.iter().map(|t| t.caret_slope_run()).collect::<Vec<_>>())?,
-        caret_offset: first(&tables.iter().map(|t| t.caret_offset()).collect::<Vec<_>>())?,
+        caret_slope_rise: first(
+            &tables.iter().map(hhea::Hhea::caret_slope_rise).collect::<Vec<_>>(),
+        )?,
+        caret_slope_run: first(
+            &tables.iter().map(hhea::Hhea::caret_slope_run).collect::<Vec<_>>(),
+        )?,
+        caret_offset: first(&tables.iter().map(hhea::Hhea::caret_offset).collect::<Vec<_>>())?,
         number_of_h_metrics: num_h_metrics,
     })
 }

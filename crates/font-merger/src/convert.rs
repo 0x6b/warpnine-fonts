@@ -3,7 +3,7 @@
 //! These traits centralize the conversion logic that was previously
 //! scattered across table merger functions.
 
-use read_fonts::tables::{gpos as read_gpos, gpos};
+use read_fonts::tables::gpos;
 use write_fonts::tables::gpos::{
     AnchorFormat1, AnchorFormat2, AnchorFormat3, AnchorTable, MarkArray, MarkRecord, ValueRecord,
 };
@@ -14,7 +14,7 @@ pub trait ToWrite {
     fn to_write(&self) -> Self::Output;
 }
 
-impl ToWrite for read_gpos::ValueRecord {
+impl ToWrite for gpos::ValueRecord {
     type Output = ValueRecord;
 
     fn to_write(&self) -> ValueRecord {
@@ -40,15 +40,15 @@ impl<'a> ToWrite for gpos::AnchorTable<'a> {
 
     fn to_write(&self) -> AnchorTable {
         match self {
-            read_gpos::AnchorTable::Format1(a) => {
+            gpos::AnchorTable::Format1(a) => {
                 AnchorTable::Format1(AnchorFormat1::new(a.x_coordinate(), a.y_coordinate()))
             }
-            read_gpos::AnchorTable::Format2(a) => AnchorTable::Format2(AnchorFormat2::new(
+            gpos::AnchorTable::Format2(a) => AnchorTable::Format2(AnchorFormat2::new(
                 a.x_coordinate(),
                 a.y_coordinate(),
                 a.anchor_point(),
             )),
-            read_gpos::AnchorTable::Format3(a) => AnchorTable::Format3(AnchorFormat3::new(
+            gpos::AnchorTable::Format3(a) => AnchorTable::Format3(AnchorFormat3::new(
                 a.x_coordinate(),
                 a.y_coordinate(),
                 None,
@@ -63,17 +63,16 @@ pub trait MarkArrayExt {
     fn to_write(&self) -> MarkArray;
 }
 
-impl<'a> MarkArrayExt for read_gpos::MarkArray<'a> {
+impl<'a> MarkArrayExt for gpos::MarkArray<'a> {
     fn to_write(&self) -> MarkArray {
         let mark_records: Vec<MarkRecord> = self
             .mark_records()
             .iter()
             .map(|mr| {
-                let anchor = mr
-                    .mark_anchor(self.offset_data())
-                    .ok()
-                    .map(|a| a.to_write())
-                    .unwrap_or_else(|| AnchorTable::Format1(AnchorFormat1::new(0, 0)));
+                let anchor = mr.mark_anchor(self.offset_data()).ok().map_or_else(
+                    || AnchorTable::Format1(AnchorFormat1::new(0, 0)),
+                    |a| a.to_write(),
+                );
                 MarkRecord::new(mr.mark_class(), anchor)
             })
             .collect();

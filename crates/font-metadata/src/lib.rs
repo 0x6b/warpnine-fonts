@@ -1,5 +1,7 @@
 //! Font metadata manipulation (monospace settings, versioning).
 
+use std::string::ToString;
+
 use anyhow::{Result, anyhow};
 use chrono::{Datelike, Local, NaiveDate};
 use read_fonts::TableProvider;
@@ -101,7 +103,7 @@ impl FontVersion {
 
     /// Compute font revision as YYYY.MMDD.
     pub fn revision(&self) -> Fixed {
-        let year = self.date.year() as f64;
+        let year = f64::from(self.date.year());
         let month_day = self
             .date
             .format("%m%d")
@@ -131,14 +133,11 @@ impl FontVersion {
                 if name_id == NAME_ID_VERSION {
                     Some(version_string.clone())
                 } else if name_id == NAME_ID_UNIQUE_ID {
-                    let parts: Vec<&str> = current
-                        .split(';')
-                        .map(|s| s.trim())
-                        .filter(|s| !s.is_empty())
-                        .collect();
+                    let parts: Vec<&str> =
+                        current.split(';').map(str::trim).filter(|s| !s.is_empty()).collect();
                     let new_parts = if !parts.is_empty() {
                         let mut new_parts: Vec<String> =
-                            parts[..parts.len() - 1].iter().map(|s| s.to_string()).collect();
+                            parts[..parts.len() - 1].iter().map(ToString::to_string).collect();
                         new_parts.push(version_tag.clone());
                         new_parts
                     } else {
@@ -168,6 +167,9 @@ pub fn set_version(data: &[u8], date: NaiveDate, tag: &str) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(test)]
+    use font_test_data::CMAP12_FONT1;
+
     use super::*;
 
     #[test]
@@ -216,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_apply_monospace() {
-        let data = font_test_data::CMAP12_FONT1;
+        let data = CMAP12_FONT1;
         let result = set_monospace(data);
         assert!(result.is_ok());
     }

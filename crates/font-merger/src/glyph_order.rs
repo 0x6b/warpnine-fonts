@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_glyph_name_display() {
         let name = GlyphName::new("A");
-        assert_eq!(format!("{}", name), "A");
+        assert_eq!(format!("{name}"), "A");
     }
 
     #[test]

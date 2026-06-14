@@ -1,6 +1,9 @@
 //! OS/2 table merging
 
-use read_fonts::{FontRef, TableProvider, tables::os2::Os2 as ReadOs2};
+use read_fonts::{
+    FontRef, TableProvider,
+    tables::{os2, os2::Os2 as ReadOs2},
+};
 use write_fonts::tables::os2::{Os2, SelectionFlags};
 
 use crate::{
@@ -23,59 +26,64 @@ pub fn merge_os2(fonts: &[FontRef]) -> Result<Option<Os2>> {
     let first_table = &tables[0];
 
     // Compute max version - merged table uses the highest version
-    let max_version = tables.iter().map(|t| t.version()).max().unwrap_or(0);
+    let max_version = tables.iter().map(os2::Os2::version).max().unwrap_or(0);
 
     // Collect values for merging
-    let x_avg_char_widths: Vec<i16> = tables.iter().map(|t| t.x_avg_char_width()).collect();
-    let us_weight_classes: Vec<u16> = tables.iter().map(|t| t.us_weight_class()).collect();
-    let us_width_classes: Vec<u16> = tables.iter().map(|t| t.us_width_class()).collect();
-    let fs_types: Vec<u16> = tables.iter().map(|t| t.fs_type()).collect();
-    let y_subscript_x_sizes: Vec<i16> = tables.iter().map(|t| t.y_subscript_x_size()).collect();
-    let y_subscript_y_sizes: Vec<i16> = tables.iter().map(|t| t.y_subscript_y_size()).collect();
-    let y_subscript_x_offsets: Vec<i16> = tables.iter().map(|t| t.y_subscript_x_offset()).collect();
-    let y_subscript_y_offsets: Vec<i16> = tables.iter().map(|t| t.y_subscript_y_offset()).collect();
-    let y_superscript_x_sizes: Vec<i16> = tables.iter().map(|t| t.y_superscript_x_size()).collect();
-    let y_superscript_y_sizes: Vec<i16> = tables.iter().map(|t| t.y_superscript_y_size()).collect();
+    let x_avg_char_widths: Vec<i16> = tables.iter().map(os2::Os2::x_avg_char_width).collect();
+    let us_weight_classes: Vec<u16> = tables.iter().map(os2::Os2::us_weight_class).collect();
+    let us_width_classes: Vec<u16> = tables.iter().map(os2::Os2::us_width_class).collect();
+    let fs_types: Vec<u16> = tables.iter().map(os2::Os2::fs_type).collect();
+    let y_subscript_x_sizes: Vec<i16> = tables.iter().map(os2::Os2::y_subscript_x_size).collect();
+    let y_subscript_y_sizes: Vec<i16> = tables.iter().map(os2::Os2::y_subscript_y_size).collect();
+    let y_subscript_x_offsets: Vec<i16> =
+        tables.iter().map(os2::Os2::y_subscript_x_offset).collect();
+    let y_subscript_y_offsets: Vec<i16> =
+        tables.iter().map(os2::Os2::y_subscript_y_offset).collect();
+    let y_superscript_x_sizes: Vec<i16> =
+        tables.iter().map(os2::Os2::y_superscript_x_size).collect();
+    let y_superscript_y_sizes: Vec<i16> =
+        tables.iter().map(os2::Os2::y_superscript_y_size).collect();
     let y_superscript_x_offsets: Vec<i16> =
-        tables.iter().map(|t| t.y_superscript_x_offset()).collect();
+        tables.iter().map(os2::Os2::y_superscript_x_offset).collect();
     let y_superscript_y_offsets: Vec<i16> =
-        tables.iter().map(|t| t.y_superscript_y_offset()).collect();
-    let y_strikeout_sizes: Vec<i16> = tables.iter().map(|t| t.y_strikeout_size()).collect();
-    let y_strikeout_positions: Vec<i16> = tables.iter().map(|t| t.y_strikeout_position()).collect();
-    let s_typo_ascenders: Vec<i16> = tables.iter().map(|t| t.s_typo_ascender()).collect();
-    let s_typo_descenders: Vec<i16> = tables.iter().map(|t| t.s_typo_descender()).collect();
-    let s_typo_line_gaps: Vec<i16> = tables.iter().map(|t| t.s_typo_line_gap()).collect();
-    let us_win_ascents: Vec<u16> = tables.iter().map(|t| t.us_win_ascent()).collect();
-    let us_win_descents: Vec<u16> = tables.iter().map(|t| t.us_win_descent()).collect();
-    let sx_heights: Vec<i16> = tables.iter().filter_map(|t| t.sx_height()).collect();
-    let s_cap_heights: Vec<i16> = tables.iter().filter_map(|t| t.s_cap_height()).collect();
+        tables.iter().map(os2::Os2::y_superscript_y_offset).collect();
+    let y_strikeout_sizes: Vec<i16> = tables.iter().map(os2::Os2::y_strikeout_size).collect();
+    let y_strikeout_positions: Vec<i16> =
+        tables.iter().map(os2::Os2::y_strikeout_position).collect();
+    let s_typo_ascenders: Vec<i16> = tables.iter().map(os2::Os2::s_typo_ascender).collect();
+    let s_typo_descenders: Vec<i16> = tables.iter().map(os2::Os2::s_typo_descender).collect();
+    let s_typo_line_gaps: Vec<i16> = tables.iter().map(os2::Os2::s_typo_line_gap).collect();
+    let us_win_ascents: Vec<u16> = tables.iter().map(os2::Os2::us_win_ascent).collect();
+    let us_win_descents: Vec<u16> = tables.iter().map(os2::Os2::us_win_descent).collect();
+    let sx_heights: Vec<i16> = tables.iter().filter_map(os2::Os2::sx_height).collect();
+    let s_cap_heights: Vec<i16> = tables.iter().filter_map(os2::Os2::s_cap_height).collect();
 
     // Merge Unicode ranges (OR)
     let ul_unicode_range1: u32 =
-        tables.iter().map(|t| t.ul_unicode_range_1()).fold(0, |a, b| a | b);
+        tables.iter().map(os2::Os2::ul_unicode_range_1).fold(0, |a, b| a | b);
     let ul_unicode_range2: u32 =
-        tables.iter().map(|t| t.ul_unicode_range_2()).fold(0, |a, b| a | b);
+        tables.iter().map(os2::Os2::ul_unicode_range_2).fold(0, |a, b| a | b);
     let ul_unicode_range3: u32 =
-        tables.iter().map(|t| t.ul_unicode_range_3()).fold(0, |a, b| a | b);
+        tables.iter().map(os2::Os2::ul_unicode_range_3).fold(0, |a, b| a | b);
     let ul_unicode_range4: u32 =
-        tables.iter().map(|t| t.ul_unicode_range_4()).fold(0, |a, b| a | b);
+        tables.iter().map(os2::Os2::ul_unicode_range_4).fold(0, |a, b| a | b);
 
     // Merge code page ranges (OR)
     let ul_code_page_range1: Option<u32> = tables
         .iter()
-        .filter_map(|t| t.ul_code_page_range_1())
+        .filter_map(os2::Os2::ul_code_page_range_1)
         .reduce(|a, b| a | b);
     let ul_code_page_range2: Option<u32> = tables
         .iter()
-        .filter_map(|t| t.ul_code_page_range_2())
+        .filter_map(os2::Os2::ul_code_page_range_2)
         .reduce(|a, b| a | b);
 
     // Merge fs_selection (AND for most bits, OR for some)
     let fs_selection = merge_fs_selection(&tables);
 
     // Compute char range from all fonts
-    let us_first_char_index = tables.iter().map(|t| t.us_first_char_index()).min().unwrap_or(0);
-    let us_last_char_index = tables.iter().map(|t| t.us_last_char_index()).max().unwrap_or(0);
+    let us_first_char_index = tables.iter().map(os2::Os2::us_first_char_index).min().unwrap_or(0);
+    let us_last_char_index = tables.iter().map(os2::Os2::us_last_char_index).max().unwrap_or(0);
 
     // Get panose as array
     let panose: [u8; 10] = first_table.panose_10().try_into().unwrap_or([0; 10]);

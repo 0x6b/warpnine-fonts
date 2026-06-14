@@ -6,7 +6,10 @@
 use anyhow::Result;
 use read_fonts::{
     FontRef, TableProvider,
-    tables::{self, glyf, glyf::CurvePoint},
+    tables::{
+        glyf,
+        glyf::{CompositeGlyphFlags, CurvePoint},
+    },
     types::{GlyphId, Tag},
 };
 use write_fonts::{
@@ -34,7 +37,7 @@ const TAG_HHEA: Tag = Tag::new(b"hhea");
 const TAG_OS2: Tag = Tag::new(b"OS/2");
 
 /// Scales a simple glyph's x-coordinates by the given factor.
-fn scale_simple_glyph(glyph: &tables::glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
+fn scale_simple_glyph(glyph: &glyf::SimpleGlyph, scale_x: f32) -> SimpleGlyph {
     let mut contours = Vec::new();
     let end_pts: Vec<u16> = glyph.end_pts_of_contours().iter().map(|e| e.get()).collect();
     let all_points: Vec<CurvePoint> = glyph.points().collect();
@@ -44,16 +47,16 @@ fn scale_simple_glyph(glyph: &tables::glyf::SimpleGlyph, scale_x: f32) -> Simple
         let end_idx = end as usize + 1;
         let scaled_points: Vec<CurvePoint> = all_points[start..end_idx]
             .iter()
-            .map(|p| CurvePoint::new((p.x as f32 * scale_x).round() as i16, p.y, p.on_curve))
+            .map(|p| CurvePoint::new((f32::from(p.x) * scale_x).round() as i16, p.y, p.on_curve))
             .collect();
         contours.push(Contour::from(scaled_points));
         start = end_idx;
     }
 
     let bbox = Bbox {
-        x_min: (glyph.x_min() as f32 * scale_x).round() as i16,
+        x_min: (f32::from(glyph.x_min()) * scale_x).round() as i16,
         y_min: glyph.y_min(),
-        x_max: (glyph.x_max() as f32 * scale_x).round() as i16,
+        x_max: (f32::from(glyph.x_max()) * scale_x).round() as i16,
         y_max: glyph.y_max(),
     };
 
@@ -70,7 +73,7 @@ fn scale_composite_glyph(glyph: &glyf::CompositeGlyph, scale_x: f32) -> Composit
 
     for c in glyph.components() {
         let new_anchor = match c.anchor {
-            Anchor::Offset { x, y } => Offset { x: (x as f32 * scale_x).round() as i16, y },
+            Anchor::Offset { x, y } => Offset { x: (f32::from(x) * scale_x).round() as i16, y },
             Anchor::Point { base, component } => Point { base, component },
         };
 
@@ -85,30 +88,24 @@ fn scale_composite_glyph(glyph: &glyf::CompositeGlyph, scale_x: f32) -> Composit
             glyph: c.glyph,
             anchor: new_anchor,
             flags: ComponentFlags {
-                round_xy_to_grid: c
+                round_xy_to_grid: c.flags.contains(CompositeGlyphFlags::ROUND_XY_TO_GRID),
+                use_my_metrics: c.flags.contains(CompositeGlyphFlags::USE_MY_METRICS),
+                scaled_component_offset: c
                     .flags
-                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::ROUND_XY_TO_GRID),
-                use_my_metrics: c
+                    .contains(CompositeGlyphFlags::SCALED_COMPONENT_OFFSET),
+                unscaled_component_offset: c
                     .flags
-                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::USE_MY_METRICS),
-                scaled_component_offset: c.flags.contains(
-                    read_fonts::tables::glyf::CompositeGlyphFlags::SCALED_COMPONENT_OFFSET,
-                ),
-                unscaled_component_offset: c.flags.contains(
-                    read_fonts::tables::glyf::CompositeGlyphFlags::UNSCALED_COMPONENT_OFFSET,
-                ),
-                overlap_compound: c
-                    .flags
-                    .contains(read_fonts::tables::glyf::CompositeGlyphFlags::OVERLAP_COMPOUND),
+                    .contains(CompositeGlyphFlags::UNSCALED_COMPONENT_OFFSET),
+                overlap_compound: c.flags.contains(CompositeGlyphFlags::OVERLAP_COMPOUND),
             },
             transform: new_transform,
         });
     }
 
     let bbox = Bbox {
-        x_min: (glyph.x_min() as f32 * scale_x).round() as i16,
+        x_min: (f32::from(glyph.x_min()) * scale_x).round() as i16,
         y_min: glyph.y_min(),
-        x_max: (glyph.x_max() as f32 * scale_x).round() as i16,
+        x_max: (f32::from(glyph.x_max()) * scale_x).round() as i16,
         y_max: glyph.y_max(),
     };
 
@@ -172,10 +169,10 @@ pub fn apply_horizontal_scale(
             for gid in 0..num_glyphs {
                 let glyph_data = loca.get_glyf(GlyphId::new(gid as u32), &glyf);
                 let glyph = match glyph_data {
-                    Ok(Some(read_fonts::tables::glyf::Glyph::Simple(simple))) => {
+                    Ok(Some(glyf::Glyph::Simple(simple))) => {
                         Glyph::Simple(scale_simple_glyph(&simple, scale_x))
                     }
-                    Ok(Some(read_fonts::tables::glyf::Glyph::Composite(composite))) => {
+                    Ok(Some(glyf::Glyph::Composite(composite))) => {
                         Glyph::Composite(scale_composite_glyph(&composite, scale_x))
                     }
                     _ => Glyph::Empty,
@@ -189,22 +186,22 @@ pub fn apply_horizontal_scale(
 
             if let Ok(head) = font.head() {
                 let mut new_head: Head = head.to_owned_table();
-                new_head.x_min = (new_head.x_min as f32 * scale_x).round() as i16;
-                new_head.x_max = (new_head.x_max as f32 * scale_x).round() as i16;
+                new_head.x_min = (f32::from(new_head.x_min) * scale_x).round() as i16;
+                new_head.x_max = (f32::from(new_head.x_max) * scale_x).round() as i16;
                 new_head.index_to_loc_format = loca_format as i16;
                 builder.add_table(&new_head)?;
             }
         }
     } else if let Ok(head) = font.head() {
         let mut new_head: Head = head.to_owned_table();
-        new_head.x_min = (new_head.x_min as f32 * scale_x).round() as i16;
-        new_head.x_max = (new_head.x_max as f32 * scale_x).round() as i16;
+        new_head.x_min = (f32::from(new_head.x_min) * scale_x).round() as i16;
+        new_head.x_max = (f32::from(new_head.x_max) * scale_x).round() as i16;
         builder.add_table(&new_head)?;
     }
 
     if let Ok(hmtx) = font.hmtx() {
-        let num_glyphs = font.maxp().map(|m| m.num_glyphs()).unwrap_or(0) as usize;
-        let num_long_metrics = font.hhea().map(|h| h.number_of_h_metrics()).unwrap_or(0) as usize;
+        let num_glyphs = font.maxp().map_or(0, |m| m.num_glyphs()) as usize;
+        let num_long_metrics = font.hhea().map_or(0, |h| h.number_of_h_metrics()) as usize;
 
         let mut new_h_metrics = Vec::with_capacity(num_long_metrics);
         let mut new_lsbs = Vec::new();
@@ -216,11 +213,11 @@ pub fn apply_horizontal_scale(
 
             if gid < num_long_metrics {
                 new_h_metrics.push(LongMetric {
-                    advance: (advance as f32 * scale_x).round() as u16,
-                    side_bearing: (lsb as f32 * scale_x).round() as i16,
+                    advance: (f32::from(advance) * scale_x).round() as u16,
+                    side_bearing: (f32::from(lsb) * scale_x).round() as i16,
                 });
             } else {
-                new_lsbs.push((lsb as f32 * scale_x).round() as i16);
+                new_lsbs.push((f32::from(lsb) * scale_x).round() as i16);
             }
         }
 
@@ -235,16 +232,16 @@ pub fn apply_horizontal_scale(
         let min_rsb = new_hhea.min_right_side_bearing.to_i16();
         let x_max = new_hhea.x_max_extent.to_i16();
 
-        new_hhea.advance_width_max = ((adv_max as f32 * scale_x).round() as u16).into();
-        new_hhea.min_left_side_bearing = ((min_lsb as f32 * scale_x).round() as i16).into();
-        new_hhea.min_right_side_bearing = ((min_rsb as f32 * scale_x).round() as i16).into();
-        new_hhea.x_max_extent = ((x_max as f32 * scale_x).round() as i16).into();
+        new_hhea.advance_width_max = ((f32::from(adv_max) * scale_x).round() as u16).into();
+        new_hhea.min_left_side_bearing = ((f32::from(min_lsb) * scale_x).round() as i16).into();
+        new_hhea.min_right_side_bearing = ((f32::from(min_rsb) * scale_x).round() as i16).into();
+        new_hhea.x_max_extent = ((f32::from(x_max) * scale_x).round() as i16).into();
         builder.add_table(&new_hhea)?;
     }
 
     if let Ok(os2) = font.os2() {
         let mut new_os2: Os2 = os2.to_owned_table();
-        new_os2.x_avg_char_width = (new_os2.x_avg_char_width as f32 * scale_x).round() as i16;
+        new_os2.x_avg_char_width = (f32::from(new_os2.x_avg_char_width) * scale_x).round() as i16;
         if let Some(wc) = width_class {
             new_os2.us_width_class = wc;
         }

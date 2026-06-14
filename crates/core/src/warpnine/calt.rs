@@ -18,22 +18,17 @@ pub fn fix_calt_registration(path: &Path) -> Result<()> {
     let data = read(path).with_context(|| format!("Failed to read {}", path.display()))?;
     let font = FontRef::new(&data)?;
 
-    let gsub = match font.gsub() {
-        Ok(gsub) => gsub,
-        Err(_) => {
-            println!("{}: no GSUB table, skipping", path.display());
-            return Ok(());
-        }
+    let Ok(gsub) = font.gsub() else {
+        println!("{}: no GSUB table, skipping", path.display());
+        return Ok(());
     };
 
-    let feature_list = match gsub.feature_list() {
-        Ok(fl) => fl,
-        Err(_) => return Ok(()),
+    let Ok(feature_list) = gsub.feature_list() else {
+        return Ok(());
     };
 
-    let script_list = match gsub.script_list() {
-        Ok(sl) => sl,
-        Err(_) => return Ok(()),
+    let Ok(script_list) = gsub.script_list() else {
+        return Ok(());
     };
 
     let (calt_indices, rclt_indices) = find_feature_indices(&feature_list);

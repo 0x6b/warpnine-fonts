@@ -87,7 +87,7 @@ impl Cli {
                 }
                 ExitCode::FAILURE
             },
-            |_| ExitCode::SUCCESS,
+            |()| ExitCode::SUCCESS,
         )
     }
 

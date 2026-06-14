@@ -3,7 +3,10 @@
 use std::result;
 
 use font_types::Fixed;
-use read_fonts::{FontRef, TableProvider, tables::head::Head as ReadHead};
+use read_fonts::{
+    FontRef, TableProvider,
+    tables::{head, head::Head as ReadHead},
+};
 use write_fonts::tables::head::{Flags, Head, MacStyle};
 
 use crate::{
@@ -55,7 +58,7 @@ const MAC_STYLE_BIT_MAP: [Option<bool>; 16] = [
 pub fn merge_head(fonts: &[FontRef]) -> Result<Head> {
     let tables: Vec<ReadHead> = fonts
         .iter()
-        .map(|f| f.head())
+        .map(TableProvider::head)
         .collect::<result::Result<Vec<_>, _>>()?;
 
     if tables.is_empty() {
@@ -63,15 +66,15 @@ pub fn merge_head(fonts: &[FontRef]) -> Result<Head> {
     }
 
     // Collect field values
-    let units_per_em: Vec<u16> = tables.iter().map(|t| t.units_per_em()).collect();
+    let units_per_em: Vec<u16> = tables.iter().map(head::Head::units_per_em).collect();
     let font_revisions: Vec<i32> = tables.iter().map(|t| t.font_revision().to_bits()).collect();
     let flags: Vec<u16> = tables.iter().map(|t| t.flags().bits()).collect();
     let mac_styles: Vec<u16> = tables.iter().map(|t| t.mac_style().bits()).collect();
-    let x_mins: Vec<i16> = tables.iter().map(|t| t.x_min()).collect();
-    let y_mins: Vec<i16> = tables.iter().map(|t| t.y_min()).collect();
-    let x_maxs: Vec<i16> = tables.iter().map(|t| t.x_max()).collect();
-    let y_maxs: Vec<i16> = tables.iter().map(|t| t.y_max()).collect();
-    let lowest_rec_ppems: Vec<u16> = tables.iter().map(|t| t.lowest_rec_ppem()).collect();
+    let x_mins: Vec<i16> = tables.iter().map(head::Head::x_min).collect();
+    let y_mins: Vec<i16> = tables.iter().map(head::Head::y_min).collect();
+    let x_maxs: Vec<i16> = tables.iter().map(head::Head::x_max).collect();
+    let y_maxs: Vec<i16> = tables.iter().map(head::Head::y_max).collect();
+    let lowest_rec_ppems: Vec<u16> = tables.iter().map(head::Head::lowest_rec_ppem).collect();
 
     // Apply merge strategies
     let units_per_em = equal(&units_per_em, "head", "unitsPerEm")?;

@@ -67,8 +67,7 @@ impl PipelineContext {
             .filter(|p| {
                 p.file_name()
                     .and_then(|s| s.to_str())
-                    .map(|s| !s.contains("-VF"))
-                    .unwrap_or(false)
+                    .is_some_and(|s| !s.contains("-VF"))
             })
             .collect())
     }

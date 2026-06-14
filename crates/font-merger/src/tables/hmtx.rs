@@ -1,5 +1,6 @@
 //! hmtx table merging
 
+use font_types::BigEndian;
 use indexmap::IndexMap;
 use read_fonts::TableProvider;
 use write_fonts::tables::hmtx::{Hmtx, LongMetric};
@@ -40,7 +41,7 @@ pub fn merge_hmtx(ctx: &MergeContext) -> Result<Hmtx> {
                     0
                 };
                 let lsb_idx = gid - num_h_metrics;
-                let lsb = hmtx.left_side_bearings().get(lsb_idx).map(|b| b.get()).unwrap_or(0);
+                let lsb = hmtx.left_side_bearings().get(lsb_idx).map_or(0, BigEndian::get);
                 (last_advance, lsb)
             };
 

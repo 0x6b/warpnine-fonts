@@ -4,8 +4,9 @@ use std::{collections::HashSet, result};
 
 use log::info;
 use read_fonts::{FontRef, TableProvider, types::Tag};
-use write_fonts::FontBuilder;
+use write_fonts::{FontBuilder, tables::loca::LocaFormat};
 
+use super::types::TableTag;
 use crate::{
     MergeError,
     MergeError::IncompatibleUnitsPerEm,
@@ -104,8 +105,8 @@ impl Merger {
 
         if let Some((_, _, format)) = glyf_loca.as_ref() {
             head.index_to_loc_format = match *format {
-                write_fonts::tables::loca::LocaFormat::Short => 0,
-                write_fonts::tables::loca::LocaFormat::Long => 1,
+                LocaFormat::Short => 0,
+                LocaFormat::Long => 1,
             };
         }
 
@@ -167,7 +168,8 @@ impl Merger {
 
     fn copy_other_tables(&self, builder: &mut FontBuilder, font: &FontRef) -> Result<()> {
         let handled_tables: HashSet<Tag> = HANDLED_TABLES.iter().map(Tag::new).collect();
-        let drop_tables: HashSet<Tag> = self.options.drop_tables.iter().map(|t| t.tag()).collect();
+        let drop_tables: HashSet<Tag> =
+            self.options.drop_tables.iter().map(TableTag::tag).collect();
 
         for record in font.table_directory.table_records() {
             let tag = record.tag();
