@@ -787,18 +787,19 @@ fn build_head(default_font: &FontRef, loca_format: LocaFormat) -> Result<Head> {
     ))
 }
 
-/// Weight axis stops as `(user_value, name, name_id)`.
+/// Weight axis stops as `(user_value, name_id)`.
 ///
-/// Name IDs 280-287 hold the corresponding strings in the name table.
-const WEIGHT_STOPS: [(f64, &str, u16); 8] = [
-    (300.0, "Light", 280),
-    (400.0, "Regular", 281),
-    (500.0, "Medium", 282),
-    (600.0, "SemiBold", 283),
-    (700.0, "Bold", 284),
-    (800.0, "ExtraBold", 285),
-    (900.0, "Black", 286),
-    (1000.0, "ExtraBlack", 287),
+/// Name IDs 280-287 hold the corresponding strings in the name table; the
+/// human-readable names come from [`warpnine_font_ops::weight_name`].
+const WEIGHT_STOPS: [(f64, u16); 8] = [
+    (300.0, 280),
+    (400.0, 281),
+    (500.0, 282),
+    (600.0, 283),
+    (700.0, 284),
+    (800.0, 285),
+    (900.0, 286),
+    (1000.0, 287),
 ];
 
 /// fvar instance PostScript name IDs start here (one per instance).
@@ -818,7 +819,8 @@ fn weight_stops_in_range(designspace: &DesignSpace) -> Vec<(f64, &'static str, u
 
     WEIGHT_STOPS
         .into_iter()
-        .filter(|(value, _, _)| *value >= min && *value <= max)
+        .filter(|(value, _)| *value >= min && *value <= max)
+        .map(|(value, name_id)| (value, warpnine_font_ops::weight_name(value as u16), name_id))
         .collect()
 }
 

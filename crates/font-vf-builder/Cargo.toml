@@ -12,6 +12,7 @@ font-types.workspace = true
 kurbo.workspace = true
 thiserror.workspace = true
 log.workspace = true
+warpnine-font-ops.workspace = true
 
 [dev-dependencies]
 font-test-data.workspace = true

@@ -98,6 +98,87 @@ pub struct StyleBits {
     pub weight_class: u16,
 }
 
+/// OpenType/CSS weight name for a `usWeightClass` value (300 → "Light" …
+/// 1000 → "ExtraBlack"). Unknown values fall back to "Regular".
+pub fn weight_name(weight: u16) -> &'static str {
+    match weight {
+        300 => "Light",
+        400 => "Regular",
+        500 => "Medium",
+        600 => "SemiBold",
+        700 => "Bold",
+        800 => "ExtraBold",
+        900 => "Black",
+        1000 => "ExtraBlack",
+        _ => "Regular",
+    }
+}
+
+/// Human-readable subfamily from a no-space style id
+/// ("BoldItalic" → "Bold Italic", "Italic" → "Italic", "SemiBold" → "SemiBold").
+pub fn style_display_name(style_id: &str) -> String {
+    if style_id.ends_with("Italic") && style_id != "Italic" {
+        let base = style_id.strip_suffix("Italic").unwrap();
+        format!("{base} Italic")
+    } else {
+        style_id.to_string()
+    }
+}
+
+/// OS/2 / head style bits for a weight + slant.
+///
+/// `bold` is the RIBBI bold member (weight 700); `regular` is set only when the
+/// face is neither bold nor italic.
+pub fn style_bits(weight: u16, italic: bool) -> StyleBits {
+    let bold = weight == 700;
+    StyleBits {
+        italic,
+        bold,
+        regular: !italic && !bold,
+        weight_class: weight,
+    }
+}
+
+/// RIBBI-grouped name-table strings for a style.
+///
+/// Regular (400) and Bold (700) plus their italics share the base `family` as
+/// name ID 1, distinguished by name ID 2 (Regular/Bold/Italic/Bold Italic).
+/// Every other weight becomes its own `"{family} {Weight}"` sub-family with
+/// name ID 2 of Regular/Italic. `style_id` is the no-space style identifier
+/// (e.g. "BoldItalic") used for the PostScript name and ID 17.
+pub fn ribbi_names(
+    family: &str,
+    ps_family: &str,
+    style_id: &str,
+    weight: u16,
+    italic: bool,
+) -> StyleNames {
+    let bits = style_bits(weight, italic);
+    let in_base_quad = weight == 400 || bits.bold;
+
+    let subfamily = match (bits.bold, bits.italic) {
+        (true, true) => "Bold Italic",
+        (true, false) => "Bold",
+        (false, true) => "Italic",
+        (false, false) => "Regular",
+    }
+    .to_string();
+
+    let id1 =
+        if in_base_quad { family.to_string() } else { format!("{family} {}", weight_name(weight)) };
+
+    let full_name = if subfamily == "Regular" { id1.clone() } else { format!("{id1} {subfamily}") };
+
+    StyleNames {
+        family: id1,
+        subfamily,
+        full_name,
+        postscript: format!("{ps_family}-{style_id}"),
+        typo_family: family.to_string(),
+        typo_subfamily: style_display_name(style_id),
+    }
+}
+
 /// Build a name table with per-style strings applied.
 ///
 /// Rewrites name IDs 1/2/4/6/16/17 in place. The typographic family (16) and
@@ -273,4 +354,69 @@ pub fn copy_gsub_without_feature_variations(
     builder.add_table(&new_gsub)?;
 
     Ok(builder.build())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn weight_names() {
+        assert_eq!(weight_name(300), "Light");
+        assert_eq!(weight_name(400), "Regular");
+        assert_eq!(weight_name(600), "SemiBold");
+        assert_eq!(weight_name(1000), "ExtraBlack");
+        assert_eq!(weight_name(123), "Regular");
+    }
+
+    #[test]
+    fn display_names() {
+        assert_eq!(style_display_name("Regular"), "Regular");
+        assert_eq!(style_display_name("Italic"), "Italic");
+        assert_eq!(style_display_name("SemiBold"), "SemiBold");
+        assert_eq!(style_display_name("BoldItalic"), "Bold Italic");
+        assert_eq!(style_display_name("ExtraBlackItalic"), "ExtraBlack Italic");
+    }
+
+    #[test]
+    fn bits_regular_bold_italic() {
+        let r = style_bits(400, false);
+        assert!(r.regular && !r.bold && !r.italic && r.weight_class == 400);
+        let b = style_bits(700, false);
+        assert!(b.bold && !b.regular && !b.italic);
+        let bi = style_bits(700, true);
+        assert!(bi.bold && bi.italic && !bi.regular);
+        let heavy = style_bits(900, false);
+        assert!(heavy.regular && !heavy.bold && heavy.weight_class == 900);
+        let si = style_bits(600, true);
+        assert!(si.italic && !si.bold && !si.regular);
+    }
+
+    #[test]
+    fn ribbi_base_quad() {
+        let n = ribbi_names("Warpnine Mono", "WarpnineMono", "Regular", 400, false);
+        assert_eq!(n.family, "Warpnine Mono");
+        assert_eq!(n.subfamily, "Regular");
+        assert_eq!(n.full_name, "Warpnine Mono");
+        assert_eq!(n.postscript, "WarpnineMono-Regular");
+        assert_eq!(n.typo_family, "Warpnine Mono");
+        assert_eq!(n.typo_subfamily, "Regular");
+
+        let bi = ribbi_names("Warpnine Mono", "WarpnineMono", "BoldItalic", 700, true);
+        assert_eq!(bi.family, "Warpnine Mono");
+        assert_eq!(bi.subfamily, "Bold Italic");
+        assert_eq!(bi.full_name, "Warpnine Mono Bold Italic");
+        assert_eq!(bi.postscript, "WarpnineMono-BoldItalic");
+        assert_eq!(bi.typo_subfamily, "Bold Italic");
+    }
+
+    #[test]
+    fn ribbi_sub_family() {
+        let n = ribbi_names("Warpnine Mono", "WarpnineMono", "SemiBoldItalic", 600, true);
+        assert_eq!(n.family, "Warpnine Mono SemiBold");
+        assert_eq!(n.subfamily, "Italic");
+        assert_eq!(n.full_name, "Warpnine Mono SemiBold Italic");
+        assert_eq!(n.typo_family, "Warpnine Mono");
+        assert_eq!(n.typo_subfamily, "SemiBold Italic");
+    }
 }

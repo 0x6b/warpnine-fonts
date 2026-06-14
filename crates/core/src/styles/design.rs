@@ -73,81 +73,26 @@ impl Style {
     }
 
     pub fn display_name(&self) -> String {
-        if self.name.ends_with("Italic") && self.name != "Italic" {
-            let base = self.name.strip_suffix("Italic").unwrap();
-            format!("{base} Italic")
-        } else {
-            self.name.to_string()
-        }
+        warpnine_font_ops::style_display_name(self.name)
     }
 
     /// RIBBI-grouped name-table strings for this style.
     ///
-    /// Regular (400) and Bold (700) plus their italics share the base `family`
-    /// as name ID 1, distinguished by name ID 2 (Regular/Bold/Italic/Bold
-    /// Italic). Every other weight becomes its own `"{family} {Weight}"`
-    /// sub-family with name ID 2 of Regular/Italic. Name IDs 16/17 always hold
-    /// the typographic family and full subfamily.
+    /// Thin wrapper over [`warpnine_font_ops::ribbi_names`]; the derivation is
+    /// brand-agnostic so other projects can reuse it directly.
     pub fn ribbi_names(&self, family: &str, ps_family: &str) -> StyleNames {
-        let bits = self.style_bits();
-        let in_base_quad = self.is_regular_weight() || bits.bold;
-
-        let subfamily = match (bits.bold, bits.italic) {
-            (true, true) => "Bold Italic",
-            (true, false) => "Bold",
-            (false, true) => "Italic",
-            (false, false) => "Regular",
-        }
-        .to_string();
-
-        let id1 = if in_base_quad {
-            family.to_string()
-        } else {
-            format!("{family} {}", self.weight_name())
-        };
-
-        let full_name =
-            if subfamily == "Regular" { id1.clone() } else { format!("{id1} {subfamily}") };
-
-        StyleNames {
-            family: id1,
-            subfamily,
-            full_name,
-            postscript: format!("{ps_family}-{}", self.name),
-            typo_family: family.to_string(),
-            typo_subfamily: self.display_name(),
-        }
+        warpnine_font_ops::ribbi_names(
+            family,
+            ps_family,
+            self.name,
+            self.weight.value() as u16,
+            self.slant.is_italic(),
+        )
     }
 
     /// OS/2 / head style bits for this style.
     pub fn style_bits(&self) -> StyleBits {
-        let italic = self.slant.is_italic();
-        let bold = self.weight.value() as u16 == 700;
-        StyleBits {
-            italic,
-            bold,
-            regular: !italic && !bold,
-            weight_class: self.weight.value() as u16,
-        }
-    }
-
-    fn is_regular_weight(&self) -> bool {
-        self.weight.value() as u16 == 400
-    }
-
-    /// Bare weight name without slant ("Light", "SemiBold", "ExtraBlack").
-    fn weight_name(&self) -> &'static str {
-        match self.weight.value() as u16 {
-            300 => "Light",
-            400 => "Regular",
-            500 => "Medium",
-            600 => "SemiBold",
-            700 => "Bold",
-            800 => "ExtraBold",
-            900 => "Black",
-            1000 => "ExtraBlack",
-            _ => "Regular",
-        }
+        warpnine_font_ops::style_bits(self.weight.value() as u16, self.slant.is_italic())
     }
 
     pub fn axis_locations(&self, mono: f32, casl: f32) -> [AxisLocation; 5] {
