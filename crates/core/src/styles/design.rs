@@ -1,6 +1,7 @@
 //! Style and design type definitions.
 
 use font_instancer::AxisLocation;
+use warpnine_font_ops::{StyleBits, StyleNames};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Slant {
@@ -80,6 +81,78 @@ impl Style {
         }
     }
 
+    /// RIBBI-grouped name-table strings for this style.
+    ///
+    /// Regular (400) and Bold (700) plus their italics share the base `family`
+    /// as name ID 1, distinguished by name ID 2 (Regular/Bold/Italic/Bold
+    /// Italic). Every other weight becomes its own `"{family} {Weight}"`
+    /// sub-family with name ID 2 of Regular/Italic. Name IDs 16/17 always hold
+    /// the typographic family and full subfamily.
+    pub fn ribbi_names(&self, family: &str, ps_family: &str) -> StyleNames {
+        let bits = self.style_bits();
+        let in_base_quad = self.is_regular_weight() || bits.bold;
+
+        let subfamily = match (bits.bold, bits.italic) {
+            (true, true) => "Bold Italic",
+            (true, false) => "Bold",
+            (false, true) => "Italic",
+            (false, false) => "Regular",
+        }
+        .to_string();
+
+        let id1 = if in_base_quad {
+            family.to_string()
+        } else {
+            format!("{family} {}", self.weight_name())
+        };
+
+        let full_name = if subfamily == "Regular" {
+            id1.clone()
+        } else {
+            format!("{id1} {subfamily}")
+        };
+
+        StyleNames {
+            family: id1,
+            subfamily,
+            full_name,
+            postscript: format!("{ps_family}-{}", self.name),
+            typo_family: family.to_string(),
+            typo_subfamily: self.display_name(),
+        }
+    }
+
+    /// OS/2 / head style bits for this style.
+    pub fn style_bits(&self) -> StyleBits {
+        let italic = self.slant.is_italic();
+        let bold = self.weight.value() as u16 == 700;
+        StyleBits {
+            italic,
+            bold,
+            regular: !italic && !bold,
+            weight_class: self.weight.value() as u16,
+        }
+    }
+
+    fn is_regular_weight(&self) -> bool {
+        self.weight.value() as u16 == 400
+    }
+
+    /// Bare weight name without slant ("Light", "SemiBold", "ExtraBlack").
+    fn weight_name(&self) -> &'static str {
+        match self.weight.value() as u16 {
+            300 => "Light",
+            400 => "Regular",
+            500 => "Medium",
+            600 => "SemiBold",
+            700 => "Bold",
+            800 => "ExtraBold",
+            900 => "Black",
+            1000 => "ExtraBlack",
+            _ => "Regular",
+        }
+    }
+
     pub fn axis_locations(&self, mono: f32, casl: f32) -> [AxisLocation; 5] {
         [
             AxisLocation::new("MONO", mono),
@@ -129,4 +202,123 @@ pub const SANS_STYLES: &[Style] = &[
 
 pub fn duotone_casl(wght: f32) -> f32 {
     if wght < 500.0 { 0.0 } else { 1.0 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn s(name: &'static str, weight: f32, slant: Slant) -> Style {
+        Style::new(name, Weight(weight), slant)
+    }
+
+    #[test]
+    fn regular_uses_base_family() {
+        let n = s("Regular", 400.0, Slant::Upright).ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono");
+        assert_eq!(n.subfamily, "Regular");
+        assert_eq!(n.full_name, "Warpnine Mono");
+        assert_eq!(n.postscript, "WarpnineMono-Regular");
+        assert_eq!(n.typo_family, "Warpnine Mono");
+        assert_eq!(n.typo_subfamily, "Regular");
+    }
+
+    #[test]
+    fn italic_400_in_base_quad() {
+        let n = s("Italic", 400.0, Slant::Italic).ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono");
+        assert_eq!(n.subfamily, "Italic");
+        assert_eq!(n.full_name, "Warpnine Mono Italic");
+        assert_eq!(n.typo_subfamily, "Italic");
+    }
+
+    #[test]
+    fn bold_in_base_quad() {
+        let n = s("Bold", 700.0, Slant::Upright).ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono");
+        assert_eq!(n.subfamily, "Bold");
+        assert_eq!(n.full_name, "Warpnine Mono Bold");
+        assert_eq!(n.typo_subfamily, "Bold");
+    }
+
+    #[test]
+    fn bold_italic_in_base_quad() {
+        let n = s("BoldItalic", 700.0, Slant::Italic).ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono");
+        assert_eq!(n.subfamily, "Bold Italic");
+        assert_eq!(n.full_name, "Warpnine Mono Bold Italic");
+        assert_eq!(n.postscript, "WarpnineMono-BoldItalic");
+        assert_eq!(n.typo_subfamily, "Bold Italic");
+    }
+
+    #[test]
+    fn semibold_is_own_subfamily() {
+        let n = s("SemiBold", 600.0, Slant::Upright).ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono SemiBold");
+        assert_eq!(n.subfamily, "Regular");
+        assert_eq!(n.full_name, "Warpnine Mono SemiBold");
+        assert_eq!(n.typo_family, "Warpnine Mono");
+        assert_eq!(n.typo_subfamily, "SemiBold");
+    }
+
+    #[test]
+    fn semibold_italic_is_own_subfamily() {
+        let n =
+            s("SemiBoldItalic", 600.0, Slant::Italic).ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono SemiBold");
+        assert_eq!(n.subfamily, "Italic");
+        assert_eq!(n.full_name, "Warpnine Mono SemiBold Italic");
+        assert_eq!(n.typo_subfamily, "SemiBold Italic");
+    }
+
+    #[test]
+    fn extrablack_italic_names() {
+        let n = s("ExtraBlackItalic", 1000.0, Slant::Italic)
+            .ribbi_names("Warpnine Mono", "WarpnineMono");
+        assert_eq!(n.family, "Warpnine Mono ExtraBlack");
+        assert_eq!(n.subfamily, "Italic");
+        assert_eq!(n.typo_subfamily, "ExtraBlack Italic");
+        assert_eq!(n.postscript, "WarpnineMono-ExtraBlackItalic");
+    }
+
+    #[test]
+    fn condensed_base_family_carries_spaces() {
+        let n = s("SemiBold", 600.0, Slant::Upright)
+            .ribbi_names("Warpnine Sans Condensed", "WarpnineSansCondensed");
+        assert_eq!(n.family, "Warpnine Sans Condensed SemiBold");
+        assert_eq!(n.postscript, "WarpnineSansCondensed-SemiBold");
+    }
+
+    #[test]
+    fn bits_regular() {
+        let b = s("Regular", 400.0, Slant::Upright).style_bits();
+        assert!(b.regular && !b.bold && !b.italic);
+        assert_eq!(b.weight_class, 400);
+    }
+
+    #[test]
+    fn bits_bold() {
+        let b = s("Bold", 700.0, Slant::Upright).style_bits();
+        assert!(b.bold && !b.regular && !b.italic);
+        assert_eq!(b.weight_class, 700);
+    }
+
+    #[test]
+    fn bits_bold_italic() {
+        let b = s("BoldItalic", 700.0, Slant::Italic).style_bits();
+        assert!(b.bold && b.italic && !b.regular);
+    }
+
+    #[test]
+    fn bits_heavy_upright_is_regular() {
+        let b = s("Black", 900.0, Slant::Upright).style_bits();
+        assert!(b.regular && !b.bold && !b.italic);
+        assert_eq!(b.weight_class, 900);
+    }
+
+    #[test]
+    fn bits_semibold_italic() {
+        let b = s("SemiBoldItalic", 600.0, Slant::Italic).style_bits();
+        assert!(b.italic && !b.bold && !b.regular);
+    }
 }
