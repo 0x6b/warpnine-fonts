@@ -1,5 +1,7 @@
 //! Generic font table manipulation utilities.
 
+use std::collections::HashSet;
+
 use anyhow::{Context, Result};
 use read_fonts::{
     FontRef, TableProvider,
@@ -96,22 +98,75 @@ pub struct StyleBits {
     pub weight_class: u16,
 }
 
+/// Build a name table with per-style strings applied.
+///
+/// Rewrites name IDs 1/2/4/6/16/17 in place. The typographic family (16) and
+/// subfamily (17) are *synthesized* on every platform record that carries a
+/// legacy family (ID 1) but lacks them, so typographic grouping works even when
+/// the donor font ships only the legacy RIBBI name IDs (0-6).
+fn build_style_name_table(font: &FontRef, names: &StyleNames) -> Result<Name> {
+    let name = font.name()?;
+    let mut records: Vec<NameRecord> = Vec::new();
+
+    // Platform records (platformID, encodingID, languageID) carrying ID 1, and
+    // which of those already carry ID 16 / 17.
+    let mut id1_platforms: HashSet<(u16, u16, u16)> = HashSet::new();
+    let mut have_typo_family: HashSet<(u16, u16, u16)> = HashSet::new();
+    let mut have_typo_subfamily: HashSet<(u16, u16, u16)> = HashSet::new();
+
+    for record in name.name_record() {
+        let id = record.name_id().to_u16();
+        let key = (record.platform_id(), record.encoding_id(), record.language_id());
+        let current = match record.string(name.string_data()) {
+            Ok(s) => s.chars().collect::<String>(),
+            Err(_) => continue,
+        };
+        let value = match id {
+            1 => {
+                id1_platforms.insert(key);
+                names.family.clone()
+            }
+            2 => names.subfamily.clone(),
+            4 => names.full_name.clone(),
+            6 => names.postscript.clone(),
+            16 => {
+                have_typo_family.insert(key);
+                names.typo_family.clone()
+            }
+            17 => {
+                have_typo_subfamily.insert(key);
+                names.typo_subfamily.clone()
+            }
+            _ => current,
+        };
+        records.push(NameRecord::new(key.0, key.1, key.2, NameId::new(id), value.into()));
+    }
+
+    // Synthesize typographic names wherever the legacy family exists without them.
+    for key in &id1_platforms {
+        if !have_typo_family.contains(key) {
+            let value = names.typo_family.clone();
+            records.push(NameRecord::new(key.0, key.1, key.2, NameId::new(16), value.into()));
+        }
+        if !have_typo_subfamily.contains(key) {
+            let value = names.typo_subfamily.clone();
+            records.push(NameRecord::new(key.0, key.1, key.2, NameId::new(17), value.into()));
+        }
+    }
+
+    records.sort_by_key(|r| (r.platform_id, r.encoding_id, r.language_id, r.name_id));
+    Ok(Name::new(records))
+}
+
 /// Apply per-style naming and style bits to a font.
 ///
-/// Rewrites name IDs 1/2/4/6/16/17, sets OS/2 `usWeightClass`, and updates the
-/// bold/italic/regular bits in OS/2 `fsSelection` and head `macStyle` while
-/// preserving all other bits. Name records that do not exist are left untouched.
+/// Rewrites name IDs 1/2/4/6/16/17 (synthesizing 16/17 when the donor lacks
+/// them — see [`build_style_name_table`]), sets OS/2 `usWeightClass`, and
+/// updates the bold/italic/regular bits in OS/2 `fsSelection` and head
+/// `macStyle` while preserving all other bits.
 pub fn apply_style(font_data: &[u8], names: &StyleNames, bits: &StyleBits) -> Result<Vec<u8>> {
     rewrite_font(font_data, |font, builder| {
-        let new_name = map_name_records(font, |name_id, _current| match name_id {
-            1 => Some(names.family.clone()),
-            2 => Some(names.subfamily.clone()),
-            4 => Some(names.full_name.clone()),
-            6 => Some(names.postscript.clone()),
-            16 => Some(names.typo_family.clone()),
-            17 => Some(names.typo_subfamily.clone()),
-            _ => None,
-        })?;
+        let new_name = build_style_name_table(font, names)?;
         builder.add_table(&new_name)?;
 
         if let Ok(os2) = font.os2() {
