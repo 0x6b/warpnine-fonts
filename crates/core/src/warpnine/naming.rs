@@ -4,10 +4,13 @@ use anyhow::Result;
 use log::info;
 use rayon::prelude::*;
 use read_fonts::FontRef;
-use warpnine_font_ops::{map_name_records, rewrite_font};
+use warpnine_font_ops::{apply_style, map_name_records, rewrite_font};
 use write_fonts::FontBuilder;
 
-use crate::io::{check_results, glob_fonts, transform_font_in_place};
+use crate::{
+    io::{check_results, glob_fonts, transform_font_in_place},
+    styles::Style,
+};
 
 const COPYRIGHT_TEMPLATE: &str = "Copyright 2020 The Recursive Project Authors (https://github.com/arrowtype/recursive). \
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. ";
@@ -75,15 +78,67 @@ pub fn set_name(path: &Path, naming: &FontNaming) -> Result<()> {
     Ok(())
 }
 
-pub fn set_names_for_pattern(
+/// Apply RIBBI naming and OS/2/head style bits to a single static instance.
+///
+/// Sets name IDs 1/2/4/6/16/17 plus copyright (0) and unique ID (3), and the
+/// bold/italic/regular bits in OS/2 `fsSelection` and head `macStyle`.
+pub fn set_ribbi_names(
+    path: &Path,
+    family: &str,
+    ps_family: &str,
+    copyright_extra: &str,
+    style: &Style,
+) -> Result<()> {
+    let names = style.ribbi_names(family, ps_family);
+    let bits = style.style_bits();
+    let copyright = format!("{COPYRIGHT_TEMPLATE}{copyright_extra}");
+    let unique_id = format!("1.0;WARPNINE;{}", names.postscript.replace('-', ""));
+    let log_full = names.full_name.clone();
+    let log_ps = names.postscript.clone();
+
+    transform_font_in_place(path, move |data| {
+        let data = apply_style(data, &names, &bits)?;
+        rewrite_font(&data, |font: &FontRef, builder: &mut FontBuilder| {
+            let name = map_name_records(font, |name_id, _current| match name_id {
+                0 => Some(copyright.clone()),
+                3 => Some(unique_id.clone()),
+                _ => None,
+            })?;
+            builder.add_table(&name)?;
+            Ok(())
+        })
+    })?;
+
+    info!(
+        "{}: set name to '{log_full}' ({log_ps})",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+    );
+
+    Ok(())
+}
+
+/// Apply RIBBI naming to every static instance matching `pattern`.
+///
+/// The style for each file is resolved from `styles` by matching the filename
+/// suffix after `strip_prefix` against `Style::name`.
+pub fn set_ribbi_names_for_pattern(
     dir: &Path,
     pattern: &str,
     family: &str,
     ps_family: &str,
     copyright_extra: &str,
     strip_prefix: &str,
+    styles: &[Style],
 ) -> Result<usize> {
-    let fonts = glob_fonts(dir, pattern)?;
+    let fonts: Vec<_> = glob_fonts(dir, pattern)?
+        .into_iter()
+        .filter(|p| {
+            p.file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| !s.contains("-VF"))
+                .unwrap_or(false)
+        })
+        .collect();
     if fonts.is_empty() {
         return Ok(0);
     }
@@ -92,21 +147,18 @@ pub fn set_names_for_pattern(
     let results: Vec<_> = fonts
         .par_iter()
         .map(|path| {
-            let style = path
+            let style_name = path
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .map(|s| s.strip_prefix(strip_prefix).unwrap_or(s))
-                .unwrap_or_default()
-                .to_string();
+                .unwrap_or_default();
 
-            let naming = FontNaming {
-                family: family.to_string(),
-                style,
-                postscript_family: Some(ps_family.to_string()),
-                copyright_extra: Some(copyright_extra.to_string()),
-            };
+            let style = styles
+                .iter()
+                .find(|s| s.name == style_name)
+                .ok_or_else(|| anyhow::anyhow!("Unknown style '{style_name}' for {pattern}"))?;
 
-            set_name(path, &naming)
+            set_ribbi_names(path, family, ps_family, copyright_extra, style)
         })
         .collect();
 

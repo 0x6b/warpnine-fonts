@@ -19,10 +19,7 @@ fn name_string(data: &[u8], name_id: u16) -> Option<String> {
     let name = font.name().unwrap();
     for record in name.name_record() {
         if record.name_id().to_u16() == name_id {
-            return record
-                .string(name.string_data())
-                .ok()
-                .map(|s| s.chars().collect());
+            return record.string(name.string_data()).ok().map(|s| s.chars().collect());
         }
     }
     None
@@ -56,7 +53,12 @@ fn applies_names() {
     let out = apply_style(
         FIXTURE,
         &names("Bold Italic"),
-        &StyleBits { italic: true, bold: true, regular: false, weight_class: 700 },
+        &StyleBits {
+            italic: true,
+            bold: true,
+            regular: false,
+            weight_class: 700,
+        },
     )
     .unwrap();
 
@@ -71,7 +73,12 @@ fn bold_italic_sets_bits() {
     let out = apply_style(
         FIXTURE,
         &names("Bold Italic"),
-        &StyleBits { italic: true, bold: true, regular: false, weight_class: 700 },
+        &StyleBits {
+            italic: true,
+            bold: true,
+            regular: false,
+            weight_class: 700,
+        },
     )
     .unwrap();
 
@@ -88,7 +95,12 @@ fn regular_clears_bold() {
     let out = apply_style(
         FIXTURE,
         &names("Regular"),
-        &StyleBits { italic: false, bold: false, regular: true, weight_class: 400 },
+        &StyleBits {
+            italic: false,
+            bold: false,
+            regular: true,
+            weight_class: 400,
+        },
     )
     .unwrap();
 

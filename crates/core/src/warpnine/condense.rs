@@ -4,7 +4,6 @@ use std::path::Path;
 
 use anyhow::Result;
 use warpnine_font_condense::apply_horizontal_scale;
-use warpnine_font_ops::apply_family_style_names;
 
 use crate::styles::{SANS_STYLES, build_style_instances};
 
@@ -18,13 +17,13 @@ pub fn create_condensed(input: &Path, output_dir: &Path, scale: f32) -> Result<(
         "WarpnineSansCondensed-",
         |font_data, style| {
             println!("  Applying {:.0}% horizontal scale", scale * 100.0);
-            let scaled_data = apply_horizontal_scale(
+            // Naming and style bits are applied later by `set_ribbi_names_for_pattern`.
+            apply_horizontal_scale(
                 font_data,
                 scale,
                 Some(WIDTH_CLASS_CONDENSED),
                 Some(style.weight.value() as u16),
-            )?;
-            apply_family_style_names(&scaled_data, "Warpnine Sans Condensed", style.name)
+            )
         },
     )?;
 

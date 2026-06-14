@@ -1041,17 +1041,12 @@ fn test_merge_preserves_extension_gpos_lookups() {
             .position(|r| r.feature_tag() == target)
             .unwrap_or_else(|| panic!("feature {target} missing from merged GPOS"));
         let record = records.get(idx).unwrap();
-        let feature = record
-            .feature(feature_list.offset_data())
-            .expect("feature");
+        let feature = record.feature(feature_list.offset_data()).expect("feature");
         let indices = feature.lookup_list_indices();
         assert_eq!(indices.len(), 1, "{target} should reference exactly one lookup");
 
         let li = indices.first().unwrap().get();
-        let lookup = lookup_list
-            .lookups()
-            .get(li as usize)
-            .expect("lookup index in range");
+        let lookup = lookup_list.lookups().get(li as usize).expect("lookup index in range");
         match lookup.subtables().expect("subtables") {
             PositionSubtables::Single(iter) => {
                 let mut found = None;

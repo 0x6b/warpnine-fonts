@@ -17,6 +17,8 @@ pub use pipeline::{
 pub use styles::{MONO_STYLES, SANS_STYLES, Slant, Style, Weight};
 pub use warpnine_font_condense::apply_horizontal_scale;
 pub use warpnine_font_metadata::{FontVersion, MonospaceSettings};
-pub use warpnine_font_ops::{apply_family_style_names, copy_table, map_name_records, rewrite_font};
+pub use warpnine_font_ops::{
+    StyleBits, StyleNames, apply_style, copy_table, map_name_records, rewrite_font,
+};
 pub use warpnine_font_subsetter::{JAPANESE_RANGES, Subsetter};
 pub use warpnine_font_woff2::convert_to_woff2;

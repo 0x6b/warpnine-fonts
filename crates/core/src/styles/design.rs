@@ -106,11 +106,8 @@ impl Style {
             format!("{family} {}", self.weight_name())
         };
 
-        let full_name = if subfamily == "Regular" {
-            id1.clone()
-        } else {
-            format!("{id1} {subfamily}")
-        };
+        let full_name =
+            if subfamily == "Regular" { id1.clone() } else { format!("{id1} {subfamily}") };
 
         StyleNames {
             family: id1,

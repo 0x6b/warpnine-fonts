@@ -71,30 +71,6 @@ pub fn map_name_records(
     Ok(Name::new(new_records))
 }
 
-/// Apply family and style naming to a font.
-///
-/// Updates the following name IDs:
-/// - 1 (Family): `"{family} {style}"`
-/// - 4 (Full name): `"{family} {style}"`
-/// - 6 (PostScript name): `"{family}-{style}"` (spaces removed from family)
-/// - 16 (Typographic family): `"{family}"`
-/// - 17 (Typographic subfamily): `"{style}"`
-pub fn apply_family_style_names(font_data: &[u8], family: &str, style: &str) -> Result<Vec<u8>> {
-    let postscript_family = family.replace(' ', "");
-
-    rewrite_font(font_data, |font, builder| {
-        let new_name = map_name_records(font, |name_id, _current| match name_id {
-            1 | 4 => Some(format!("{family} {style}")),
-            6 => Some(format!("{postscript_family}-{style}")),
-            16 => Some(family.to_string()),
-            17 => Some(style.to_string()),
-            _ => None,
-        })?;
-        builder.add_table(&new_name)?;
-        Ok(())
-    })
-}
-
 /// Human-readable name-table strings for a single static style.
 ///
 /// Maps to name IDs: 1 (family), 2 (subfamily), 4 (full name),
