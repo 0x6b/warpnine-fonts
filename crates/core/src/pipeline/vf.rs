@@ -34,10 +34,13 @@ fn family_designspace(
     let instances: Vec<Instance> = styles
         .iter()
         .map(|style| {
+            // PostScript name matches the static instance's name ID 6, e.g.
+            // "WarpnineMono-BoldItalic" (file_prefix already ends with '-').
             Instance::new(
                 &style.display_name(),
                 vec![("wght", style.weight.value()), ("ital", style.slant.ital())],
             )
+            .with_postscript_name(&format!("{file_prefix}{}", style.name))
         })
         .collect();
 
